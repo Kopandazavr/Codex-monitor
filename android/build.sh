@@ -36,11 +36,11 @@ fi
   --console=plain
 
 SOURCE_APK="$ROOT/app/build/outputs/apk/release/app-release.apk"
-OUT="$DIST/CodexWatch-$VERSION_NAME.apk"
+OUT="$DIST/CodexMonitor-$VERSION_NAME.apk"
 cp "$SOURCE_APK" "$OUT"
 
 WEAR_SOURCE_APK="$ROOT/wear/build/outputs/apk/release/wear-release.apk"
-WEAR_OUT="$DIST/CodexWatch-Wear-$VERSION_NAME.apk"
+WEAR_OUT="$DIST/CodexMonitor-Wear-$VERSION_NAME.apk"
 cp "$WEAR_SOURCE_APK" "$WEAR_OUT"
 
 APKSIGNER="$(find "$ANDROID_SDK_ROOT/build-tools" -type f -name apksigner | sort | tail -1)"

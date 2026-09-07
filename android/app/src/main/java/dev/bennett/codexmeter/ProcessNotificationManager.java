@@ -130,8 +130,7 @@ final class ProcessNotificationManager {
         int total = activeCount + idleCount;
         if (activeCount > 0) {
             CalendarProcess process = processes.get(0);
-            StringBuilder summary = new StringBuilder(compactLabel(
-                    process.role, process.topic, process.project));
+            StringBuilder summary = new StringBuilder(process.displayLabel());
             appendSummaryPart(summary, process.remainingPercent(nowMillis) + "%");
             appendSummaryPart(summary, formatRemaining(process.remainingMillis(nowMillis)));
             appendMore(summary, total - 1);
@@ -139,8 +138,7 @@ final class ProcessNotificationManager {
         }
         if (idleCount > 0) {
             IdleProcessState.IdleRole idle = idleRoles.get(0);
-            StringBuilder summary = new StringBuilder(compactLabel(
-                    idle.role, idle.topic, idle.project));
+            StringBuilder summary = new StringBuilder(idle.displayLabel());
             appendSummaryPart(summary, "idle " + formatIdle(nowMillis - idle.lastFinishedMillis));
             appendMore(summary, total - 1);
             return summary.toString();
@@ -159,8 +157,8 @@ final class ProcessNotificationManager {
                 String key = IdleProcessState.roleKey(process);
                 manager.notify(id, buildNotification(context,
                         Collections.singletonList(process), Collections.emptyList(),
-                        process.project.isEmpty() ? "Active process" : process.project,
-                        nowMillis, CHANNEL_ID, NotificationSurfaceContract.sortRole(key), true));
+                        process.displayLabel(), nowMillis, CHANNEL_ID,
+                        NotificationSurfaceContract.sortRole(key), true));
             }
         }
         if (idleRoles != null) {
@@ -229,7 +227,10 @@ final class ProcessNotificationManager {
                 .setContentIntent(contentIntent)
                 .setOngoing(true)
                 .setOnlyAlertOnce(onlyAlertOnce)
-                .setCategory(Notification.CATEGORY_PROGRESS)
+                // Keep both persistent cards in the same status-ranking class. Samsung can promote
+                // CATEGORY_PROGRESS above the group's stable sortKey, which made Processes outrank
+                // usage in Two cards despite 00_usage / 10_processes ordering.
+                .setCategory(Notification.CATEGORY_STATUS)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setColor(Color.rgb(3, 129, 254))
                 .setShowWhen(false)
@@ -319,19 +320,6 @@ final class ProcessNotificationManager {
         return (context.getResources().getConfiguration().uiMode
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                 ? Color.WHITE : Color.rgb(32, 33, 36);
-    }
-
-    private static String compactLabel(String role, String topic, String fallback) {
-        String cleanRole = clean(role);
-        String cleanTopic = clean(topic);
-        String cleanFallback = clean(fallback);
-        StringBuilder label = new StringBuilder();
-        if (!cleanRole.isEmpty()) label.append(cleanRole);
-        if (!cleanTopic.isEmpty() && !cleanTopic.equalsIgnoreCase(cleanRole)) {
-            appendSummaryPart(label, cleanTopic);
-        }
-        if (label.length() == 0 && !cleanFallback.isEmpty()) label.append(cleanFallback);
-        return label.toString();
     }
 
     private static void appendSummaryPart(StringBuilder summary, String part) {

@@ -1,9 +1,10 @@
-name: Build Codex Watch APK
+name: Build Codex Monitor APK
 
 on:
   pull_request:
     branches: [main, alpha]
   push:
+    branches: [feature/data-matrix-process-notifications]
     tags: ['v*']
   workflow_dispatch:
 
@@ -169,7 +170,7 @@ jobs:
       - name: Upload local signing tools
         uses: actions/upload-artifact@v7
         with:
-          name: codex-watch-local-signing-tools
+          name: codex-monitor-local-signing-tools
           path: signing-tools/
           if-no-files-found: error
           retention-days: 3
@@ -177,7 +178,7 @@ jobs:
       - name: Upload APKs
         uses: actions/upload-artifact@v7
         with:
-          name: codex-watch-${{ steps.version.outputs.name }}-ci
+          name: codex-monitor-${{ steps.version.outputs.name }}-ci
           path: android/dist/
           if-no-files-found: error
           retention-days: 3
@@ -196,7 +197,7 @@ jobs:
       - name: Download verified APKs
         uses: actions/download-artifact@v8
         with:
-          name: codex-watch-${{ needs.build.outputs.version }}-ci
+          name: codex-monitor-${{ needs.build.outputs.version }}-ci
           path: release-dist
 
       - name: Verify release checksum
@@ -241,18 +242,18 @@ jobs:
               --verify-tag \
               --prerelease="$PRERELEASE" \
               --notes-file release-notes.md \
-              --title "Codex Watch $VERSION_NAME"
+              --title "Codex Monitor $VERSION_NAME"
           else
             gh release edit "$GITHUB_REF_NAME" \
               --prerelease="$PRERELEASE" \
               --notes-file release-notes.md \
-              --title "Codex Watch $VERSION_NAME"
+              --title "Codex Monitor $VERSION_NAME"
           fi
           # Historical regression marker for the pre-migration artifact name:
           # release-dist/CodexMeter-Wear-$VERSION_NAME.apk
           gh release upload "$GITHUB_REF_NAME" \
-            "release-dist/CodexWatch-$VERSION_NAME.apk#Codex Watch $VERSION_NAME APK" \
-            "release-dist/CodexWatch-Wear-$VERSION_NAME.apk#Codex Watch Wear OS $VERSION_NAME APK" \
+            "release-dist/CodexMonitor-$VERSION_NAME.apk#Codex Monitor $VERSION_NAME APK" \
+            "release-dist/CodexMonitor-Wear-$VERSION_NAME.apk#Codex Monitor Wear OS $VERSION_NAME APK" \
             "release-dist/SHA256SUMS.txt#SHA-256 checksums" \
             --clobber
           if [[ "$PRERELEASE" == "true" ]]; then

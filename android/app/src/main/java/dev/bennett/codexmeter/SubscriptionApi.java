@@ -21,12 +21,40 @@ final class SubscriptionApi {
     }
 
     static void refreshAndCacheLocked(Context context, AuthTokens tokens) {
+        refreshAndCacheLocked(context, tokens, false, "side_refresh");
+    }
+
+    static void refreshAndCacheLocked(Context context, AuthTokens tokens, boolean force,
+            String trigger) {
         if (context == null || tokens == null) return;
         long now = System.currentTimeMillis();
+        String safeTrigger = trigger == null || trigger.trim().isEmpty()
+                ? "unspecified" : trigger.trim();
         SubscriptionStore.seedFromJwt(context, tokens, now);
-        if (tokens.accountId.isEmpty()) return;
+        if (tokens.accountId.isEmpty()) {
+            DiagnosticLog.warn(context, "refresh", "subscription_refresh_skipped",
+                    "trigger", safeTrigger, "reason", "missing_account_id", "force", force);
+            return;
+        }
+        long storedUntil = SubscriptionStore.storedActiveUntilMillis(context);
+        boolean cachedExpired = storedUntil > 0L && storedUntil <= now;
         long lastAttempt = SubscriptionStore.lastAttemptMillis(context);
-        if (lastAttempt > 0L && now - lastAttempt < REFRESH_INTERVAL_MS) return;
+        long attemptAge = lastAttempt <= 0L ? -1L : Math.max(0L, now - lastAttempt);
+        if (!force && !cachedExpired && lastAttempt > 0L && attemptAge < REFRESH_INTERVAL_MS) {
+            DiagnosticLog.info(context, "refresh", "subscription_refresh_skipped",
+                    "trigger", safeTrigger,
+                    "reason", "ttl",
+                    "force", false,
+                    "attempt_age_ms", attemptAge,
+                    "stored_active_until", storedUntil);
+            return;
+        }
+        DiagnosticLog.info(context, "refresh", "subscription_refresh_fetching",
+                "trigger", safeTrigger,
+                "force", force,
+                "cached_expired", cachedExpired,
+                "stored_active_until", storedUntil,
+                "last_attempt", lastAttempt);
         SubscriptionStore.markAttempt(context, now);
         long started = SystemClock.elapsedRealtime();
         HttpsURLConnection connection = null;
@@ -35,6 +63,12 @@ final class SubscriptionApi {
                     StandardCharsets.UTF_8.name());
             String url = AppConstants.CHATGPT_BACKEND + "/subscriptions?account_id="
                     + encodedAccount;
+            DiagnosticLog.info(context, "network", "request_started",
+                    "operation", "subscription",
+                    "trigger", safeTrigger,
+                    "method", "GET",
+                    "url", DiagnosticSanitizer.safeUrl(url),
+                    "force", force);
             connection = (HttpsURLConnection) URI.create(url).toURL().openConnection();
             UsageApi.applyHeaders(connection, tokens);
             connection.setRequestMethod("GET");
@@ -42,23 +76,50 @@ final class SubscriptionApi {
             String body = OAuthClient.readBody(connection, status);
             DiagnosticLog.info(context, "network", "request_finished",
                     "operation", "subscription",
+                    "trigger", safeTrigger,
                     "status", status,
-                    "duration_ms", SystemClock.elapsedRealtime() - started);
-            if (status < 200 || status >= 300) return;
-            SubscriptionInfo parsed = parse(body, now);
-            if (parsed != null && parsed.hasDisplayableData()) {
-                SubscriptionInfo cached = SubscriptionStore.load(context);
-                String plan = parsed.planType.isEmpty() && cached != null
-                        ? cached.planType : parsed.planType;
-                long until = parsed.activeUntilMillis <= 0L && cached != null
-                        ? cached.activeUntilMillis : parsed.activeUntilMillis;
-                SubscriptionStore.save(context, new SubscriptionInfo(plan, until,
-                        parsed.willRenew, parsed.hasWillRenew, now));
+                    "duration_ms", SystemClock.elapsedRealtime() - started,
+                    "response_bytes", body.getBytes(StandardCharsets.UTF_8).length);
+            if (status < 200 || status >= 300) {
+                DiagnosticLog.warn(context, "refresh", "subscription_refresh_http_rejected",
+                        "trigger", safeTrigger, "status", status);
+                return;
             }
+            SubscriptionInfo parsed = parse(body, now);
+            if (parsed == null || !parsed.hasDisplayableData()) {
+                DiagnosticLog.warn(context, "refresh", "subscription_parse_rejected",
+                        "trigger", safeTrigger, "reason", "no_displayable_data");
+                return;
+            }
+            boolean backendStale = parsed.activeUntilMillis > 0L
+                    && parsed.activeUntilMillis <= now;
+            DiagnosticLog.info(context, "refresh", "subscription_parsed",
+                    "trigger", safeTrigger,
+                    "plan", parsed.planType,
+                    "active_until", parsed.activeUntilMillis,
+                    "backend_stale", backendStale,
+                    "parsed_at", now);
+
+            SubscriptionInfo cached = SubscriptionStore.load(context);
+            String plan = parsed.planType.isEmpty() && cached != null
+                    ? cached.planType : parsed.planType;
+            long until = parsed.activeUntilMillis <= 0L && cached != null
+                    ? cached.activeUntilMillis : parsed.activeUntilMillis;
+            long previousUntil = SubscriptionStore.storedActiveUntilMillis(context);
+            SubscriptionStore.save(context, new SubscriptionInfo(plan, until,
+                    parsed.willRenew, parsed.hasWillRenew, now));
+            DiagnosticLog.info(context, "refresh", "subscription_snapshot_replaced",
+                    "trigger", safeTrigger,
+                    "previous_active_until", previousUntil,
+                    "new_active_until", until,
+                    "backend_stale", backendStale,
+                    "fetched_at", now);
         } catch (Exception exception) {
             // This is an internal ChatGPT endpoint and must never break usage refresh.
             DiagnosticLog.warn(context, "network", "subscription_refresh_failed",
-                    "message", safeMessage(exception));
+                    "trigger", safeTrigger,
+                    "message", safeMessage(exception),
+                    "duration_ms", SystemClock.elapsedRealtime() - started);
         } finally {
             if (connection != null) connection.disconnect();
         }

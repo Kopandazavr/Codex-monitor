@@ -48,9 +48,7 @@ final class IdleProcessState {
         }
 
         String displayLabel() {
-            if (!role.isEmpty()) return role;
-            if (!project.isEmpty()) return project;
-            return "Process";
+            return CalendarProcess.displayIdentity(role, project, topic);
         }
     }
 
@@ -182,7 +180,7 @@ final class IdleProcessState {
 
     static String roleKey(CalendarProcess process) {
         String role = clean(process == null ? null : process.role);
-        if (!role.isEmpty()) return "role:" + role;
+        if (CalendarProcess.hasCanonicalRole(role)) return "role:" + role;
         String project = clean(process == null ? null : process.project);
         if (!project.isEmpty()) return "project:" + project;
         return "process:" + (process == null ? 0L : process.eventId);

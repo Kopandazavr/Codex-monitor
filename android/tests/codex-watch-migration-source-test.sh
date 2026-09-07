@@ -38,14 +38,19 @@ grep -Fq 'versionCode = 32' "$APP_GRADLE"
 grep -Fq 'versionName = "2.9.1"' "$WEAR_GRADLE"
 grep -Fq 'versionCode = 32' "$WEAR_GRADLE"
 
-# Live updater repository follows Codex Monitor. Historical Watch artifact naming remains readable.
+# Live updater/release/artifact identity follows Codex Monitor while parser stays compatible with
+# historical Codex Watch / Codex Meter release assets.
 grep -Fq 'https://api.github.com/repos/Kopandazavr/Codex-monitor/releases?per_page=30' "$APP_GRADLE"
-grep -Fq 'String expectedApk = "CodexWatch-"' "$PARSER"
-grep -Fq 'releaseName = "Codex Watch " + version.normalized();' "$PARSER"
-grep -Fq 'OUT="$DIST/CodexWatch-$VERSION_NAME.apk"' "$BUILD"
-grep -Fq 'WEAR_OUT="$DIST/CodexWatch-Wear-$VERSION_NAME.apk"' "$BUILD"
-grep -Fq 'name: Build Codex Watch APK' "$WORKFLOW"
-grep -Fq 'name: codex-watch-${{ steps.version.outputs.name }}-ci' "$WORKFLOW"
+grep -Fq 'String expectedApk = "CodexMonitor-"' "$PARSER"
+grep -Fq 'String legacyWatchApk = "CodexWatch-"' "$PARSER"
+grep -Fq 'String legacyMeterApk = "CodexMeter-"' "$PARSER"
+grep -Fq 'releaseName = "Codex Monitor " + version.normalized();' "$PARSER"
+grep -Fq 'OUT="$DIST/CodexMonitor-$VERSION_NAME.apk"' "$BUILD"
+grep -Fq 'WEAR_OUT="$DIST/CodexMonitor-Wear-$VERSION_NAME.apk"' "$BUILD"
+grep -Fq 'name: Build Codex Monitor APK' "$WORKFLOW"
+grep -Fq 'name: codex-monitor-${{ steps.version.outputs.name }}-ci' "$WORKFLOW"
+grep -Fq 'release-dist/CodexMonitor-Wear-$VERSION_NAME.apk#Codex Monitor Wear OS $VERSION_NAME APK' "$WORKFLOW"
+grep -Fq -- '--title "Codex Monitor $VERSION_NAME"' "$WORKFLOW"
 
 # Critical refresh contract: explicit refresh is a real network cycle, subscription TTL can be
 # bypassed, stale stored expiry is not surfaced, persistence emits ACTION_USAGE_UPDATED, and the

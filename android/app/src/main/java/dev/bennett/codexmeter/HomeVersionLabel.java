@@ -13,7 +13,7 @@ import android.widget.TextView;
 
 /** Adds a build-derived secondary version label to the home toolbar without hardcoding releases. */
 final class HomeVersionLabel {
-    private static final String HOME_TITLE = "Codex Watch";
+    private static final String HOME_TITLE = "Codex Monitor";
 
     private HomeVersionLabel() {
     }

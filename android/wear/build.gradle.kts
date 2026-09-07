@@ -15,8 +15,8 @@ android {
         applicationId = "dev.kopandazavr.codexwatch"
         minSdk = 30
         targetSdk = 36
-        versionCode = 31
-        versionName = "2.9.0"
+        versionCode = 32
+        versionName = "2.9.1"
     }
 
     signingConfigs {

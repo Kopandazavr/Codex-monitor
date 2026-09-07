@@ -36,8 +36,9 @@ public final class GitHubReleaseParser {
             if (version == null || versions.contains(version.normalized())) {
                 continue;
             }
-            String expectedApk = "CodexWatch-" + version.normalized() + ".apk";
-            String legacyApk = "CodexMeter-" + version.normalized() + ".apk";
+            String expectedApk = "CodexMonitor-" + version.normalized() + ".apk";
+            String legacyWatchApk = "CodexWatch-" + version.normalized() + ".apk";
+            String legacyMeterApk = "CodexMeter-" + version.normalized() + ".apk";
             JSONObject apk = null;
             JSONObject checksum = null;
             JSONArray assets = release.optJSONArray("assets");
@@ -50,8 +51,9 @@ public final class GitHubReleaseParser {
                     String assetName = asset.optString("name", "");
                     if (expectedApk.equals(assetName)) {
                         apk = asset;
-                    } else if (apk == null && legacyApk.equals(assetName)) {
-                        // Preserve read compatibility with imported pre-rename release history.
+                    } else if (apk == null && (legacyWatchApk.equals(assetName)
+                            || legacyMeterApk.equals(assetName))) {
+                        // Preserve read compatibility with imported pre-Monitor release history.
                         apk = asset;
                     } else if ("SHA256SUMS.txt".equals(assetName)) {
                         checksum = asset;
@@ -76,7 +78,7 @@ public final class GitHubReleaseParser {
             }
             String releaseName = clean(release.optString("name", ""), 160);
             if (releaseName.isEmpty()) {
-                releaseName = "Codex Watch " + version.normalized();
+                releaseName = "Codex Monitor " + version.normalized();
             }
             String notes = clean(release.optString("body", ""), MAX_NOTES);
             boolean prerelease = release.optBoolean("prerelease", false)

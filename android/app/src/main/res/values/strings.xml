@@ -8,7 +8,7 @@
     <string name="widget_reset_credits">Available Codex reset credits</string>
     <string name="widget_sample_reset_time">2h 14m</string>
     <string name="widget_sample_reset_count">2</string>
-    <string name="app_name">Codex Watch</string>
+    <string name="app_name">Codex Monitor</string>
     <string name="five_hour">5-hour</string>
     <string name="lock_widget_bars_square_description">Compact horizontal Codex allowance bars for supported Samsung lock screens</string>
     <string name="lock_widget_bars_square_name">Codex · Bars · Square</string>
@@ -70,6 +70,6 @@
     <string name="about_oneui_title">One UI Design Library</string>
     <string name="about_oneui_summary">The SESL and One UI components behind the app’s interface.</string>
     <string name="about_privacy_title">Privacy and security</string>
-    <string name="about_privacy_summary">Tokens stay encrypted on this device. Codex Watch contains no analytics SDK and is not affiliated with OpenAI.</string>
+    <string name="about_privacy_summary">Tokens stay encrypted on this device. Codex Monitor contains no analytics SDK and is not affiliated with OpenAI.</string>
     <string name="account_avatar">Account avatar</string>
 </resources>

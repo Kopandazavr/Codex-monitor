@@ -7,8 +7,9 @@ import android.widget.TextView;
 
 /** Runtime branding bridge while the legacy Java namespace/source identifiers remain in place. */
 final class Branding {
-    private static final String LEGACY_NAME = "Codex Meter";
-    private static final String PRODUCT_NAME = "Codex Watch";
+    private static final String LEGACY_METER_NAME = "Codex Meter";
+    private static final String LEGACY_WATCH_NAME = "Codex Watch";
+    private static final String PRODUCT_NAME = "Codex Monitor";
 
     private Branding() {
     }
@@ -44,7 +45,8 @@ final class Branding {
     static CharSequence rebrand(CharSequence value) {
         if (value == null) return "";
         String text = value.toString();
-        if (!text.contains(LEGACY_NAME)) return value;
-        return text.replace(LEGACY_NAME, PRODUCT_NAME);
+        if (!text.contains(LEGACY_METER_NAME) && !text.contains(LEGACY_WATCH_NAME)) return value;
+        return text.replace(LEGACY_METER_NAME, PRODUCT_NAME)
+                .replace(LEGACY_WATCH_NAME, PRODUCT_NAME);
     }
 }

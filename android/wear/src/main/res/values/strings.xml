@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Codex Meter</string>
+    <string name="app_name">Codex Monitor</string>
     <string name="wear_settings">Settings</string>
     <string name="wear_refresh">Refresh</string>
     <string name="wear_toggle_monitor">Toggle monitor</string>
@@ -42,7 +42,7 @@
     <string name="tile_monitor">Codex monitor</string>
     <string name="tile_category_primary">Productivity</string>
     <string name="tile_category_secondary">Usage</string>
-    <string name="tile_category_tertiary">Codex Meter</string>
+    <string name="tile_category_tertiary">Codex Monitor</string>
     <string name="complication_five_hour">Codex 5-hour</string>
     <string name="complication_weekly">Codex weekly</string>
     <string name="complication_dual_usage">Codex dual usage</string>

@@ -17,9 +17,15 @@ final class SubscriptionStore {
 
     static SubscriptionInfo load(Context context) {
         SharedPreferences prefs = prefs(context);
+        long storedUntil = prefs.getLong(KEY_ACTIVE_UNTIL, 0L);
+        // Never present an already-expired cached deadline as if it were current. Keep the raw
+        // value on disk for stale-source diagnostics and force-refresh decisions, but expose no
+        // active deadline until JWT/backend data supplies a current one.
+        long visibleUntil = storedUntil > 0L && storedUntil <= System.currentTimeMillis()
+                ? 0L : storedUntil;
         SubscriptionInfo info = new SubscriptionInfo(
                 prefs.getString(KEY_PLAN, ""),
-                prefs.getLong(KEY_ACTIVE_UNTIL, 0L),
+                visibleUntil,
                 prefs.getBoolean(KEY_WILL_RENEW, false),
                 prefs.getBoolean(KEY_HAS_WILL_RENEW, false),
                 prefs.getLong(KEY_FETCHED_AT, 0L));
@@ -50,6 +56,10 @@ final class SubscriptionStore {
                 ? cached.activeUntilMillis : jwt.activeUntilMillis;
         save(context, new SubscriptionInfo(plan, until, cached.willRenew,
                 cached.hasWillRenew, Math.max(cached.fetchedAtMillis, jwt.fetchedAtMillis)));
+    }
+
+    static long storedActiveUntilMillis(Context context) {
+        return prefs(context).getLong(KEY_ACTIVE_UNTIL, 0L);
     }
 
     static long lastAttemptMillis(Context context) {

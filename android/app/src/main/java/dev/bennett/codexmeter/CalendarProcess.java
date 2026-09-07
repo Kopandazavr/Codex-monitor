@@ -49,10 +49,10 @@ final class CalendarProcess {
         Map<String, String> values = new LinkedHashMap<>();
         if (description == null || description.trim().isEmpty()) return values;
 
-        // Google Calendar normally preserves line breaks, but some local/sync/provider paths flatten
-        // DESCRIPTION into one whitespace-separated line. Parse key=value boundaries instead of
-        // assuming exactly one metadata pair per physical line so role/topic survive both forms.
-        Matcher matcher = METADATA_PAIR.matcher(description.replace('\r', ' '));
+        // Calendar Provider / Google Calendar may preserve line breaks, flatten them to spaces,
+        // or surface simple HTML (notably <br>). Normalize those presentation variants before
+        // matching canonical key=value boundaries so role/topic survive every supported form.
+        Matcher matcher = METADATA_PAIR.matcher(normalizeMetadata(description));
         boolean supported = false;
         while (matcher.find()) {
             String key = clean(matcher.group(1)).toLowerCase(Locale.ROOT);
@@ -105,22 +105,44 @@ final class CalendarProcess {
     }
 
     String displayLabel() {
-        StringBuilder label = new StringBuilder();
-        appendPart(label, project);
-        appendPart(label, role);
-        appendPart(label, topic);
-        return label.length() == 0 ? "Active process" : label.toString();
+        return displayIdentity(role, project, topic);
+    }
+
+    static String displayIdentity(String role, String project, String topic) {
+        String cleanRole = clean(role);
+        String cleanProject = clean(project);
+        if (hasCanonicalRole(cleanRole)) {
+            if (!cleanProject.isEmpty() && !cleanProject.equalsIgnoreCase(cleanRole)) {
+                return cleanRole + " — " + cleanProject;
+            }
+            return cleanRole;
+        }
+        if (!cleanProject.isEmpty()) return cleanProject;
+        String cleanTopic = clean(topic);
+        return cleanTopic.isEmpty() ? "Active process" : cleanTopic;
+    }
+
+    static boolean hasCanonicalRole(String role) {
+        String value = clean(role);
+        return !value.isEmpty()
+                && !"unknown".equalsIgnoreCase(value)
+                && !"null".equalsIgnoreCase(value)
+                && !"none".equalsIgnoreCase(value)
+                && !"n/a".equalsIgnoreCase(value)
+                && !"-".equals(value);
     }
 
     String identity() {
         return eventId + ":" + beginMillis;
     }
 
-    private static void appendPart(StringBuilder value, String part) {
-        String clean = clean(part);
-        if (clean.isEmpty() || "unknown".equalsIgnoreCase(clean)) return;
-        if (value.length() > 0) value.append(" · ");
-        value.append(clean);
+    private static String normalizeMetadata(String description) {
+        return description
+                .replace('\r', ' ')
+                .replaceAll("(?is)<br\\s*/?>", " ")
+                .replaceAll("(?is)<[^>]+>", " ")
+                .replace("&nbsp;", " ")
+                .replace("&#160;", " ");
     }
 
     private static String valueOr(String preferred, String fallback) {

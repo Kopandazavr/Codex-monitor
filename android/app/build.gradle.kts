@@ -11,8 +11,8 @@ android {
         applicationId = "dev.kopandazavr.codexwatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 31
-        versionName = "2.9.0"
+        versionCode = 32
+        versionName = "2.9.1"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -20,9 +20,9 @@ android {
             versionName = it
         }
         val updateApiUrl = providers.gradleProperty("demoUpdateUrl").orNull
-            ?: "https://api.github.com/repos/Kopandazavr/Codex-Watch/releases?per_page=30" // pragma: allowlist secret
-        // Migration provenance only; the active updater target above is canonical.
-        // Previous fork target: Kopandazavr/Codex-Meter/releases?per_page=30
+            ?: "https://api.github.com/repos/Kopandazavr/Codex-monitor/releases?per_page=30" // pragma: allowlist secret
+        // Migration provenance only; current installed applicationId/signing lineage are unchanged.
+        // Previous fork target: Kopandazavr/Codex-Watch/releases?per_page=30
         buildConfigField("String", "UPDATE_API_URL",
             "\"${updateApiUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\"")
     }

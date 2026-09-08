@@ -153,8 +153,14 @@ final class IdleReminderManager {
     }
 
     static PendingIntent toggleIntent(Context context, IdleProcessState.IdleRole idle) {
-        Intent intent = baseIntent(context, ACTION_TOGGLE, idle);
-        return PendingIntent.getBroadcast(context, requestCode(idle.key, 2), intent,
+        return toggleIntent(context, idle == null ? null : idle.key);
+    }
+
+    static PendingIntent toggleIntent(Context context, String key) {
+        Intent intent = new Intent(context, NowBarActionReceiver.class)
+                .setAction(ACTION_TOGGLE)
+                .putExtra(EXTRA_ROLE_KEY, key);
+        return PendingIntent.getBroadcast(context, requestCode(key, 2), intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 

@@ -95,9 +95,11 @@ grep -q 'SYSTEM_ALERT_WINDOW' "$ROOT/app/src/main/AndroidManifest.xml"
 # Reboot/package replacement restores local reminder scheduling.
 grep -q 'IdleReminderManager.restore(context)' "$SRC/BootReceiver.java"
 
-# Current phone-acceptance follow-ups stay source-guarded in the same iteration.
-grep -q 'View flexibleTop = new View(this)' "$SRC/OnboardingActivity.java"
-grep -q 'new LinearLayout.LayoutParams(-1, 0, 1.0f)' "$SRC/OnboardingActivity.java"
+# Current phone-acceptance follow-ups stay source-guarded in the same iteration. Quick Setup must
+# keep all functional content above the fold on the target Samsung by using only a small fixed gap.
+grep -q 'Ui.addSpacer(this.content, 12)' "$SRC/OnboardingActivity.java"
+! grep -q 'new LinearLayout.LayoutParams(-1, 0, 1.0f)' "$SRC/OnboardingActivity.java"
+grep -q 'Ui.nativePrimaryButton(this, "Open Codex Monitor")' "$SRC/OnboardingActivity.java"
 grep -q 'STATUS_YELLOW = 0xFFFFC107' "$SRC/OnboardingActivity.java"
 grep -q 'setStatusTokenColor(account, accountState' "$SRC/OnboardingActivity.java"
 grep -q 'new ForegroundColorSpan(color)' "$SRC/OnboardingActivity.java"
@@ -111,15 +113,19 @@ grep -q 'normalizeAutomaticDefaults' "$SRC/CodexMeterApplication.java"
 grep -q 'dashboard_reorder_root' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 grep -q 'app:isPreferenceVisible="false"' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 
-# Selected Focus launcher/adaptive assets replace the old launcher references without restarting
-# icon exploration. The mark stays centered with asymmetric yellow/blue arcs and themed mono art.
+# Selected Focus launcher/adaptive assets keep the original artwork but now place it behind an
+# explicit 11dp (~10%) safe inset on each side so Samsung launcher masking cannot clip the arcs.
 test -f "$ROOT/app/src/main/res/drawable/codex_watch_focus_bg.xml"
 test -f "$ROOT/app/src/main/res/drawable/codex_watch_focus_fg.xml"
+test -f "$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg_safe.xml"
+test -f "$ROOT/app/src/main/res/drawable/codex_monitor_monochrome_safe.xml"
 grep -q 'strokeColor="#FFD400"' "$ROOT/app/src/main/res/drawable/codex_watch_focus_fg.xml"
 grep -q 'strokeColor="#12B6FF"' "$ROOT/app/src/main/res/drawable/codex_watch_focus_fg.xml"
+grep -q 'android:left="11dp"' "$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg_safe.xml"
 grep -q '@drawable/codex_watch_focus_bg' "$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
-grep -q '@drawable/codex_watch_focus_fg' "$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
-grep -q '@drawable/ic_launcher_monochrome' "$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
+grep -q '@drawable/codex_monitor_focus_fg_safe' "$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
+grep -q '@drawable/codex_monitor_focus_fg_safe' "$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
+grep -q '@drawable/codex_monitor_monochrome_safe' "$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
 
 # OneUI HorizontalRadioPreference needs an explicit title and view type at runtime; missing these
 # caused the Settings -> Now Bar page to fail during preference inflation on the target Samsung.

@@ -1,0 +1,33 @@
+name: Export Google Drive source snapshot
+
+on:
+  push:
+    branches:
+      - transfer/gdrive-source-export-20260908
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Remove Git metadata and export source
+        shell: bash
+        run: |
+          rm -rf .git
+          mkdir -p export
+          shopt -s dotglob extglob
+          for item in !(.|..|export); do
+            mv "$item" export/
+          done
+          cd export
+          zip -r ../Codex-Monitor-source-52994878.zip .
+      - name: Upload source snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-monitor-gdrive-source-52994878
+          path: Codex-Monitor-source-52994878.zip
+          if-no-files-found: error
+          retention-days: 7

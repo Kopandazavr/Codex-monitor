@@ -109,7 +109,7 @@ final class ProcessNotificationManager {
     static void addRows(Context context, RemoteViews parent, int containerId,
             List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
             long nowMillis) {
-        addRows(context, parent, containerId, processes, idleRoles, nowMillis, false);
+        addRows(context, parent, containerId, processes, idleRoles, nowMillis, true);
     }
 
     static void addRows(Context context, RemoteViews parent, int containerId,
@@ -224,7 +224,7 @@ final class ProcessNotificationManager {
                 R.layout.notification_processes_expanded);
         bindHeader(expanded, title, activeCount, idleCount, summary, textColor);
         addRows(context, expanded, R.id.notification_processes_container,
-                processes, idleRoles, nowMillis);
+                processes, idleRoles, nowMillis, false);
 
         String content = summary.isEmpty() ? countLabel(activeCount, idleCount) : summary;
         return new Notification.Builder(context, channelId)

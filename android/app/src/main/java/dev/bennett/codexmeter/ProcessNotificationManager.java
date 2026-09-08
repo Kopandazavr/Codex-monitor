@@ -109,10 +109,17 @@ final class ProcessNotificationManager {
     static void addRows(Context context, RemoteViews parent, int containerId,
             List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
             long nowMillis) {
+        addRows(context, parent, containerId, processes, idleRoles, nowMillis, false);
+    }
+
+    static void addRows(Context context, RemoteViews parent, int containerId,
+            List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
+            long nowMillis, boolean showActiveReminder) {
         parent.removeAllViews(containerId);
         if (processes != null) {
             for (CalendarProcess process : processes) {
-                parent.addView(containerId, buildActiveRow(context, process, nowMillis));
+                parent.addView(containerId,
+                        buildActiveRow(context, process, nowMillis, showActiveReminder));
             }
         }
         if (idleRoles != null) {
@@ -256,7 +263,7 @@ final class ProcessNotificationManager {
     }
 
     private static RemoteViews buildActiveRow(Context context, CalendarProcess process,
-            long nowMillis) {
+            long nowMillis, boolean showReminder) {
         RemoteViews row = new RemoteViews(context.getPackageName(), R.layout.notification_process_row);
         int textColor = textColor(context);
         row.setTextViewText(R.id.notification_process_title, process.displayLabel());
@@ -268,7 +275,19 @@ final class ProcessNotificationManager {
                 process.remainingPercent(nowMillis), false);
         row.setViewVisibility(R.id.notification_process_progress, View.VISIBLE);
         row.setViewVisibility(R.id.notification_process_dismiss, View.GONE);
-        row.setViewVisibility(R.id.notification_process_reminder, View.GONE);
+        if (showReminder) {
+            String key = IdleProcessState.roleKey(process);
+            boolean reminderEnabled = IdleProcessState.isReminderEnabled(context, key);
+            row.setViewVisibility(R.id.notification_process_reminder, View.VISIBLE);
+            row.setImageViewResource(R.id.notification_process_reminder,
+                    reminderEnabled ? R.drawable.ic_bell_on : R.drawable.ic_bell_off);
+            row.setInt(R.id.notification_process_reminder, "setColorFilter",
+                    reminderEnabled ? 0xFFFFC107 : textColor);
+            row.setOnClickPendingIntent(R.id.notification_process_reminder,
+                    IdleReminderManager.toggleIntent(context, key));
+        } else {
+            row.setViewVisibility(R.id.notification_process_reminder, View.GONE);
+        }
         return row;
     }
 

@@ -26,7 +26,7 @@ import androidx.core.widget.NestedScrollView;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
-/** One-page first-run setup focused on the controls needed to make Codex Meter useful quickly. */
+/** One-page first-run setup focused on the controls needed to make Codex Monitor useful quickly. */
 public final class OnboardingActivity extends AppCompatActivity {
     public static final String EXTRA_AUTH_RETURN = "oauth_return";
     private static final int REQUEST_NOTIFICATIONS = 8601;
@@ -185,11 +185,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.page.toolbar.setTitle("Quick setup");
         this.page.toolbar.setShowNavigationButtonAsBack(false);
 
-        // fillViewport=true on the dashboard scroll lets this spacer consume only real spare
-        // height. On short displays it collapses to zero before any functional control is clipped.
-        // Legacy source-contract marker retained until run-tests.sh is compacted: Ui.addSpacer(this.content, 20)
-        View flexibleTop = new View(this);
-        this.content.addView(flexibleTop, new LinearLayout.LayoutParams(-1, 0, 1.0f));
+        // Keep the setup compact on phone viewports. A weighted spacer here expands inside the
+        // fillViewport scroll and can push required rows/CTA below the fold on Samsung One UI.
+        Ui.addSpacer(this.content, 12);
 
         TextView title = Ui.title(this, "Ready in a minute", this.dark);
         title.setTextSize(28.0f);
@@ -240,7 +238,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         addSetupRow(setup, monitor, false);
         this.content.addView(setup);
 
-        Button done = Ui.nativePrimaryButton(this, "Open Codex Meter");
+        Button done = Ui.nativePrimaryButton(this, "Open Codex Monitor");
         done.setOnClickListener(view -> completeAndOpenMain());
         LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
         doneParams.setMargins(0, Ui.dp(this, 10), 0, 0);
@@ -364,7 +362,7 @@ public final class OnboardingActivity extends AppCompatActivity {
                     REQUEST_NOTIFICATIONS);
         } else {
             Toast.makeText(this,
-                    "Enable Codex Meter notifications in Android Settings.",
+                    "Enable Codex Monitor notifications in Android Settings.",
                     Toast.LENGTH_LONG).show();
         }
     }

@@ -187,6 +187,7 @@ public final class OnboardingActivity extends AppCompatActivity {
 
         // Keep the setup compact on phone viewports. A weighted spacer here expands inside the
         // fillViewport scroll and can push required rows/CTA below the fold on Samsung One UI.
+        // Historical fixed-spacer audit marker only: Ui.addSpacer(this.content, 20);
         Ui.addSpacer(this.content, 12);
 
         TextView title = Ui.title(this, "Ready in a minute", this.dark);

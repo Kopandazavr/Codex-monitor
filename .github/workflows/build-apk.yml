@@ -103,6 +103,7 @@ jobs:
           ./run-tests.sh
           bash ./tests/idle-reminders-source-test.sh
           bash ./tests/codex-watch-migration-source-test.sh
+          bash ./tests/patch-2.9.4-stability-source-test.sh
 
       - name: Run Android lint
         shell: bash
@@ -233,7 +234,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           VERSION_NAME: ${{ needs.build.outputs.version }}
-          PRERELEASE: ${{ needs.build.outputs.prerelease }}
+          PRERELEASE: ${{ needs.version.outputs.prerelease }}
         run: |
           set -euo pipefail
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then

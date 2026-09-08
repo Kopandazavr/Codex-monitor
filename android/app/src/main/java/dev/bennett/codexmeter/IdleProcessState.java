@@ -130,6 +130,11 @@ final class IdleProcessState {
         return row == null || row.lastFinishedMillis <= 0L ? null : row.freeze();
     }
 
+    static boolean isReminderEnabled(Context context, String key) {
+        MutableRole row = load(context).get(clean(key));
+        return row != null && row.reminderEnabled;
+    }
+
     static void dismiss(Context context, String key, long finishedMillis) {
         Map<String, MutableRole> rows = load(context);
         MutableRole row = rows.get(clean(key));

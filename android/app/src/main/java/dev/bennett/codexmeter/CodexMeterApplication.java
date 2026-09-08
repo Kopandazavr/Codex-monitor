@@ -103,8 +103,9 @@ public final class CodexMeterApplication extends Application
         Branding.apply(activity);
         HomeVersionLabel.apply(activity);
         // Settings can start the native monitor from cached usage without a network refresh.
-        // Re-assert the compact shade presentation whenever the user returns to a screen.
-        DualUsageNotificationManager.repostDelayed(this, 200L);
+        // Collapse rapid Activity transitions and never let maintenance notification rendering
+        // kill the foreground screen if an OEM RemoteViews path throws.
+        NotificationRepostGuard.repostAfterActivityResume(this);
     }
 
     @Override

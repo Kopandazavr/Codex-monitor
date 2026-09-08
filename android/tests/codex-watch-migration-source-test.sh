@@ -38,10 +38,10 @@ grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
 # Patch release stays on the established 2.9.x line and remains monotonic for phone updates.
-grep -Fq 'versionName = "2.9.3"' "$APP_GRADLE"
-grep -Fq 'versionCode = 34' "$APP_GRADLE"
-grep -Fq 'versionName = "2.9.3"' "$WEAR_GRADLE"
-grep -Fq 'versionCode = 34' "$WEAR_GRADLE"
+grep -Fq 'versionName = "2.9.4"' "$APP_GRADLE"
+grep -Fq 'versionCode = 35' "$APP_GRADLE"
+grep -Fq 'versionName = "2.9.4"' "$WEAR_GRADLE"
+grep -Fq 'versionCode = 35' "$WEAR_GRADLE"
 
 # Live updater/release/artifact identity follows Codex Monitor while parser stays compatible with
 # historical Codex Watch / Codex Meter release assets.

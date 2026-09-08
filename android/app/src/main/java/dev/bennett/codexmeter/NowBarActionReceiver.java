@@ -36,7 +36,7 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
             NowBarResetReminder.fireFromIntent(context, intent);
             DualUsageNotificationManager.repostDelayed(context, 500L);
         } else if (IdleReminderManager.ACTION_TOGGLE.equals(action)) {
-            IdleReminderManager.toggleFromIntent(context, intent);
+            NotificationRepostGuard.toggleIdleReminder(context, intent);
         } else if (IdleReminderManager.ACTION_DISMISS_ROW.equals(action)) {
             IdleReminderManager.dismissRowFromIntent(context, intent);
         } else if (IdleReminderManager.ACTION_FIRE.equals(action)) {

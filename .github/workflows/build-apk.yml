@@ -88,7 +88,7 @@ jobs:
                 echo "::error::Alpha tag $GITHUB_REF_NAME must keep versionCode $STABLE_CODE from $LATEST_STABLE_TAG (found $VERSION_CODE) so returning to stable stays an in-place install"
                 exit 1
               elif [[ "$PRERELEASE" == "false" && "$VERSION_CODE" -le "$STABLE_CODE" ]]; then
-                echo "::error::Stable tag $GITHUB_REF_NAME must raise versionCode above $STABLE_CODE (found $VERSION_CODE)"
+                echo "::error::Stable tag $GITHUB_REF_NAME must raise versionCode above $STABLE_CODE from $LATEST_STABLE_TAG (found $VERSION_CODE)"
                 exit 1
               fi
             fi
@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           ./run-tests.sh
-          bash -x ./tests/idle-reminders-source-test.sh
+          bash ./tests/idle-reminders-source-test.sh
           bash ./tests/codex-watch-migration-source-test.sh
 
       - name: Run Android lint

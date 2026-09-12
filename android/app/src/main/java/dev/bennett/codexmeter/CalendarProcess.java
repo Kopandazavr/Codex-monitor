@@ -104,6 +104,25 @@ final class CalendarProcess {
                 Math.round((remaining * 100.0d) / duration)));
     }
 
+    /** Fill amount for the visible process bar: 0 at start and 100 at the timer target. */
+    int elapsedPercent(long nowMillis) {
+        if (nowMillis < beginMillis) {
+            long start = workStartMillis();
+            if (nowMillis <= start) return 0;
+            long duration = beginMillis - start;
+            long elapsed = nowMillis - start;
+            if (duration <= 0L) return 100;
+            return (int) Math.max(0L, Math.min(100L,
+                    Math.round((elapsed * 100.0d) / duration)));
+        }
+        if (nowMillis >= endMillis) return 100;
+        long duration = endMillis - beginMillis;
+        long elapsed = nowMillis - beginMillis;
+        if (duration <= 0L) return 100;
+        return (int) Math.max(0L, Math.min(100L,
+                Math.round((elapsed * 100.0d) / duration)));
+    }
+
     String displayLabel() {
         return displayIdentity(role, project, topic);
     }

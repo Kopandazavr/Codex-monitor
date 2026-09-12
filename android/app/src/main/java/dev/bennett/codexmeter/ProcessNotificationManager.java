@@ -223,8 +223,9 @@ final class ProcessNotificationManager {
         RemoteViews expanded = new RemoteViews(context.getPackageName(),
                 R.layout.notification_processes_expanded);
         bindHeader(expanded, title, activeCount, idleCount, summary, textColor);
+        // Active and idle rows both own their per-role bell in every notification mode.
         addRows(context, expanded, R.id.notification_processes_container,
-                processes, idleRoles, nowMillis, false);
+                processes, idleRoles, nowMillis, true);
 
         String content = summary.isEmpty() ? countLabel(activeCount, idleCount) : summary;
         return new Notification.Builder(context, channelId)
@@ -272,7 +273,7 @@ final class ProcessNotificationManager {
                 formatRemaining(process.remainingMillis(nowMillis)));
         row.setTextColor(R.id.notification_process_remaining, textColor);
         row.setProgressBar(R.id.notification_process_progress, 100,
-                process.remainingPercent(nowMillis), false);
+                process.elapsedPercent(nowMillis), false);
         row.setViewVisibility(R.id.notification_process_progress, View.VISIBLE);
         row.setViewVisibility(R.id.notification_process_dismiss, View.GONE);
         if (showReminder) {

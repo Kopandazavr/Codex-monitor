@@ -8,11 +8,17 @@ import android.os.Build;
 import android.os.SystemClock;
 import java.util.concurrent.TimeUnit;
 
-/** Keeps calendar-backed process progress reasonably fresh while the live monitor is active. */
+/** Keeps calendar-backed process progress fresh without invoking the remote usage API. */
 final class ProcessNotificationScheduler {
     static final String ACTION_REFRESH = "dev.bennett.codexmeter.action.PROCESS_NOTIFICATION_REFRESH";
     private static final int REQUEST_REFRESH = 8631;
-    private static final long INTERVAL_MS = TimeUnit.MINUTES.toMillis(1);
+
+    // TEMPORARY 2.10 PHONE DIAGNOSTIC: deliberately stress the exact same local notification
+    // rebuild/repost path every five seconds so Samsung expanded-view flicker can be correlated.
+    // This must be returned to the normal product cadence after PHONE evidence is collected.
+    static final boolean DIAGNOSTIC_FIVE_SECOND_REPAINT = true;
+    private static final long INTERVAL_MS = DIAGNOSTIC_FIVE_SECOND_REPAINT
+            ? TimeUnit.SECONDS.toMillis(5) : TimeUnit.MINUTES.toMillis(1);
 
     private ProcessNotificationScheduler() {
     }
@@ -34,6 +40,9 @@ final class ProcessNotificationScheduler {
                 alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                         triggerAt, refresh);
             }
+            DiagnosticLog.info(context, "notification", "local_repaint_scheduled",
+                    "diagnostic_5s", DIAGNOSTIC_FIVE_SECOND_REPAINT,
+                    "delay_ms", INTERVAL_MS);
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(context, "calendar_process", "refresh_schedule_failed",
                     "error", exception.getClass().getSimpleName());

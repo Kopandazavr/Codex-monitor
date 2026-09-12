@@ -137,6 +137,12 @@ public final class RefreshScheduler {
             WidgetRenderer.updateAll(contextAppContext);
             return true;
         }
+        if (ForegroundUsageRefresh.isInFlight()) {
+            DiagnosticLog.info(contextAppContext, "scheduler",
+                    "immediate_refresh_coalesced",
+                    "active_trigger", ForegroundUsageRefresh.activeTrigger());
+            return true;
+        }
         try {
             DiagnosticLog.info(contextAppContext, "scheduler",
                     "immediate_refresh_requested");

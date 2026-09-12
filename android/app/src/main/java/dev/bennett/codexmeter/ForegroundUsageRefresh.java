@@ -42,18 +42,20 @@ final class ForegroundUsageRefresh {
         return request(context, trigger, true);
     }
 
-    /** Start the cheap foreground-only remote cadence; background scheduling remains adaptive. */
+    /** Start foreground-only remote polling and suspend only the competing periodic jobs. */
     static void startActivePolling(Context context) {
         Context app = appContext(context);
         if (app == null) return;
         pollingContext = app;
         activePolling = true;
         MAIN.removeCallbacks(ACTIVE_POLL);
+        RefreshScheduler.suspendPeriodic(app);
         MAIN.postDelayed(ACTIVE_POLL, ACTIVE_POLL_INTERVAL_MS);
         DiagnosticLog.info(app, "refresh", "foreground_polling_started",
                 "interval_ms", ACTIVE_POLL_INTERVAL_MS);
     }
 
+    /** Stop foreground polling and restore the existing adaptive/fixed background scheduler. */
     static void stopActivePolling(Context context) {
         Context app = appContext(context);
         activePolling = false;
@@ -61,6 +63,7 @@ final class ForegroundUsageRefresh {
         MAIN.removeCallbacks(ACTIVE_POLL);
         if (app != null) {
             DiagnosticLog.info(app, "refresh", "foreground_polling_stopped");
+            RefreshScheduler.schedulePeriodic(app);
         }
     }
 
@@ -119,7 +122,9 @@ final class ForegroundUsageRefresh {
                     "stale", stale,
                     "duration_ms", SystemClock.elapsedRealtime() - started);
             notifyUiState(app, success ? "succeeded" : "failed", trigger);
-            RefreshScheduler.schedulePeriodic(app);
+            if (!activePolling) {
+                RefreshScheduler.schedulePeriodic(app);
+            }
         }
     }
 

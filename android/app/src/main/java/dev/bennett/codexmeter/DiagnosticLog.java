@@ -34,8 +34,10 @@ public final class DiagnosticLog {
     private static final long MAX_FILE_BYTES = 1024L * 1024L;
     private static final Object FILE_LOCK = new Object();
     private static final AtomicBoolean INSTALLED = new AtomicBoolean();
+    private static final AtomicBoolean TEMPORARY_TEST_CAPTURE = new AtomicBoolean();
     private static final AtomicLong SEQUENCE = new AtomicLong();
     private static volatile Context applicationContext;
+    private static volatile String temporarySessionId = "";
 
     public static final class Stats {
         public final long bytes;
@@ -78,6 +80,30 @@ public final class DiagnosticLog {
     public static boolean isEnabled(Context context) {
         Context app = appContext(context);
         return app != null && preferences(app).getBoolean(PREF_ENABLED, false);
+    }
+
+    /**
+     * Enables bounded capture for an explicitly diagnostic test build without changing the user's
+     * persisted diagnostics preference. Turning the temporary mode off restores normal opt-in
+     * behavior immediately.
+     */
+    public static void setTemporaryTestCapture(Context context, boolean enabled) {
+        Context app = appContext(context);
+        if (app == null) return;
+        install(app);
+        if (enabled) {
+            if (TEMPORARY_TEST_CAPTURE.compareAndSet(false, true)) {
+                temporarySessionId = UUID.randomUUID().toString();
+                info(app, "diagnostics", "temporary_test_capture_enabled",
+                        "app_version", appVersion(app),
+                        "android_sdk", Build.VERSION.SDK_INT,
+                        "device", Build.MANUFACTURER + " " + Build.MODEL);
+            }
+        } else if (TEMPORARY_TEST_CAPTURE.get()) {
+            info(app, "diagnostics", "temporary_test_capture_disabled");
+            TEMPORARY_TEST_CAPTURE.set(false);
+            temporarySessionId = "";
+        }
     }
 
     public static void setEnabled(Context context, boolean enabled) {
@@ -207,7 +233,7 @@ public final class DiagnosticLog {
     private static void write(Context context, String level, String category, String event,
             Throwable error, Object... fields) {
         Context app = appContext(context);
-        if (app == null || !isEnabled(app)) {
+        if (app == null || (!isEnabled(app) && !TEMPORARY_TEST_CAPTURE.get())) {
             return;
         }
         try {
@@ -215,7 +241,11 @@ public final class DiagnosticLog {
             record.put("timestamp", Instant.now().toString());
             record.put("elapsed_ms", SystemClock.elapsedRealtime());
             record.put("sequence", SEQUENCE.incrementAndGet());
-            record.put("session_id", preferences(app).getString(PREF_SESSION, ""));
+            String sessionId = preferences(app).getString(PREF_SESSION, "");
+            if ((sessionId == null || sessionId.isEmpty()) && TEMPORARY_TEST_CAPTURE.get()) {
+                sessionId = temporarySessionId;
+            }
+            record.put("session_id", sessionId == null ? "" : sessionId);
             record.put("level", safe(level));
             record.put("category", safe(category));
             record.put("event", safe(event));

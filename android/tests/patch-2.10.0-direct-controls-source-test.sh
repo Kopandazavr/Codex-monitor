@@ -7,11 +7,21 @@ SHARED="$ROOT/shared/src/main/java/dev/bennett/codexmeter"
 # Foreground lifecycle refresh is real network work, coalesced across dashboard and app-level
 # transitions, while the previous cached snapshot remains authoritative for presentation.
 test -f "$SRC/ForegroundUsageRefresh.java"
-grep -Fq 'UsageApi.refreshAndCacheScheduled(app, true, trigger)' "$SRC/ForegroundUsageRefresh.java"
+grep -Fq 'UsageApi.refreshAndCacheScheduled(app, forceSubscription, trigger)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'ForegroundUsageRefresh.request(context, "foreground_main");' "$SRC/RefreshEngagement.java"
 grep -Fq 'ForegroundUsageRefresh.request(this, "foreground_transition");' "$SRC/CodexMeterApplication.java"
 grep -Fq 'ForegroundUsageRefresh.isInFlight()' "$SRC/RefreshScheduler.java"
 grep -Fq '"immediate_refresh_coalesced"' "$SRC/RefreshScheduler.java"
+
+# While the app is actually foregrounded, remote usage refreshes once per minute. Activity-to-
+# Activity transitions do not restart the cycle; backgrounding stops it and restores adaptive jobs.
+grep -Fq 'ACTIVE_POLL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1)' "$SRC/ForegroundUsageRefresh.java"
+grep -Fq 'request(app, "foreground_periodic", false)' "$SRC/ForegroundUsageRefresh.java"
+grep -Fq 'RefreshScheduler.suspendPeriodic(app)' "$SRC/ForegroundUsageRefresh.java"
+grep -Fq 'ForegroundUsageRefresh.startActivePolling(this);' "$SRC/CodexMeterApplication.java"
+grep -Fq 'ForegroundUsageRefresh.stopActivePolling(this);' "$SRC/CodexMeterApplication.java"
+grep -Fq 'periodic_refresh_suspended_for_foreground' "$SRC/RefreshScheduler.java"
+grep -Fq 'if (!activePolling)' "$SRC/ForegroundUsageRefresh.java"
 
 # Cached usage cards stay visible while refreshing; title-area state distinguishes in-flight and
 # failed refresh without blanking or replacing the whole card.
@@ -29,6 +39,14 @@ grep -Fq 'DualUsageNotificationManager.repostFromCache(context)' "$SRC/NowBarAct
 grep -Fq '"remote_fetch", false' "$SRC/NowBarActionReceiver.java"
 ! grep -Fq 'UsageApi.' "$SRC/ProcessNotificationScheduler.java"
 grep -Fq '"fingerprint", semanticFingerprint(state)' "$SRC/DualUsageNotificationManager.java"
+
+# This explicit test build must capture every forced repaint even when the user's ordinary tracing
+# preference is off. Test capture is process-local, bounded by the existing rotation, and does not
+# mutate the persisted diagnostics opt-in preference.
+grep -Fq 'DiagnosticLog.setTemporaryTestCapture(this, true);' "$SRC/CodexMeterApplication.java"
+grep -Fq 'TEMPORARY_TEST_CAPTURE' "$SRC/DiagnosticLog.java"
+grep -Fq 'temporary_test_capture_enabled' "$SRC/DiagnosticLog.java"
+grep -Fq '!isEnabled(app) && !TEMPORARY_TEST_CAPTURE.get()' "$SRC/DiagnosticLog.java"
 
 # Direct limit bells are independent per visible window and use local AlarmManager reset timing,
 # not presentation cadence or foreground polling, for audible delivery.
@@ -55,9 +73,11 @@ grep -Fq 'android:key="notification_live_monitor_settings"' "$ROOT/app/src/main/
 grep -A6 -F 'android:key="notification_metric_ui"' "$ROOT/app/src/main/res/xml/preferences_settings_notifications.xml" \
   | grep -Fq 'app:isPreferenceVisible="false"'
 
-# Remote usage polling remains minute-based adaptive scheduling; five-second work is local-only.
+# Background usage polling keeps the existing adaptive 5..120 minute policy, while visible-app
+# freshness uses the separate one-minute foreground cadence. Five-second work is local-only.
 grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.java"
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
+grep -Fq 'ACTIVE_POLL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1)' "$SRC/ForegroundUsageRefresh.java"
 
 # The test build is a real 2.10 upgrade on phone and Wear, not a separate 2.9.5 release.
 grep -Fq 'versionCode = 36' "$ROOT/app/build.gradle.kts"

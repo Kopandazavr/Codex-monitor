@@ -23,6 +23,7 @@ public final class CodexMeterApplication extends Application
     private final Runnable markProcessBackgrounded = () -> {
         if (startedActivities == 0) {
             processBackgrounded = true;
+            ForegroundUsageRefresh.stopActivePolling(this);
             DiagnosticLog.info(this, "process", "application_backgrounded");
         }
     };
@@ -33,6 +34,9 @@ public final class CodexMeterApplication extends Application
         lifecycleHandler = new Handler(Looper.getMainLooper());
         normalizeAutomaticDefaults();
         DiagnosticLog.install(this);
+        if (ProcessNotificationScheduler.DIAGNOSTIC_FIVE_SECOND_REPAINT) {
+            DiagnosticLog.setTemporaryTestCapture(this, true);
+        }
         registerActivityLifecycleCallbacks(this);
         DiagnosticLog.info(this, "process", "application_started");
         reconcileNotificationSurfacesAfterInstallOrUpdate();
@@ -144,9 +148,9 @@ public final class CodexMeterApplication extends Application
             processBackgrounded = false;
             DiagnosticLog.info(this, "process", "application_foregrounded",
                     "activity", activity.getClass().getSimpleName());
-            // MainActivity's RefreshEngagement path may already have started the same request;
-            // request() deliberately coalesces that case. Other screens still get a real fresh
-            // usage fetch when the app as a whole returns from background.
+            // Suspend competing periodic jobs before the immediate real foreground fetch. The
+            // dashboard path may request the same fetch; request() deliberately coalesces it.
+            ForegroundUsageRefresh.startActivePolling(this);
             ForegroundUsageRefresh.request(this, "foreground_transition");
         }
     }

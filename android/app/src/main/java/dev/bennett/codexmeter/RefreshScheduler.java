@@ -71,6 +71,25 @@ public final class RefreshScheduler {
         }
     }
 
+    /**
+     * Foreground minute polling owns ordinary periodic usage freshness while the app is visible.
+     * Suspend only periodic/adaptive jobs; keep explicit immediate/reset jobs intact.
+     */
+    static void suspendPeriodic(Context context) {
+        Context app = appContext(context);
+        if (app == null) return;
+        try {
+            JobScheduler jobs = scheduler(app);
+            if (jobs == null) return;
+            jobs.cancel(PERIODIC_JOB_ID);
+            jobs.cancel(SHORT_JOB_ID_A);
+            jobs.cancel(SHORT_JOB_ID_B);
+            DiagnosticLog.info(app, "scheduler", "periodic_refresh_suspended_for_foreground");
+        } catch (RuntimeException exception) {
+            failed(app, exception);
+        }
+    }
+
     static boolean scheduleNextShort(Context context, int i) {
         Context contextAppContext = appContext(context);
         if (contextAppContext == null) {

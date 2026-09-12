@@ -104,6 +104,7 @@ jobs:
           bash ./tests/idle-reminders-source-test.sh
           bash ./tests/codex-watch-migration-source-test.sh
           bash ./tests/patch-2.9.4-stability-source-test.sh
+          bash ./tests/patch-2.10.0-direct-controls-source-test.sh
 
       - name: Run Android lint
         shell: bash

@@ -13,16 +13,33 @@
             android:key="notification_style_ui"
             android:title="Delivery style"
             app:useSimpleSummaryProvider="true" />
+        <Preference
+            android:key="notification_live_monitor_settings"
+            android:summary="Live usage card, process rows, role reminders, and Samsung Now Bar controls"
+            android:title="Live monitor &amp; process notifications"
+            app:iconSpaceReserved="false">
+            <intent
+                android:targetPackage="dev.kopandazavr.codexwatch"
+                android:targetClass="dev.bennett.codexmeter.SettingsActivity">
+                <extra
+                    android:name="settings_page"
+                    android:value="now_bar" />
+            </intent>
+        </Preference>
     </PreferenceCategory>
 
     <PreferenceCategory
         android:key="notification_low_usage_category"
         android:title="Low usage">
+        <!-- Direct per-limit reset bells now live on the notification rows. Keep this legacy key
+             loaded so old binding/preferences stay compatible, but remove its one/both selector
+             from the user-facing settings surface. -->
         <ListPreference
             android:entries="@array/settings_metric_entries"
             android:entryValues="@array/settings_metric_values"
             android:key="notification_metric_ui"
             android:title="Alert for"
+            app:isPreferenceVisible="false"
             app:useSimpleSummaryProvider="true" />
         <ListPreference
             android:entries="@array/settings_threshold_entries"

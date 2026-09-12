@@ -8,16 +8,29 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 
 /** Installs process/screen diagnostics and enforces the small app's canonical automatic defaults. */
 public final class CodexMeterApplication extends Application
         implements Application.ActivityLifecycleCallbacks {
     private static final String RECONCILE_PREFS = "codex_notification_reconcile_v1";
     private static final String KEY_LAST_UPDATE_TIME = "last_update_time";
+    private static final long BACKGROUND_DEBOUNCE_MS = 750L;
+    private Handler lifecycleHandler;
+    private int startedActivities;
+    private boolean processBackgrounded = true;
+    private final Runnable markProcessBackgrounded = () -> {
+        if (startedActivities == 0) {
+            processBackgrounded = true;
+            DiagnosticLog.info(this, "process", "application_backgrounded");
+        }
+    };
 
     @Override
     public void onCreate() {
         super.onCreate();
+        lifecycleHandler = new Handler(Looper.getMainLooper());
         normalizeAutomaticDefaults();
         DiagnosticLog.install(this);
         registerActivityLifecycleCallbacks(this);
@@ -113,10 +126,29 @@ public final class CodexMeterApplication extends Application
         DiagnosticLog.info(this, "screen", "stopped",
                 "activity", activity.getClass().getSimpleName(),
                 "changing_configuration", activity.isChangingConfigurations());
+        startedActivities = Math.max(0, startedActivities - 1);
+        if (startedActivities == 0 && lifecycleHandler != null) {
+            lifecycleHandler.removeCallbacks(markProcessBackgrounded);
+            lifecycleHandler.postDelayed(markProcessBackgrounded, BACKGROUND_DEBOUNCE_MS);
+        }
     }
 
     @Override
     public void onActivityStarted(Activity activity) {
+        if (lifecycleHandler != null) {
+            lifecycleHandler.removeCallbacks(markProcessBackgrounded);
+        }
+        boolean returningFromBackground = startedActivities == 0 && processBackgrounded;
+        startedActivities++;
+        if (returningFromBackground) {
+            processBackgrounded = false;
+            DiagnosticLog.info(this, "process", "application_foregrounded",
+                    "activity", activity.getClass().getSimpleName());
+            // MainActivity's RefreshEngagement path may already have started the same request;
+            // request() deliberately coalesces that case. Other screens still get a real fresh
+            // usage fetch when the app as a whole returns from background.
+            ForegroundUsageRefresh.request(this, "foreground_transition");
+        }
     }
 
     @Override

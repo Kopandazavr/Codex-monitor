@@ -30,3 +30,4 @@ grep -Fq 'repostSafely(context.getApplicationContext(), "idle_reminder_toggle");
 ! grep -Fq 'IdleReminderManager.toggleFromIntent(context, intent);' "$RECEIVER"
 
 echo 'Codex Monitor 2.9.4 stability source contract PASS'
+bash "$ROOT/tests/patch-2.10.0-direct-controls-source-test.sh"

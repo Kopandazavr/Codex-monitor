@@ -53,11 +53,11 @@ grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notificati
 grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_processes_expanded.xml"
 grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_usage_dual_bars.xml"
 
-# 2.9.3: One-card embedded active rows expose the existing per-role reminder bell. Standalone
-# process cards explicitly keep active-row bells hidden so Two cards / One each cardinality and
-# interaction contracts remain unchanged.
+# 2.10: every active process row exposes the same per-role reminder bell in combined, grouped,
+# and one-each modes; idle rows retain their bell as before.
 grep -q 'addRows(context, parent, containerId, processes, idleRoles, nowMillis, true)' "$SRC/ProcessNotificationManager.java"
-grep -q 'processes, idleRoles, nowMillis, false)' "$SRC/ProcessNotificationManager.java"
+grep -q 'processes, idleRoles, nowMillis, true);' "$SRC/ProcessNotificationManager.java"
+! grep -q 'processes, idleRoles, nowMillis, false)' "$SRC/ProcessNotificationManager.java"
 grep -q 'IdleProcessState.isReminderEnabled(context, key)' "$SRC/ProcessNotificationManager.java"
 grep -q 'IdleReminderManager.toggleIntent(context, key)' "$SRC/ProcessNotificationManager.java"
 grep -q 'static boolean isReminderEnabled' "$SRC/IdleProcessState.java"

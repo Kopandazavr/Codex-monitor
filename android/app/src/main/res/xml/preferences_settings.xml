@@ -35,12 +35,15 @@
     <PreferenceCategory android:title="Features">
         <Preference
             android:key="settings_notifications"
-            android:title="Notifications"
+            android:title="Notifications &amp; live monitor"
             app:iconSpaceReserved="false" />
+        <!-- Now Bar remains a compatibility subpage, reachable from Notifications, rather than a
+             second top-level settings bucket. -->
         <Preference
             android:key="settings_now_bar"
             android:title="Now Bar"
-            app:iconSpaceReserved="false" />
+            app:iconSpaceReserved="false"
+            app:isPreferenceVisible="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="App &amp; data">

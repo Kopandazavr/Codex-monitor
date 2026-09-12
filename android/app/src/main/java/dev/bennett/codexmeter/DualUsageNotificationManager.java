@@ -46,16 +46,17 @@ final class DualUsageNotificationManager {
             manager.notify(NOTIFICATION_ID, notification);
             ProcessNotificationManager.sync(context, state.processes, state.idleRoles,
                     state.processMode, state.now);
-            DiagnosticLog.info(context, "now_bar", "dual_notification_posted",
+            // Keep local timer presentation independent from the remote refresh scheduler.
+            ProcessNotificationScheduler.schedule(context);
+            DiagnosticLog.info(context, "notification", "persistent_surface_posted",
+                    "surface", "usage",
+                    "notification_id", NOTIFICATION_ID,
+                    "mode", state.processMode,
+                    "fingerprint", semanticFingerprint(state),
                     "five_hour", state.fiveHour != null,
                     "long_window", state.longWindow != null,
-                    "plan_expiry", state.subscription != null
-                            && state.subscription.activeUntilMillis > 0L,
-                    "five_hour_reset", state.fiveHour != null && !state.fiveResetTime.isEmpty(),
-                    "long_reset", state.longWindow != null && !state.longResetTime.isEmpty(),
                     "process_count", state.processes.size(),
-                    "idle_count", state.idleRoles.size(),
-                    "process_mode", state.processMode);
+                    "idle_count", state.idleRoles.size());
             return true;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "dual_notification_post_failed", exception);
@@ -85,9 +86,12 @@ final class DualUsageNotificationManager {
         if (manager == null || notification == null) return false;
         try {
             manager.notify(NOTIFICATION_ID, notification);
-            DiagnosticLog.info(context, "now_bar", "usage_surface_realerted",
+            DiagnosticLog.info(context, "notification", "persistent_surface_realerted",
+                    "surface", "usage",
+                    "notification_id", NOTIFICATION_ID,
                     "channel", alertChannelId,
-                    "process_mode", state.processMode);
+                    "mode", state.processMode,
+                    "fingerprint", semanticFingerprint(state));
             return true;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "usage_surface_realert_failed", exception);
@@ -175,6 +179,8 @@ final class DualUsageNotificationManager {
                 state.planText, state.fiveResetTime, state.longResetTime, state.processes,
                 state.idleRoles, state.processMode);
 
+        // Reset controls now live directly beside both visible limit rows, so the old focused-metric
+        // action is deliberately absent. Stop + manual Refresh remain notification actions.
         Notification.Builder builder = new Notification.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(title)
@@ -194,13 +200,6 @@ final class DualUsageNotificationManager {
                 .setCustomBigContentView(expanded)
                 .addAction(new Notification.Action.Builder(stopIcon, "Stop", stopIntent).build())
                 .addAction(new Notification.Action.Builder(refreshIcon, "Refresh", refreshIntent).build());
-
-        boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(state.focus);
-        String reminderMetric = weeklyFocus
-                ? (state.longWindowIsMonthly ? "monthly" : "weekly") : "five_hour";
-        Notification.Action reminder = NowBarResetReminder.buildAction(
-                context, reminderMetric, state.paceWindow, state.observedAt);
-        if (reminder != null) builder.addAction(reminder);
         try {
             return builder.build();
         } catch (RuntimeException exception) {
@@ -248,6 +247,8 @@ final class DualUsageNotificationManager {
             views.setTextColor(R.id.notification_five_text, textColor);
             views.setProgressBar(R.id.notification_five_progress, 100,
                     fiveHour.remainingPercent(), false);
+            bindResetBell(context, views, R.id.notification_five_bell, "five_hour",
+                    fiveHour, observedAt, textColor);
         }
 
         if (longWindow == null) {
@@ -260,6 +261,9 @@ final class DualUsageNotificationManager {
             views.setTextColor(R.id.notification_long_text, textColor);
             views.setProgressBar(R.id.notification_long_progress, 100,
                     longWindow.remainingPercent(), false);
+            bindResetBell(context, views, R.id.notification_long_bell,
+                    "Monthly".equals(longLabel) ? "monthly" : "weekly",
+                    longWindow, observedAt, textColor);
         }
 
         if (layoutId == R.layout.notification_usage_dual_bars_expanded) {
@@ -275,6 +279,39 @@ final class DualUsageNotificationManager {
             }
         }
         return views;
+    }
+
+    private static void bindResetBell(Context context, RemoteViews views, int viewId,
+            String metric, UsageWindow window, long observedAt, int textColor) {
+        long resetAt = window == null ? 0L : window.effectiveResetAtMillis(observedAt);
+        long windowSeconds = window == null ? 0L : window.windowSeconds;
+        boolean armed = resetAt > 0L && NowBarResetReminder.isArmedFor(
+                context, metric, resetAt, windowSeconds);
+        views.setViewVisibility(viewId, View.VISIBLE);
+        views.setImageViewResource(viewId, armed ? R.drawable.ic_bell_on : R.drawable.ic_bell_off);
+        views.setInt(viewId, "setColorFilter", armed ? 0xFFFFC107 : textColor);
+        PendingIntent toggle = NowBarResetReminder.toggleIntent(context, metric, window, observedAt);
+        if (toggle != null) {
+            views.setOnClickPendingIntent(viewId, toggle);
+        }
+    }
+
+    private static String semanticFingerprint(SurfaceState state) {
+        StringBuilder value = new StringBuilder();
+        value.append(state.processMode).append('|')
+                .append(state.fiveHour == null ? "-" : state.fiveHour.remainingPercent())
+                .append('|')
+                .append(state.longWindow == null ? "-" : state.longWindow.remainingPercent())
+                .append('|').append(state.fiveResetTime)
+                .append('|').append(state.longResetTime);
+        for (CalendarProcess process : state.processes) {
+            value.append('|').append(process.identity()).append(':')
+                    .append(process.elapsedPercent(state.now));
+        }
+        for (IdleProcessState.IdleRole idle : state.idleRoles) {
+            value.append('|').append(idle.key).append(':').append(idle.lastFinishedMillis);
+        }
+        return Integer.toHexString(value.toString().hashCode());
     }
 
     static String formatResetTime(UsageWindow window, long observedAtMillis) {

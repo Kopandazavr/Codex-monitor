@@ -23,6 +23,10 @@ public final class RefreshEngagement {
 
     public static synchronized void onForeground(Context context) {
         onForeground(context, System.currentTimeMillis());
+        // The dashboard calls this before its legacy stale-cache scheduling check, so this direct
+        // request both satisfies the 2.10 foreground freshness contract and lets the scheduler
+        // coalesce the older immediate job path instead of issuing a second network request.
+        ForegroundUsageRefresh.request(context, "foreground_main");
     }
 
     static synchronized void onForeground(Context context, long nowMillis) {

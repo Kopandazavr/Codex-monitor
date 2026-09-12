@@ -27,11 +27,14 @@ final class ForegroundUsageRefresh {
     private static volatile String activeTrigger = "";
     private static volatile Context pollingContext;
     private static volatile boolean activePolling;
-    private static final Runnable ACTIVE_POLL = () -> {
-        Context app = pollingContext;
-        if (!activePolling || app == null) return;
-        request(app, "foreground_periodic", false);
-        if (activePolling) MAIN.postDelayed(ACTIVE_POLL, ACTIVE_POLL_INTERVAL_MS);
+    private static final Runnable ACTIVE_POLL = new Runnable() {
+        @Override
+        public void run() {
+            Context app = pollingContext;
+            if (!activePolling || app == null) return;
+            request(app, "foreground_periodic", false);
+            if (activePolling) MAIN.postDelayed(this, ACTIVE_POLL_INTERVAL_MS);
+        }
     };
 
     private ForegroundUsageRefresh() {

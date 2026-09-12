@@ -23,6 +23,7 @@ public final class UsageWaveView extends View {
     private final Paint resetPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint pacePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint percentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint refreshStatePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path fillPath = new Path();
     private ValueAnimator animator;
     private Drawable icon;
@@ -46,6 +47,7 @@ public final class UsageWaveView extends View {
         resetPaint.setTypeface(Typeface.create("sec", Typeface.NORMAL));
         pacePaint.setTypeface(Typeface.create("sec", Typeface.BOLD));
         percentPaint.setTypeface(Typeface.create("sec", Typeface.BOLD));
+        refreshStatePaint.setTypeface(Typeface.create("sec", Typeface.NORMAL));
         percentPaint.setTextAlign(Paint.Align.CENTER);
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
@@ -72,6 +74,8 @@ public final class UsageWaveView extends View {
         String description = label + ", " + percent + " percent. " + reset;
         if (!pace.isEmpty()) description += ". " + pace.replace("Est.", "Estimated");
         if (warning) description += ". Accelerated usage warning";
+        if (ForegroundUsageRefresh.isInFlight()) description += ". Refreshing";
+        else if (ForegroundUsageRefresh.isStale()) description += ". Not refreshed";
         setContentDescription(description);
         invalidate();
     }
@@ -139,7 +143,11 @@ public final class UsageWaveView extends View {
         resetPaint.setTextSize(13f * density);
         pacePaint.setColor(foreground);
         pacePaint.setTextSize(12.5f * density);
-        canvas.drawText(title, 12f * density, 34f * density, titlePaint);
+        float titleX = 12f * density;
+        float titleBaseline = 34f * density;
+        canvas.drawText(title, titleX, titleBaseline, titlePaint);
+        drawRefreshState(canvas, density, foreground,
+                titleX + titlePaint.measureText(title) + 9f * density, titleBaseline);
         if (!resetTop.isEmpty()) {
             canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
             if (!resetBottom.isEmpty()) {
@@ -165,5 +173,29 @@ public final class UsageWaveView extends View {
         percentPaint.setColor(foreground);
         percentPaint.setTextSize(22f * density);
         canvas.drawText(percent + "%", rightCenter, 85f * density, percentPaint);
+    }
+
+    private void drawRefreshState(Canvas canvas, float density, int color,
+            float requestedX, float baseline) {
+        float reservedRight = getWidth() - 92f * density;
+        float x = Math.min(requestedX, reservedRight - 72f * density);
+        x = Math.max(12f * density, x);
+        refreshStatePaint.setColor(color);
+        if (ForegroundUsageRefresh.isInFlight()) {
+            refreshStatePaint.setStyle(Paint.Style.STROKE);
+            refreshStatePaint.setStrokeWidth(1.8f * density);
+            float radius = 6f * density;
+            float centerX = x + radius;
+            float centerY = baseline - 6.5f * density;
+            float rotation = (float) Math.toDegrees(phase) % 360f;
+            canvas.drawArc(centerX - radius, centerY - radius,
+                    centerX + radius, centerY + radius,
+                    rotation, 255f, false, refreshStatePaint);
+        } else if (ForegroundUsageRefresh.isStale()) {
+            refreshStatePaint.setStyle(Paint.Style.FILL);
+            refreshStatePaint.setTextSize(10.5f * density);
+            canvas.drawText("Not refreshed", x, baseline, refreshStatePaint);
+        }
+        refreshStatePaint.setStyle(Paint.Style.FILL);
     }
 }

@@ -12,17 +12,15 @@ public final class BootReceiver extends BroadcastReceiver {
                 || "android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
             DiagnosticLog.info(context, "process", "boot_receiver", "action", action);
             RefreshScheduler.schedulePeriodic(context);
-            ReleaseUpdateScheduler.ensureScheduled(context);
-            ResetAlertScheduler.scheduleFromSnapshot(context, AppPreferences.loadSnapshot(context));
-            ResetCreditExpiryScheduler.scheduleFromSnapshot(context,
-                    AppPreferences.loadResetCredits(context));
+            ResetAlertScheduler.scheduleFromSnapshot(
+                    context, AppPreferences.loadSnapshot(context));
+            ResetCreditExpiryScheduler.scheduleFromSnapshot(
+                    context, AppPreferences.loadResetCredits(context));
             NowBarResetReminder.restore(context);
             IdleReminderManager.restore(context);
             NowBarManager.restore(context);
             DualUsageNotificationManager.repostDelayed(context, 500L);
             if ("android.intent.action.MY_PACKAGE_REPLACED".equals(action)) {
-                UpdateNotificationManager.dismiss(context);
-                UpdatePreferences.clearNotifiedVersion(context);
                 WidgetUpgradeRepair.afterPackageReplaced(context);
             } else {
                 WidgetUpgradeRepair.runIfNeeded(context);

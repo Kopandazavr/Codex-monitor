@@ -121,7 +121,7 @@ grep -q 'RelativeSizeSpan' "$SRC/HomeVersionLabel.java"
 grep -q 'HomeVersionLabel.apply(activity)' "$SRC/CodexMeterApplication.java"
 grep -q 'normalizeAutomaticDefaults' "$SRC/CodexMeterApplication.java"
 grep -q 'dashboard_reorder_root' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
-grep -q 'app:isPreferenceVisible="false"' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+grep -q 'android:key="settings_diagnostics"' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 
 # Selected Focus launcher/adaptive assets keep the original artwork but now place it behind an
 # explicit 11dp (~10%) safe inset on each side so Samsung launcher masking cannot clip the arcs.

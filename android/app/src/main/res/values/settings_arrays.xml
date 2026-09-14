@@ -16,12 +16,6 @@
     <string-array name="settings_refresh_values">
         <item>5</item><item>10</item><item>15</item><item>30</item><item>60</item><item>120</item>
     </string-array>
-    <string-array name="settings_update_channel_entries"><item>Stable</item><item>Alpha (early builds)</item></string-array>
-    <string-array name="settings_update_channel_values"><item>stable</item><item>alpha</item></string-array>
-    <string-array name="settings_update_interval_entries">
-        <item>Every hour</item><item>Every 6 hours</item><item>Every 12 hours</item><item>Daily</item><item>Weekly</item>
-    </string-array>
-    <string-array name="settings_update_interval_values"><item>1</item><item>6</item><item>12</item><item>24</item><item>168</item></string-array>
     <string-array name="settings_metric_entries"><item>Both</item><item>5-hour</item><item>Weekly</item></string-array>
     <string-array name="settings_metric_values"><item>both</item><item>five_hour</item><item>weekly</item></string-array>
     <string-array name="settings_alert_style_entries"><item>Silent</item><item>Notification sound</item><item>Alarm sound</item></string-array>

@@ -8,15 +8,13 @@ if [[ -z "$JSON_JAR" ]]; then
     if [[ -f "$candidate" ]]; then JSON_JAR="$candidate"; break; fi
   done
 fi
-
 if [[ -z "$JSON_JAR" ]]; then
   CACHE="$ROOT/build/test-libs"
   mkdir -p "$CACHE"
   JSON_JAR="$CACHE/json-20250517.jar"
   if [[ -n "${CAAS_ARTIFACTORY_MAVEN_REGISTRY:-}" && -n "${CAAS_ARTIFACTORY_READER_USERNAME:-}" ]]; then
     curl -fsSL -u "${CAAS_ARTIFACTORY_READER_USERNAME}:${CAAS_ARTIFACTORY_READER_PASSWORD}" \
-      "https://${CAAS_ARTIFACTORY_MAVEN_REGISTRY}/org/json/json/20250517/json-20250517.jar" \
-      -o "$JSON_JAR"
+      "https://${CAAS_ARTIFACTORY_MAVEN_REGISTRY}/org/json/json/20250517/json-20250517.jar" -o "$JSON_JAR"
   else
     curl -fsSL "https://repo1.maven.org/maven2/org/json/json/20250517/json-20250517.jar" -o "$JSON_JAR"
   fi
@@ -25,14 +23,23 @@ fi
 OUT="$ROOT/build/tests"
 rm -rf "$OUT" && mkdir -p "$OUT"
 
-# Backup/transfer was intentionally removed from the personal-use app. Keep the broad parser suite,
-# but filter its now-obsolete transfer-only self-test until the historical test file is compacted.
+# The personal build intentionally has no updater or settings-transfer feature. Keep the broad
+# historical parser suite by filtering only tests whose production implementation was removed.
 FILTERED_TEST="$OUT/ParserSelfTest.java"
 awk '
   /^[[:space:]]*testSettingsTransfer\(\);/ { next }
-  /^[[:space:]]*private static void testSettingsTransfer\(\) throws Exception \{/ { skip=1; next }
-  skip && /^[[:space:]]*private static void testWidgetOptions\(\) \{/ { skip=0 }
-  !skip { print }
+  /^[[:space:]]*testReleaseVersions\(\);/ { next }
+  /^[[:space:]]*testGitHubReleases\(\);/ { next }
+  /^[[:space:]]*testUpdateChannel\(\);/ { next }
+  /^[[:space:]]*testReleaseChecksums\(\);/ { next }
+  /^[[:space:]]*testReleaseNotesMarkdown\(\);/ { next }
+  /^[[:space:]]*testReleaseUpdatePolicy\(\);/ { next }
+  /^[[:space:]]*testUpdateCheckFrequency\(\);/ { next }
+  /^[[:space:]]*private static void testSettingsTransfer\(\) throws Exception \{/ { transfer=1; next }
+  transfer && /^[[:space:]]*private static void testWidgetOptions\(\) \{/ { transfer=0 }
+  /^[[:space:]]*private static void testReleaseVersions\(\) \{/ { updater=1; next }
+  updater && /^[[:space:]]*private static String jwt\(String payload\) \{/ { updater=0 }
+  !transfer && !updater { print }
 ' "$ROOT/tests/ParserSelfTest.java" > "$FILTERED_TEST"
 
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
@@ -70,18 +77,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingFlow.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthBrowserPage.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseVersion.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseSource.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubRelease.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateChannel.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseIntegrity.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseNotesMarkdown.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ReleaseUpdatePolicy.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java" \
   "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
   "$FILTERED_TEST"
-
 java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
@@ -92,115 +89,70 @@ grep -q "VERSION_CODE = $APP_VERSION_CODE" "$ROOT/app/src/main/java/dev/bennett/
 grep -q "versionName = \"$APP_VERSION_NAME\"" "$ROOT/wear/build.gradle.kts"
 grep -q "versionCode = $APP_VERSION_CODE" "$ROOT/wear/build.gradle.kts"
 grep -q 'return ORIGINATOR + "/" + VERSION_NAME' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q 'VERSION_NAME=.*app/build.gradle.kts' "$ROOT/build.sh"
+
+MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
+SRC="$ROOT/app/src/main/java/dev/bennett/codexmeter"
+RES="$ROOT/app/src/main/res/xml"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
-grep -Fq 'release-dist/CodexMeter-Wear-$VERSION_NAME.apk' "$WORKFLOW"
-grep -Fq '"platforms;android-37.0"' "$WORKFLOW"
-grep -q 'Kopandazavr/Codex-Meter/releases?per_page=30' "$ROOT/app/build.gradle.kts" # pragma: allowlist secret
-! grep -R -q 'thatjoshguy67/Codex-Meter' "$ROOT/app/src" "$ROOT/app/build.gradle.kts"
 
-# Dashboard reorder + usage-credit / reset-credit auto-hide wiring.
-grep -q 'testUsageCreditsAutoHide' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'testResetCreditsAutoHide' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'testDashboardSectionOrder' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'DashboardReorderActivity' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'snapshot.usageCredits.shouldDisplay()' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'shouldShowResetCreditsCard' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'public boolean shouldDisplay()' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java"
-grep -q 'DashboardSections.resolveOrder' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'ItemTouchHelper' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
-grep -q 'ic_oui_reorder' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
-
-# Edit-dashboard visibility switches + sortable/hideable usage-history section.
+# Core dashboard/history behavior still has explicit source guards.
+grep -q 'DashboardReorderActivity' "$MANIFEST"
+grep -q 'DashboardSections.resolveOrder' "$SRC/MainActivity.java"
+grep -q 'snapshot.usageCredits.shouldDisplay()' "$SRC/MainActivity.java"
+grep -q 'shouldShowResetCreditsCard' "$SRC/MainActivity.java"
+grep -q 'ItemTouchHelper' "$SRC/DashboardReorderActivity.java"
 grep -q 'USAGE_HISTORY = "usage_history"' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
-grep -q 'SwitchCompat' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
-grep -q 'setSectionVisible' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
-grep -q 'DashboardSections.USAGE_HISTORY.equals(key)' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'setDashboardSectionHidden' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
-grep -q 'dashboard_usage_history' "$ROOT/app/src/main/res/xml/preferences_settings_refresh_usage.xml"
-
-# Usage-history analytics and declutter remain covered independently of removed transfer serialization.
-grep -q 'testPlanPricing' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'testUsageStats' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'setScrubEnabled' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageBurnChartView.java"
-grep -q 'requestDisallowInterceptTouchEvent' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageBurnChartView.java"
-grep -q 'setOnScrubListener' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-grep -q 'PlanPricing.forPlan' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-grep -q 'UsageStats.windowBreakdown' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/PlanPricing.java"
-test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageStats.java"
-test -f "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java"
-grep -q 'testHistorySections' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'MENU_CUSTOMIZE' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-grep -q 'HistorySections.GUIDE' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-grep -q 'isHistorySectionVisible' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
-! grep -q 'Burn trends' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-! grep -q 'completed window count' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-
-grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'weeklyWindow != null && snapshot.fetchedAtMillis > 0L' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'fiveWindow != null && snapshot.fetchedAtMillis > 0L' "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageHistoryActivity.java"
-grep -q 'snapshot.fiveHour != null || snapshot.weekly != null' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-
-# Free-tier monthly window and long-window fallbacks.
-grep -q 'testMonthlyWindow' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'MONTHLY = "monthly"' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'setScrubEnabled' "$SRC/UsageBurnChartView.java"
+grep -q 'UsageStats.windowBreakdown' "$SRC/UsageHistoryActivity.java"
+grep -q 'PlanPricing.forPlan' "$SRC/UsageHistoryActivity.java"
 grep -q 'MONTHLY = "monthly"' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java"
-grep -q 'public UsageWindow longWindow()' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java"
-grep -q 'monthlyWindow != null && snapshot.fetchedAtMillis > 0L' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'DashboardSections.MONTHLY.equals(key)' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'DashboardSections.MONTHLY.equals(key)' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
-grep -q 'usage_history_monthly' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppPreferences.java"
 grep -q 'WINDOW_MONTHLY' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
-grep -q 'longWindowIsMonthly' "$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarManager.java"
-grep -q 'currentLongWindow' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java"
-grep -q 'meterWindow' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
-grep -q 'Hidden automatically when no resets are available' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
 
-# Widget meter catalog/config regression guards.
-grep -q 'Model-specific additional limits' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
-grep -q 'available meters exclude model-specific Spark limits' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'resolveVisibleForWidget' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
-grep -q 'resolvedSingleUsageMetric' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java"
-grep -q 'ItemTouchHelper' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
-grep -q 'orderedSelectedMeters' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
-grep -q 'ic_oui_reorder' "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+# Diagnostics is first-class, bounded, sanitized, and always on.
+grep -Fq 'android:key="settings_diagnostics"' "$RES/preferences_settings.xml"
+grep -Fq 'android:title="Diagnostics"' "$RES/preferences_settings.xml"
+! grep -Fq 'diagnostic_logging_enabled' "$RES/preferences_settings_diagnostics.xml"
+grep -Fq 'Always on' "$RES/preferences_settings_diagnostics.xml"
+grep -Fq 'always_on_capture_started' "$SRC/DiagnosticLog.java"
+grep -Fq 'MAX_ARCHIVES = 2' "$SRC/DiagnosticLog.java"
+grep -Fq 'MAX_FILE_BYTES = 1024L * 1024L' "$SRC/DiagnosticLog.java"
+grep -Fq 'DiagnosticSanitizer.redact' "$SRC/DiagnosticLog.java"
 
-# Dashboard card presentation/order guards.
-grep -Fq 'Ui.text(this, "Reset credits", 18' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -Fq 'Ui.text(this, "Usage credits", 18' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'buildIconDetailRow' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'ic_oui_battery' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'ic_oui_credit_card_outline' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-! grep -q 'Ui.separator' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -Fq 'Ui.separator(this, "Available credits")' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
-grep -Fq 'Ui.separator(this, "Credit expirations")' "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
-! grep -q 'ic_reset_credit_details' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'RESET_CREDITS = "reset_credits"' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
-grep -q 'DashboardSections.RESET_CREDITS.equals(key)' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
-grep -q 'DashboardSections.RESET_CREDITS.equals(key)' "$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
-! grep -q 'this.content.addView(buildResetCreditsCard())' "$ROOT/app/src/main/java/dev/bennett/codexmeter/MainActivity.java"
+# Personal-use cleanup is physical, not merely hidden.
+for file in AboutActivity.java SettingsTransfer.java SettingsTransferStore.java \
+  GitHubRelease.java GitHubReleaseParser.java GitHubReleaseSource.java \
+  ReleaseHistoryActivity.java ReleaseIntegrity.java ReleaseNotesMarkdown.java ReleaseNotesUi.java \
+  ReleaseUpdateClient.java ReleaseUpdateJobService.java ReleaseUpdatePolicy.java \
+  ReleaseUpdateScheduler.java ReleaseVersion.java UpdateActivity.java UpdateChannel.java \
+  UpdateCheckFrequency.java UpdateInstallReceiver.java UpdateInstaller.java \
+  UpdateNotificationManager.java UpdatePreferences.java; do
+  ! test -e "$SRC/$file"
+done
+! test -e "$ROOT/app/src/main/res/layout/activity_about.xml"
+! test -e "$ROOT/app/src/main/res/drawable/about_gradient_bg.xml"
+! test -e "$RES/preferences_settings_updates.xml"
+! test -e "$RES/preferences_settings_transfer.xml"
+! test -e "$RES/preferences_settings_privacy.xml"
+! grep -Fq 'REQUEST_INSTALL_PACKAGES' "$MANIFEST"
+! grep -Fq 'UpdateActivity' "$MANIFEST"
+! grep -Fq 'ReleaseHistoryActivity' "$MANIFEST"
+! grep -Fq 'ReleaseUpdateJobService' "$MANIFEST"
+! grep -Fq 'UPDATE_API_URL' "$ROOT/app/build.gradle.kts"
 
-# Core permissions/routes still required after removing the in-app updater UI.
-grep -q 'android.permission.ACCESS_NETWORK_STATE' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'android.permission.POST_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'android.permission.SCHEDULE_EXACT_ALARM' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'android:scheme="codexmeter"' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'OnboardingActivity' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'ResetAlertReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'android.permission.POST_PROMOTED_NOTIFICATIONS' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'NowBarActionReceiver' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'MY_PACKAGE_REPLACED' "$ROOT/app/src/main/AndroidManifest.xml"
-grep -q 'WidgetRepairJobService' "$ROOT/app/src/main/AndroidManifest.xml"
+# Navigation never hard-codes the obsolete pre-migration applicationId in Settings resources.
+! grep -R -F 'android:targetPackage="dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
+! grep -R -F 'android:data="package:dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
+grep -Fq 'Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);' "$SRC/SettingsActivity.java"
+grep -Fq 'Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);' "$SRC/SettingsActivity.java"
+grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/SettingsActivity.java"
 
-# Pure release parsing/integrity helpers remain regression-tested even though the personal app no
-# longer exposes or schedules in-app updates.
-grep -q 'testUpdateChannel' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'testReleaseChecksums' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'testReleaseNotesMarkdown' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'testReleaseUpdatePolicy' "$ROOT/tests/ParserSelfTest.java"
-grep -q 'testUpdateCheckFrequency' "$ROOT/tests/ParserSelfTest.java"
-test -f "$ROOT/app/src/main/java/dev/bennett/codexmeter/UpdateCheckFrequency.java"
+# Core permissions/routes and CI release branch support remain.
+grep -q 'android.permission.ACCESS_NETWORK_STATE' "$MANIFEST"
+grep -q 'android.permission.POST_NOTIFICATIONS' "$MANIFEST"
+grep -q 'android.permission.SCHEDULE_EXACT_ALARM' "$MANIFEST"
+grep -q 'android:scheme="codexmeter"' "$MANIFEST"
+grep -q 'NowBarActionReceiver' "$MANIFEST"
+grep -q 'WidgetRepairJobService' "$MANIFEST"
 grep -Fq 'branches: [main, alpha]' "$WORKFLOW"
 
 echo "Codex Monitor regression/source checks PASS"

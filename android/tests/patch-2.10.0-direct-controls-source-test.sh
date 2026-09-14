@@ -4,9 +4,9 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/bennett/codexmeter"
 SHARED="$ROOT/shared/src/main/java/dev/bennett/codexmeter"
 RES="$ROOT/app/src/main/res/xml"
+MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
 
-# Foreground lifecycle refresh is real network work, coalesced across dashboard and app-level
-# transitions, while the previous cached snapshot remains authoritative for presentation.
+# Foreground lifecycle refresh is real network work, coalesced across app/dashboard transitions.
 test -f "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'UsageApi.refreshAndCacheScheduled(app, forceSubscription, trigger)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'ForegroundUsageRefresh.request(context, "foreground_main");' "$SRC/RefreshEngagement.java"
@@ -27,28 +27,27 @@ grep -Fq 'DualUsageNotificationManager.repostFromCache(context)' "$SRC/NowBarAct
 grep -Fq '"remote_fetch", false' "$SRC/NowBarActionReceiver.java"
 ! grep -Fq 'UsageApi.' "$SRC/ProcessNotificationScheduler.java"
 
-# Cached cards stay visible while refreshing and surface a small stale/in-flight title state.
+# Cached cards stay visible while refreshing and surface restrained freshness state.
 grep -Fq 'ForegroundUsageRefresh.isInFlight()' "$SRC/UsageWaveView.java"
 grep -Fq 'ForegroundUsageRefresh.isStale()' "$SRC/UsageWaveView.java"
 grep -Fq '"Not refreshed"' "$SRC/UsageWaveView.java"
 grep -Fq 'drawRefreshState' "$SRC/UsageWaveView.java"
 
-# Diagnostics is now first-class and always on: no hidden unlock and no user-facing capture toggle.
+# Diagnostics is first-class, always on, bounded and sanitized.
 grep -Fq 'android:key="settings_diagnostics"' "$RES/preferences_settings.xml"
 grep -Fq 'android:title="Diagnostics"' "$RES/preferences_settings.xml"
 ! grep -Fq 'diagnostic_logging_enabled' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'Always on' "$RES/preferences_settings_diagnostics.xml"
-grep -Fq 'public static boolean isEnabled(Context context)' "$SRC/DiagnosticLog.java"
-grep -A2 -F 'public static boolean isEnabled(Context context)' "$SRC/DiagnosticLog.java" \
-  | grep -Fq 'return appContext(context) != null;'
+grep -Fq 'Sanitization' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'always_on_capture_started' "$SRC/DiagnosticLog.java"
+grep -A2 -F 'public static boolean isEnabled(Context context)' "$SRC/DiagnosticLog.java" | grep -Fq 'return appContext(context) != null;'
 grep -Fq 'MAX_ARCHIVES = 2' "$SRC/DiagnosticLog.java"
 grep -Fq 'MAX_FILE_BYTES = 1024L * 1024L' "$SRC/DiagnosticLog.java"
 grep -Fq 'DiagnosticSanitizer.redact' "$SRC/DiagnosticLog.java"
 grep -Fq 'export_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'clear_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 
-# Personal-use Settings cleanup: removed root/page UI and dead About/transfer implementation.
+# Personal-use Settings cleanup: removed sections and implementation are physically absent.
 ! grep -Fq 'about_codex_meter' "$RES/preferences_settings.xml"
 ! grep -Fq 'settings_updates' "$RES/preferences_settings.xml"
 ! grep -Fq 'settings_transfer' "$RES/preferences_settings.xml"
@@ -56,24 +55,25 @@ grep -Fq 'clear_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 ! test -e "$RES/preferences_settings_updates.xml"
 ! test -e "$RES/preferences_settings_transfer.xml"
 ! test -e "$RES/preferences_settings_privacy.xml"
-! test -e "$SRC/SettingsTransfer.java"
-! test -e "$SRC/SettingsTransferStore.java"
-! test -e "$SRC/AboutActivity.java"
+for file in AboutActivity.java SettingsTransfer.java SettingsTransferStore.java \
+  GitHubRelease.java GitHubReleaseParser.java GitHubReleaseSource.java \
+  ReleaseHistoryActivity.java ReleaseIntegrity.java ReleaseNotesMarkdown.java ReleaseNotesUi.java \
+  ReleaseUpdateClient.java ReleaseUpdateJobService.java ReleaseUpdatePolicy.java \
+  ReleaseUpdateScheduler.java ReleaseVersion.java UpdateActivity.java UpdateChannel.java \
+  UpdateCheckFrequency.java UpdateInstallReceiver.java UpdateInstaller.java \
+  UpdateNotificationManager.java UpdatePreferences.java; do
+  ! test -e "$SRC/$file"
+done
 ! test -e "$ROOT/app/src/main/res/layout/activity_about.xml"
 ! test -e "$ROOT/app/src/main/res/drawable/about_gradient_bg.xml"
-! grep -Fq 'PAGE_UPDATES' "$SRC/SettingsActivity.java"
-! grep -Fq 'PAGE_TRANSFER' "$SRC/SettingsActivity.java"
-! grep -Fq 'PAGE_PRIVACY' "$SRC/SettingsActivity.java"
-! grep -Fq 'bindUpdates' "$SRC/SettingsActivity.java"
-! grep -Fq 'bindTransfer' "$SRC/SettingsActivity.java"
+! grep -Fq 'REQUEST_INSTALL_PACKAGES' "$MANIFEST"
+! grep -Fq 'UpdateActivity' "$MANIFEST"
+! grep -Fq 'ReleaseHistoryActivity' "$MANIFEST"
+! grep -Fq 'UpdateInstallReceiver' "$MANIFEST"
+! grep -Fq 'ReleaseUpdateJobService' "$MANIFEST"
+! grep -Fq 'UPDATE_API_URL' "$ROOT/app/build.gradle.kts"
 
-# The updater has no user-facing Settings page and is functionally disabled for the personal build.
-grep -A2 -F 'public static boolean automaticChecks(Context context)' "$SRC/UpdatePreferences.java" \
-  | grep -Fq 'return false;'
-grep -A2 -F 'public static GitHubRelease availableUpdate(Context context)' "$SRC/UpdatePreferences.java" \
-  | grep -Fq 'return null;'
-
-# Settings navigation must never hard-code the obsolete pre-migration applicationId.
+# Settings navigation uses runtime/class-based routing, never the obsolete applicationId.
 ! grep -R -F 'android:targetPackage="dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
 ! grep -R -F 'android:data="package:dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
 grep -Fq 'Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);' "$SRC/SettingsActivity.java"
@@ -86,7 +86,7 @@ grep -Fq '"monthly" : "weekly"' "$SRC/DualUsageNotificationManager.java"
 grep -Fq 'RESTORABLE_METRICS = {"five_hour", "weekly", "monthly"}' "$SRC/NowBarResetReminder.java"
 grep -Fq 'setExactAndAllowWhileIdle' "$SRC/NowBarResetReminder.java"
 
-# Active process progress remains elapsed 0->100 and every visible role owns its bell.
+# Active process progress remains elapsed 0->100 and visible roles keep direct bells.
 grep -Fq 'elapsedPercent' "$SRC/CalendarProcess.java"
 grep -Fq 'process.elapsedPercent' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'processes, idleRoles, nowMillis, true);' "$SRC/ProcessNotificationManager.java"
@@ -94,10 +94,9 @@ grep -Fq 'processes, idleRoles, nowMillis, true);' "$SRC/ProcessNotificationMana
 # Notification/live-monitor IA remains direct and the old one/both selector stays hidden.
 grep -Fq 'android:title="Notifications &amp; live monitor"' "$RES/preferences_settings.xml"
 grep -Fq 'android:key="notification_live_monitor_settings"' "$RES/preferences_settings_notifications.xml"
-grep -A6 -F 'android:key="notification_metric_ui"' "$RES/preferences_settings_notifications.xml" \
-  | grep -Fq 'app:isPreferenceVisible="false"'
+grep -A6 -F 'android:key="notification_metric_ui"' "$RES/preferences_settings_notifications.xml" | grep -Fq 'app:isPreferenceVisible="false"'
 
-# Background usage cadence remains adaptive and separate from the local 5-second diagnostic repaint.
+# Background usage cadence remains separate from the local 5-second repaint.
 grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.java"
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 

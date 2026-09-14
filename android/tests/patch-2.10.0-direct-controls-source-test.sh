@@ -48,7 +48,7 @@ grep -Fq 'DiagnosticSanitizer.redact' "$SRC/DiagnosticLog.java"
 grep -Fq 'export_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'clear_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 
-# Personal-use Settings cleanup: removed root/page UI and page-specific transfer implementation.
+# Personal-use Settings cleanup: removed root/page UI and dead About/transfer implementation.
 ! grep -Fq 'about_codex_meter' "$RES/preferences_settings.xml"
 ! grep -Fq 'settings_updates' "$RES/preferences_settings.xml"
 ! grep -Fq 'settings_transfer' "$RES/preferences_settings.xml"
@@ -58,12 +58,14 @@ grep -Fq 'clear_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 ! test -e "$RES/preferences_settings_privacy.xml"
 ! test -e "$SRC/SettingsTransfer.java"
 ! test -e "$SRC/SettingsTransferStore.java"
+! test -e "$SRC/AboutActivity.java"
+! test -e "$ROOT/app/src/main/res/layout/activity_about.xml"
+! test -e "$ROOT/app/src/main/res/drawable/about_gradient_bg.xml"
 ! grep -Fq 'PAGE_UPDATES' "$SRC/SettingsActivity.java"
 ! grep -Fq 'PAGE_TRANSFER' "$SRC/SettingsActivity.java"
 ! grep -Fq 'PAGE_PRIVACY' "$SRC/SettingsActivity.java"
 ! grep -Fq 'bindUpdates' "$SRC/SettingsActivity.java"
 ! grep -Fq 'bindTransfer' "$SRC/SettingsActivity.java"
-grep -Fq 'Compatibility stub for old internal navigation targets.' "$SRC/AboutActivity.java"
 
 # The updater has no user-facing Settings page and is functionally disabled for the personal build.
 grep -A2 -F 'public static boolean automaticChecks(Context context)' "$SRC/UpdatePreferences.java" \

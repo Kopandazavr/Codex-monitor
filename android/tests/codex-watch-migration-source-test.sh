@@ -7,7 +7,6 @@ STRINGS="$ROOT/app/src/main/res/values/strings.xml"
 WEAR_STRINGS="$ROOT/wear/src/main/res/values/strings.xml"
 BUILD="$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
-PARSER="$ROOT/app/src/main/java/dev/bennett/codexmeter/GitHubReleaseParser.java"
 BRANDING="$ROOT/app/src/main/java/dev/bennett/codexmeter/Branding.java"
 HOME_VERSION="$ROOT/app/src/main/java/dev/bennett/codexmeter/HomeVersionLabel.java"
 APP_CLASS="$ROOT/app/src/main/java/dev/bennett/codexmeter/CodexMeterApplication.java"
@@ -24,15 +23,15 @@ ICON_SAFE="$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg_safe.xml"
 MONO_SAFE="$ROOT/app/src/main/res/drawable/codex_monitor_monochrome_safe.xml"
 LAUNCHER="$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
 LAUNCHER_V33="$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
+MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
 
-# Installed-app identity remains unchanged while live product branding advances to Codex Monitor.
+# Installed-app identity remains unchanged while live product branding stays Codex Monitor.
 grep -Fq 'applicationId = "dev.kopandazavr.codexwatch"' "$APP_GRADLE"
 grep -Fq 'applicationId = "dev.kopandazavr.codexwatch"' "$WEAR_GRADLE"
 ! grep -Fq 'applicationId = "dev.bennett.codexmeter"' "$APP_GRADLE"
 ! grep -Fq 'applicationId = "dev.bennett.codexmeter"' "$WEAR_GRADLE"
 grep -Fq '<string name="app_name">Codex Monitor</string>' "$STRINGS"
 grep -Fq '<string name="app_name">Codex Monitor</string>' "$WEAR_STRINGS"
-grep -Fq 'Codex Monitor contains no analytics SDK' "$STRINGS"
 grep -Fq 'private static final String PRODUCT_NAME = "Codex Monitor"' "$BRANDING"
 grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
@@ -43,19 +42,24 @@ grep -Fq 'versionCode = 36' "$APP_GRADLE"
 grep -Fq 'versionName = "2.10.0"' "$WEAR_GRADLE"
 grep -Fq 'versionCode = 36' "$WEAR_GRADLE"
 
-# Live updater/release/artifact identity follows Codex Monitor while parser stays compatible with
-# historical Codex Watch / Codex Meter release assets.
-grep -Fq 'https://api.github.com/repos/Kopandazavr/Codex-monitor/releases?per_page=30' "$APP_GRADLE"
-grep -Fq 'String expectedApk = "CodexMonitor-"' "$PARSER"
-grep -Fq 'String legacyWatchApk = "CodexWatch-"' "$PARSER"
-grep -Fq 'String legacyMeterApk = "CodexMeter-"' "$PARSER"
-grep -Fq 'releaseName = "Codex Monitor " + version.normalized();' "$PARSER"
+# Release artifacts keep the Codex Monitor identity, but the personal-use app no longer contains an
+# in-app update client, installer, release browser, install permission, or update API config.
 grep -Fq 'OUT="$DIST/CodexMonitor-$VERSION_NAME.apk"' "$BUILD"
 grep -Fq 'WEAR_OUT="$DIST/CodexMonitor-Wear-$VERSION_NAME.apk"' "$BUILD"
 grep -Fq 'name: Build Codex Monitor APK' "$WORKFLOW"
 grep -Fq 'name: codex-monitor-${{ steps.version.outputs.name }}-ci' "$WORKFLOW"
 grep -Fq 'release-dist/CodexMonitor-Wear-$VERSION_NAME.apk#Codex Monitor Wear OS $VERSION_NAME APK' "$WORKFLOW"
 grep -Fq -- '--title "Codex Monitor $VERSION_NAME"' "$WORKFLOW"
+! grep -Fq 'UPDATE_API_URL' "$APP_GRADLE"
+! grep -Fq 'REQUEST_INSTALL_PACKAGES' "$MANIFEST"
+for file in GitHubRelease.java GitHubReleaseParser.java GitHubReleaseSource.java \
+  ReleaseHistoryActivity.java ReleaseIntegrity.java ReleaseNotesMarkdown.java ReleaseNotesUi.java \
+  ReleaseUpdateClient.java ReleaseUpdateJobService.java ReleaseUpdatePolicy.java \
+  ReleaseUpdateScheduler.java ReleaseVersion.java UpdateActivity.java UpdateChannel.java \
+  UpdateCheckFrequency.java UpdateInstallReceiver.java UpdateInstaller.java \
+  UpdateNotificationManager.java UpdatePreferences.java; do
+  ! test -e "$ROOT/app/src/main/java/dev/bennett/codexmeter/$file"
+done
 
 # Target-Samsung Quick Setup contract: the four required rows and CTA must not be pushed below the
 # fold by a weighted flexible spacer. Keep a small fixed top gap and live Codex Monitor wording.

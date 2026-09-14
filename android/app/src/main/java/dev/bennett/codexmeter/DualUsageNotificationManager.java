@@ -119,8 +119,12 @@ final class DualUsageNotificationManager {
     private static SurfaceState surfaceState(Context context, UsageSnapshot snapshot) {
         long now = System.currentTimeMillis();
         long observedAt = snapshot.fetchedAtMillis;
-        UsageWindow fiveHour = UsageSnapshot.currentWindow(snapshot.fiveHour, observedAt, now);
-        UsageWindow longWindow = UsageSnapshot.currentWindow(snapshot.longWindow(), observedAt, now);
+
+        // Presentation follows the same fail-safe contract as the dashboard: a failed/late refresh
+        // must not make the last known limit disappear. An expired reset timestamp only marks the
+        // cached row stale until a fresh snapshot replaces it; it does not turn the row into null.
+        UsageWindow fiveHour = snapshot.fiveHour;
+        UsageWindow longWindow = snapshot.longWindow();
         if (fiveHour == null && longWindow == null) return null;
 
         String longLabel = snapshot.longWindowIsMonthly() ? "Monthly" : "Weekly";
@@ -143,10 +147,11 @@ final class DualUsageNotificationManager {
         }
         SubscriptionInfo subscription = SubscriptionStore.load(context);
         String planText = formatSubscription(subscription);
-        String fiveText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
-        String longText = NowBarCopy.limitText(longLabel, longWindow, observedAt, now);
+        String fiveText = notificationLimitText("5-hour", fiveHour, observedAt, now);
+        String longText = notificationLimitText(longLabel, longWindow, observedAt, now);
         String fallbackText = fiveText + " · " + longText
-                + (longResetTime.isEmpty() ? "" : " · " + longLabel + " reset: " + longResetTime);
+                + (!resetElapsed(longWindow, observedAt, now) && !longResetTime.isEmpty()
+                ? " · " + longLabel + " reset: " + longResetTime : "");
         return new SurfaceState(now, observedAt, fiveHour, longWindow, longLabel, focus,
                 paceWindow, fiveResetTime, longResetTime, processMode, processes, idleRoles,
                 subscription, planText, fallbackText, snapshot.longWindowIsMonthly());
@@ -241,8 +246,10 @@ final class DualUsageNotificationManager {
             views.setViewVisibility(R.id.notification_five_row, View.GONE);
         } else {
             views.setViewVisibility(R.id.notification_five_row, View.VISIBLE);
-            String fiveText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
-            if (!fiveResetTime.isEmpty()) fiveText += " · reset " + fiveResetTime;
+            String fiveText = notificationLimitText("5-hour", fiveHour, observedAt, now);
+            if (!resetElapsed(fiveHour, observedAt, now) && !fiveResetTime.isEmpty()) {
+                fiveText += " · reset " + fiveResetTime;
+            }
             views.setTextViewText(R.id.notification_five_text, fiveText);
             views.setTextColor(R.id.notification_five_text, textColor);
             views.setProgressBar(R.id.notification_five_progress, 100,
@@ -255,8 +262,10 @@ final class DualUsageNotificationManager {
             views.setViewVisibility(R.id.notification_long_row, View.GONE);
         } else {
             views.setViewVisibility(R.id.notification_long_row, View.VISIBLE);
-            String longText = NowBarCopy.limitText(longLabel, longWindow, observedAt, now);
-            if (!longResetTime.isEmpty()) longText += " · reset " + longResetTime;
+            String longText = notificationLimitText(longLabel, longWindow, observedAt, now);
+            if (!resetElapsed(longWindow, observedAt, now) && !longResetTime.isEmpty()) {
+                longText += " · reset " + longResetTime;
+            }
             views.setTextViewText(R.id.notification_long_text, longText);
             views.setTextColor(R.id.notification_long_text, textColor);
             views.setProgressBar(R.id.notification_long_progress, 100,
@@ -279,6 +288,18 @@ final class DualUsageNotificationManager {
             }
         }
         return views;
+    }
+
+    private static String notificationLimitText(String label, UsageWindow window,
+            long observedAt, long now) {
+        String text = NowBarCopy.limitText(label, window, observedAt, now);
+        return resetElapsed(window, observedAt, now) ? text + " · cached" : text;
+    }
+
+    private static boolean resetElapsed(UsageWindow window, long observedAt, long now) {
+        if (window == null) return false;
+        long resetAt = window.effectiveResetAtMillis(observedAt);
+        return resetAt > 0L && resetAt <= now;
     }
 
     private static void bindResetBell(Context context, RemoteViews views, int viewId,

@@ -1,205 +1,103 @@
 package dev.bennett.codexmeter;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import java.util.Collections;
 import java.util.List;
 
-/** Durable updater state, isolated from account and usage preferences. */
+/**
+ * Compatibility shim for the removed in-app updater.
+ *
+ * Codex Monitor is a personal-use build now; release discovery, update cards, background checks and
+ * update notifications are intentionally disabled. The small API surface remains temporarily so
+ * older runtime call sites can degrade to a no-op without carrying Settings/UI updater state.
+ */
 public final class UpdatePreferences {
-    private static final String PREFS = "codex_meter_updates_v1";
-    private static final String KEY_AUTOMATIC = "automatic";
-    private static final String KEY_CHANNEL = "release_channel";
-    private static final String KEY_NOTIFY = "notify_updates";
-    private static final String KEY_CHECK_INTERVAL_HOURS = "check_interval_hours";
-    private static final String KEY_NOTIFIED_VERSION = "notified_version";
-    private static final String KEY_ETAG = "etag";
-    private static final String KEY_RELEASES = "releases";
-    private static final String KEY_LAST_CHECK = "last_check";
-    private static final String KEY_LAST_ERROR = "last_error";
-    private static final String KEY_INSTALL_ERROR = "install_error";
-    private static final int MAX_CACHE_LENGTH = 512 * 1024;
-    private static final Object CACHE_LOCK = new Object();
-    private static String cachedJson;
-    private static List<GitHubRelease> cachedReleases;
-
     private UpdatePreferences() {
     }
 
     public static boolean automaticChecks(Context context) {
-        return prefs(context).getBoolean(KEY_AUTOMATIC, true);
+        return false;
     }
 
     public static void setAutomaticChecks(Context context, boolean enabled) {
-        SharedPreferences.Editor editor = prefs(context).edit().putBoolean(KEY_AUTOMATIC, enabled);
-        if (!enabled) {
-            editor.putBoolean(KEY_NOTIFY, false);
-        }
-        editor.apply();
-        if (!enabled) {
-            UpdateNotificationManager.dismiss(context);
-            clearNotifiedVersion(context);
-        }
+        ReleaseUpdateScheduler.cancel(context);
+        UpdateNotificationManager.dismiss(context);
     }
 
     public static String channel(Context context) {
-        return UpdateChannel.normalize(
-                prefs(context).getString(KEY_CHANNEL, UpdateChannel.STABLE));
+        return UpdateChannel.STABLE;
     }
 
     public static void setChannel(Context context, String channel) {
-        String normalized = UpdateChannel.normalize(channel);
-        if (normalized.equals(channel(context))) {
-            return;
-        }
-        prefs(context).edit().putString(KEY_CHANNEL, normalized).apply();
-        UpdateNotificationManager.dismiss(context);
-        clearNotifiedVersion(context);
-        broadcast(context);
-        UpdateNotificationManager.onReleasesUpdated(context);
     }
 
     public static boolean notifyUpdatesEnabled(Context context) {
-        return automaticChecks(context) && prefs(context).getBoolean(KEY_NOTIFY, false);
+        return false;
     }
 
     public static void setNotifyUpdatesEnabled(Context context, boolean enabled) {
-        prefs(context).edit().putBoolean(KEY_NOTIFY, enabled && automaticChecks(context)).apply();
-        if (!enabled) {
-            UpdateNotificationManager.dismiss(context);
-            clearNotifiedVersion(context);
-        }
+        UpdateNotificationManager.dismiss(context);
     }
 
     public static int checkIntervalHours(Context context) {
-        return UpdateCheckFrequency.normalize(
-                prefs(context).getInt(KEY_CHECK_INTERVAL_HOURS, UpdateCheckFrequency.DAILY));
+        return UpdateCheckFrequency.DAILY;
     }
 
     public static void setCheckIntervalHours(Context context, int hours) {
-        prefs(context).edit()
-                .putInt(KEY_CHECK_INTERVAL_HOURS, UpdateCheckFrequency.normalize(hours))
-                .apply();
     }
 
     public static String notifiedVersion(Context context) {
-        return prefs(context).getString(KEY_NOTIFIED_VERSION, "");
+        return "";
     }
 
     public static void setNotifiedVersion(Context context, String version) {
-        SharedPreferences.Editor editor = prefs(context).edit();
-        if (version == null || version.trim().isEmpty()) {
-            editor.remove(KEY_NOTIFIED_VERSION);
-        } else {
-            editor.putString(KEY_NOTIFIED_VERSION, version.trim());
-        }
-        editor.apply();
     }
 
     public static void clearNotifiedVersion(Context context) {
-        prefs(context).edit().remove(KEY_NOTIFIED_VERSION).apply();
     }
 
     public static long lastCheckMillis(Context context) {
-        return prefs(context).getLong(KEY_LAST_CHECK, 0L);
+        return 0L;
     }
 
     public static String etag(Context context) {
-        return prefs(context).getString(KEY_ETAG, "");
+        return "";
     }
 
     public static String lastError(Context context) {
-        return prefs(context).getString(KEY_LAST_ERROR, "");
+        return "";
     }
 
-    public static void saveSuccess(Context context, String json, String etag) throws Exception {
-        if (json == null || json.length() > MAX_CACHE_LENGTH) {
-            throw new IllegalArgumentException("GitHub returned too much release metadata.");
-        }
-        List<GitHubRelease> parsed = GitHubReleaseParser.parse(json, BuildConfig.DEBUG);
-        SharedPreferences.Editor editor = prefs(context).edit()
-                .putString(KEY_RELEASES, json)
-                .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
-                .remove(KEY_LAST_ERROR);
-        if (etag == null || etag.trim().isEmpty()) {
-            editor.remove(KEY_ETAG);
-        } else {
-            editor.putString(KEY_ETAG, etag.trim());
-        }
-        editor.apply();
-        synchronized (CACHE_LOCK) {
-            cachedJson = json;
-            cachedReleases = parsed;
-        }
-        broadcast(context);
-        UpdateNotificationManager.onReleasesUpdated(context);
+    public static void saveSuccess(Context context, String json, String etag) {
     }
 
     public static void markNotModified(Context context) {
-        prefs(context).edit()
-                .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
-                .remove(KEY_LAST_ERROR)
-                .apply();
-        broadcast(context);
-        UpdateNotificationManager.onReleasesUpdated(context);
     }
 
     public static void saveError(Context context, String error) {
-        prefs(context).edit()
-                .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
-                .putString(KEY_LAST_ERROR, safe(error, "Could not check GitHub releases."))
-                .apply();
-        broadcast(context);
     }
 
     public static List<GitHubRelease> releases(Context context) {
-        String json = prefs(context).getString(KEY_RELEASES, "[]");
-        synchronized (CACHE_LOCK) {
-            if (json.equals(cachedJson) && cachedReleases != null) {
-                return cachedReleases;
-            }
-        }
-        try {
-            List<GitHubRelease> parsed = GitHubReleaseParser.parse(json, BuildConfig.DEBUG);
-            synchronized (CACHE_LOCK) {
-                cachedJson = json;
-                cachedReleases = parsed;
-            }
-            return parsed;
-        } catch (Exception exception) {
-            return Collections.emptyList();
-        }
+        return Collections.emptyList();
     }
 
     public static boolean hasUsableCache(Context context) {
-        SharedPreferences preferences = prefs(context);
-        if (!preferences.contains(KEY_RELEASES)) {
-            return false;
-        }
-        String json = preferences.getString(KEY_RELEASES, "");
-        try {
-            GitHubReleaseParser.parse(json, BuildConfig.DEBUG);
-            return true;
-        } catch (Exception exception) {
-            return false;
-        }
+        return false;
     }
 
     public static void clearEtag(Context context) {
-        prefs(context).edit().remove(KEY_ETAG).apply();
     }
 
     public static GitHubRelease latestStable(Context context) {
-        return GitHubReleaseParser.latestStable(releases(context));
+        return null;
     }
 
     public static GitHubRelease findVersion(Context context, String version) {
-        return GitHubReleaseParser.findVersion(releases(context), version);
+        return null;
     }
 
     public static GitHubRelease availableUpdate(Context context) {
-        return UpdateChannel.selectUpdate(releases(context), installedVersion(context),
-                channel(context));
+        return null;
     }
 
     public static String installedVersion(Context context) {
@@ -214,37 +112,9 @@ public final class UpdatePreferences {
     }
 
     public static void setInstallError(Context context, String error) {
-        SharedPreferences.Editor editor = prefs(context).edit();
-        if (error == null || error.trim().isEmpty()) {
-            editor.remove(KEY_INSTALL_ERROR);
-        } else {
-            editor.putString(KEY_INSTALL_ERROR, safe(error, "Update installation failed."));
-        }
-        editor.apply();
-        broadcast(context);
     }
 
     public static String installError(Context context) {
-        return prefs(context).getString(KEY_INSTALL_ERROR, "");
-    }
-
-    private static SharedPreferences prefs(Context context) {
-        Context app = context.getApplicationContext();
-        return (app == null ? context : app).getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    }
-
-    private static void broadcast(Context context) {
-        context.sendBroadcast(new android.content.Intent(AppConstants.ACTION_RELEASES_UPDATED)
-                .setPackage(context.getPackageName())
-                .addFlags(android.content.Intent.FLAG_RECEIVER_REGISTERED_ONLY),
-                AppConstants.INTERNAL_PERMISSION);
-    }
-
-    private static String safe(String value, String fallback) {
-        String result = value == null ? "" : value.trim();
-        if (result.isEmpty()) {
-            result = fallback;
-        }
-        return result.length() <= 240 ? result : result.substring(0, 240);
+        return "";
     }
 }

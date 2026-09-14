@@ -29,10 +29,9 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.bennett.codexmeter.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
-import dev.oneuiproject.oneui.preference.HorizontalRadioPreference;
 import dev.oneuiproject.oneui.preference.LayoutPreference;
-import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import dev.oneuiproject.oneui.widget.CardItemView;
+import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
@@ -42,22 +41,25 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-/** Settings built from the One UI Design Library preference components used by its sample app. */
+/**
+ * Personal-use settings surface.
+ *
+ * Keep only the controls that are actively useful for operating Codex Monitor. Diagnostics is a
+ * normal first-class page; About/Updates/Backup & transfer/Privacy pages were intentionally removed.
+ */
 public final class SettingsActivity extends AppCompatActivity {
     private static final String EXTRA_PAGE = "settings_page";
     private static final String PAGE_ROOT = "root";
-    private static final String PAGE_APPEARANCE = "appearance";
-    private static final String PAGE_REFRESH_USAGE = "refresh_usage";
     private static final String PAGE_NOTIFICATIONS = "notifications";
     private static final String PAGE_NOW_BAR = "now_bar";
-    private static final String PAGE_UPDATES = "updates";
-    private static final String PAGE_TRANSFER = "transfer";
-    private static final String PAGE_PRIVACY = "privacy";
     private static final String PAGE_DIAGNOSTICS = "diagnostics";
 
     static Intent diagnosticsIntent(Context context) {
-        return new Intent(context, SettingsActivity.class)
-                .putExtra(EXTRA_PAGE, PAGE_DIAGNOSTICS);
+        return pageIntent(context, PAGE_DIAGNOSTICS);
+    }
+
+    private static Intent pageIntent(Context context, String page) {
+        return new Intent(context, SettingsActivity.class).putExtra(EXTRA_PAGE, page);
     }
 
     @Override
@@ -77,13 +79,8 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private static String normalizePage(String page) {
-        if (PAGE_APPEARANCE.equals(page)
-                || PAGE_REFRESH_USAGE.equals(page)
-                || PAGE_NOTIFICATIONS.equals(page)
+        if (PAGE_NOTIFICATIONS.equals(page)
                 || PAGE_NOW_BAR.equals(page)
-                || PAGE_UPDATES.equals(page)
-                || PAGE_TRANSFER.equals(page)
-                || PAGE_PRIVACY.equals(page)
                 || PAGE_DIAGNOSTICS.equals(page)) {
             return page;
         }
@@ -92,20 +89,10 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private static String pageTitle(String page) {
         switch (page) {
-            case PAGE_APPEARANCE:
-                return "Appearance";
-            case PAGE_REFRESH_USAGE:
-                return "Refresh & usage";
             case PAGE_NOTIFICATIONS:
                 return "Notifications";
             case PAGE_NOW_BAR:
-                return "Now Bar";
-            case PAGE_UPDATES:
-                return "Updates";
-            case PAGE_TRANSFER:
-                return "Backup & transfer";
-            case PAGE_PRIVACY:
-                return "Privacy";
+                return "Live monitor";
             case PAGE_DIAGNOSTICS:
                 return "Diagnostics";
             case PAGE_ROOT:
@@ -114,13 +101,9 @@ public final class SettingsActivity extends AppCompatActivity {
         }
     }
 
-    // One UI's lint detector only associates this fragment with preferences_settings.xml.
-    // This fragment intentionally loads one of several page-specific preference resources.
     @SuppressLint("FindPreferenceKeyNotFound")
     public static final class SettingsFragment extends PreferenceFragmentCompat {
         private static final String ARG_PAGE = "page";
-        private static final int REQUEST_EXPORT_TRANSFER = 9201;
-        private static final int REQUEST_IMPORT_TRANSFER = 9202;
         private static final int REQUEST_EXPORT_DIAGNOSTICS = 9203;
 
         private String page = PAGE_ROOT;
@@ -138,17 +121,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private ListPreference nowBarPercentModePreference;
         private ListPreference nowBarMetricPreference;
         private ListPreference nowBarThresholdPreference;
-        private ListPreference usagePaceSensitivityPreference;
         private Preference nowBarPermissionPreference;
-        private SwitchPreferenceCompat automaticUpdatePreference;
-        private ListPreference updateChannelPreference;
-        private ListPreference updateIntervalPreference;
-        private SwitchPreferenceCompat notifyUpdatePreference;
-        private boolean pendingExportAppSettings;
-        private boolean pendingExportNotifications;
-        private boolean pendingExportNowBar;
-        private boolean pendingExportAuthentication;
-        private SettingsTransfer.Document pendingImportDocument;
 
         static SettingsFragment newInstance(String page) {
             SettingsFragment fragment = new SettingsFragment();
@@ -164,15 +137,6 @@ public final class SettingsActivity extends AppCompatActivity {
             page = normalizePage(getArguments() == null
                     ? null : getArguments().getString(ARG_PAGE));
             switch (page) {
-                case PAGE_APPEARANCE:
-                    addPreferencesFromResource(R.xml.preferences_settings_appearance);
-                    bindAppearance();
-                    break;
-                case PAGE_REFRESH_USAGE:
-                    addPreferencesFromResource(R.xml.preferences_settings_refresh_usage);
-                    bindRefresh();
-                    bindUsagePace();
-                    break;
                 case PAGE_NOTIFICATIONS:
                     addPreferencesFromResource(R.xml.preferences_settings_notifications);
                     bindNotifications();
@@ -180,17 +144,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 case PAGE_NOW_BAR:
                     addPreferencesFromResource(R.xml.preferences_settings_now_bar);
                     bindNowBar();
-                    break;
-                case PAGE_UPDATES:
-                    addPreferencesFromResource(R.xml.preferences_settings_updates);
-                    bindUpdates();
-                    break;
-                case PAGE_TRANSFER:
-                    addPreferencesFromResource(R.xml.preferences_settings_transfer);
-                    bindTransfer();
-                    break;
-                case PAGE_PRIVACY:
-                    addPreferencesFromResource(R.xml.preferences_settings_privacy);
                     break;
                 case PAGE_DIAGNOSTICS:
                     addPreferencesFromResource(R.xml.preferences_settings_diagnostics);
@@ -207,17 +160,13 @@ public final class SettingsActivity extends AppCompatActivity {
         @Override
         public void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
-            if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
+            if (requestCode != REQUEST_EXPORT_DIAGNOSTICS
+                    || resultCode != Activity.RESULT_OK
+                    || data == null
+                    || data.getData() == null) {
                 return;
             }
-            Uri uri = data.getData();
-            if (requestCode == REQUEST_EXPORT_TRANSFER) {
-                finishExport(uri);
-            } else if (requestCode == REQUEST_IMPORT_TRANSFER) {
-                beginImport(uri);
-            } else if (requestCode == REQUEST_EXPORT_DIAGNOSTICS) {
-                finishDiagnosticExport(uri);
-            }
+            finishDiagnosticExport(data.getData());
         }
 
         @Override
@@ -240,8 +189,6 @@ public final class SettingsActivity extends AppCompatActivity {
                             Toast.LENGTH_LONG).show();
                 }
                 updateNowBarSummary();
-            } else if (PAGE_UPDATES.equals(page)) {
-                updateUpdateSummary();
             } else if (PAGE_DIAGNOSTICS.equals(page)) {
                 updateDiagnosticSummary();
             }
@@ -249,45 +196,32 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void bindRoot() {
             bindAccount();
-            bindPageLink("settings_appearance", PAGE_APPEARANCE);
-            bindPageLink("settings_refresh_usage", PAGE_REFRESH_USAGE);
-            bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
-            bindPageLink("settings_now_bar", PAGE_NOW_BAR);
-            bindPageLink("settings_updates", PAGE_UPDATES);
-            bindPageLink("settings_transfer", PAGE_TRANSFER);
-            bindPageLink("settings_privacy", PAGE_PRIVACY);
-            findPreference("about_codex_meter").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), AboutActivity.class);
+
+            Preference dashboard = findPreference("dashboard_reorder_root");
+            dashboard.setOnPreferenceClickListener(preference -> {
+                DiagnosticLog.info(requireContext(), "user", "dashboard_editor_opened",
+                        "source", "settings_root");
+                Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
                 return true;
             });
+
+            bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
+            bindPageLink("settings_diagnostics", PAGE_DIAGNOSTICS);
             updateRootSummaries();
         }
 
         private void bindPageLink(String key, String targetPage) {
-            findPreference(key).setOnPreferenceClickListener(preference -> {
+            Preference preference = findPreference(key);
+            if (preference == null) return;
+            preference.setOnPreferenceClickListener(ignored -> {
                 DiagnosticLog.info(requireContext(), "user", "settings_page_opened",
                         "page", targetPage);
-                startActivity(new Intent(requireContext(), SettingsActivity.class)
-                        .putExtra(EXTRA_PAGE, targetPage));
+                startActivity(pageIntent(requireContext(), targetPage));
                 return true;
             });
         }
 
         private void bindDiagnostics() {
-            SwitchPreferenceCompat enabled = findPreference("diagnostic_logging_enabled");
-            enabled.setPersistent(false);
-            enabled.setChecked(DiagnosticLog.isEnabled(requireContext()));
-            enabled.setOnPreferenceChangeListener((preference, value) -> {
-                boolean loggingEnabled = (Boolean) value;
-                DiagnosticLog.setEnabled(requireContext(), loggingEnabled);
-                enabled.setChecked(loggingEnabled);
-                updateDiagnosticSummary();
-                Toast.makeText(requireContext(), loggingEnabled
-                                ? "Diagnostic tracing enabled."
-                                : "Diagnostic tracing disabled. Saved logs were kept.",
-                        Toast.LENGTH_LONG).show();
-                return true;
-            });
             findPreference("export_diagnostic_logs").setOnPreferenceClickListener(preference -> {
                 launchDiagnosticExport();
                 return true;
@@ -310,21 +244,18 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void updateDiagnosticSummary() {
-            if (!PAGE_DIAGNOSTICS.equals(page) || getContext() == null) {
-                return;
-            }
-            boolean enabled = DiagnosticLog.isEnabled(requireContext());
-            SwitchPreferenceCompat toggle = findPreference("diagnostic_logging_enabled");
-            if (toggle != null) {
-                toggle.setChecked(enabled);
-            }
+            if (!PAGE_DIAGNOSTICS.equals(page) || getContext() == null) return;
             DiagnosticLog.Stats stats = DiagnosticLog.stats(requireContext());
             Preference status = findPreference("diagnostic_log_status");
-            status.setSummary((enabled ? "Tracing on" : "Tracing off")
-                    + " · " + DiagnosticLog.formatBytes(stats.bytes)
-                    + (stats.files == 1 ? " in 1 file" : " across " + stats.files + " files"));
-            findPreference("export_diagnostic_logs").setEnabled(stats.hasLogs());
-            findPreference("clear_diagnostic_logs").setEnabled(stats.hasLogs());
+            if (status != null) {
+                status.setSummary("Always on · " + DiagnosticLog.formatBytes(stats.bytes)
+                        + (stats.files == 1 ? " in 1 file"
+                        : " across " + stats.files + " files"));
+            }
+            Preference export = findPreference("export_diagnostic_logs");
+            if (export != null) export.setEnabled(stats.hasLogs());
+            Preference clear = findPreference("clear_diagnostic_logs");
+            if (clear != null) clear.setEnabled(stats.hasLogs());
         }
 
         private void launchDiagnosticExport() {
@@ -338,7 +269,8 @@ public final class SettingsActivity extends AppCompatActivity {
             Intent create = new Intent(Intent.ACTION_CREATE_DOCUMENT)
                     .addCategory(Intent.CATEGORY_OPENABLE)
                     .setType("application/x-ndjson")
-                    .putExtra(Intent.EXTRA_TITLE, "codex-meter-diagnostics-" + stamp + ".jsonl");
+                    .putExtra(Intent.EXTRA_TITLE,
+                            "codex-monitor-diagnostics-" + stamp + ".jsonl");
             try {
                 startActivityForResult(create, REQUEST_EXPORT_DIAGNOSTICS);
             } catch (RuntimeException exception) {
@@ -360,73 +292,25 @@ public final class SettingsActivity extends AppCompatActivity {
             } catch (Exception exception) {
                 DiagnosticLog.error(requireContext(), "diagnostics", "export_failed", exception);
                 Toast.makeText(requireContext(),
-                        "Could not export diagnostic logs: " + MainActivity.safeMessage(exception),
+                        "Could not export diagnostic logs: "
+                                + MainActivity.safeMessage(exception),
                         Toast.LENGTH_LONG).show();
             }
         }
 
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
-            String theme = AppPreferences.getAppTheme(requireContext());
-            String themeLabel = WidgetOptions.THEME_SYSTEM.equals(theme)
-                    ? "System default"
-                    : WidgetOptions.THEME_DARK.equals(theme) ? "Dark" : "Light";
-            findPreference("settings_appearance").setSummary(themeLabel + " · Material You "
-                    + (AppPreferences.isMaterialYouEnabled(requireContext()) ? "on" : "off"));
 
-            int refreshMinutes = AppPreferences.getAutomaticRefresh(requireContext())
-                    ? RefreshScheduler.effectiveRefreshMinutes(requireContext())
-                    : AppPreferences.getRefreshMinutes(requireContext());
-            String refreshLabel = refreshMinutes < 60
-                    ? refreshMinutes + " minutes"
-                    : refreshMinutes == 60 ? "Hourly" : "Every " + (refreshMinutes / 60) + " hours";
-            if (AppPreferences.getAutomaticRefresh(requireContext())) {
-                refreshLabel = "Automatic · currently " + refreshLabel;
+            Preference notifications = findPreference("settings_notifications");
+            if (notifications != null) {
+                notifications.setSummary("Alerts, live usage, process rows, and role reminders");
             }
-            String estimatesSummary;
-            if (!UsagePacePreferences.isEnabled(requireContext())) {
-                estimatesSummary = "Estimates off";
-            } else if (!UsagePacePreferences.areWarningsEnabled(requireContext())) {
-                estimatesSummary = "Estimates on · Warnings off";
-            } else {
-                estimatesSummary = "Estimates on";
+
+            Preference diagnostics = findPreference("settings_diagnostics");
+            if (diagnostics != null) {
+                DiagnosticLog.Stats stats = DiagnosticLog.stats(requireContext());
+                diagnostics.setSummary("Always on · " + DiagnosticLog.formatBytes(stats.bytes));
             }
-            findPreference("settings_refresh_usage").setSummary(
-                    refreshLabel + " · " + estimatesSummary);
-
-            findPreference("settings_notifications").setSummary(
-                    ResetAlertPreferences.enabled(requireContext())
-                            ? "On · "
-                            + metricLabel(ResetAlertPreferences.getMetric(requireContext()))
-                            + " at " + ResetAlertPreferences.getThreshold(requireContext()) + "%"
-                            : "Off");
-
-            String nowBarSummary;
-            if (NowBarManager.isActive(requireContext())) {
-                nowBarSummary = "Live monitor active";
-            } else if (NowBarPreferences.isAutoStartEnabled(requireContext())) {
-                nowBarSummary = "Automatic · starts at "
-                        + NowBarPreferences.getThreshold(requireContext()) + "%";
-            } else {
-                nowBarSummary = "Manual start";
-            }
-            findPreference("settings_now_bar").setSummary(nowBarSummary);
-
-            GitHubRelease availableUpdate = UpdatePreferences.availableUpdate(requireContext());
-            String channelSuffix = UpdateChannel.isAlpha(
-                    UpdatePreferences.channel(requireContext())) ? " · Alpha channel" : "";
-            findPreference("settings_updates").setSummary((availableUpdate != null
-                    ? "v" + availableUpdate.version + " available"
-                    : UpdatePreferences.automaticChecks(requireContext())
-                    ? "Automatic · " + UpdateCheckFrequency.label(
-                    UpdatePreferences.checkIntervalHours(requireContext()))
-                    : "Automatic checks off") + channelSuffix);
-        }
-
-        private String metricLabel(String metric) {
-            if ("five_hour".equals(metric)) return "5-hour";
-            if ("weekly".equals(metric)) return "Weekly";
-            return "Both limits";
         }
 
         private void bindAccount() {
@@ -480,7 +364,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void confirmSignOut() {
-            androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            AlertDialog dialog = new AlertDialog.Builder(requireContext())
                     .setTitle("Sign out?")
                     .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
                     .setNegativeButton("Cancel", null)
@@ -504,289 +388,21 @@ public final class SettingsActivity extends AppCompatActivity {
             dialog.show();
         }
 
-        private void bindAppearance() {
-            String selected = AppPreferences.getAppTheme(requireContext());
-            boolean useSystem = WidgetOptions.THEME_SYSTEM.equals(selected);
-            HorizontalRadioPreference theme = findPreference("app_theme");
-            SwitchPreferenceCompat system = findPreference("theme_system_ui");
-            SwitchPreferenceCompat materialYou = findPreference("material_you");
-            system.setEnabled(true);
-            // Keep "system" persisted while previewing the currently effective light/dark mode.
-            theme.setPersistent(false);
-            theme.setDividerEnabled(false);
-            theme.setTouchEffectEnabled(false);
-            theme.setValue(useSystem
-                    ? (Ui.isDark(requireContext()) ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT)
-                    : selected);
-            theme.setEnabled(!useSystem);
-            system.setChecked(useSystem);
-            theme.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setAppTheme(requireContext(), String.valueOf(value));
-                requireActivity().recreate();
-                return true;
-            });
-            system.setOnPreferenceChangeListener((preference, value) -> {
-                boolean enabled = (Boolean) value;
-                AppPreferences.setAppTheme(requireContext(), enabled
-                        ? WidgetOptions.THEME_SYSTEM
-                        : (Ui.isDark(requireContext())
-                                ? WidgetOptions.THEME_DARK : WidgetOptions.THEME_LIGHT));
-                requireActivity().recreate();
-                return true;
-            });
-            materialYou.setPersistent(false);
-            materialYou.setChecked(AppPreferences.isMaterialYouEnabled(requireContext()));
-            materialYou.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setMaterialYouEnabled(requireContext(), (Boolean) value);
-                WidgetRenderer.updateAll(requireContext());
-                requireActivity().recreate();
-                return true;
-            });
-        }
-
-        private void bindRefresh() {
-            findPreference("dashboard_reorder_ui").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
-                return true;
-            });
-
-            SwitchPreferenceCompat onLaunch = findPreference("refresh_on_launch");
-            onLaunch.setEnabled(true);
-            onLaunch.setChecked(AppPreferences.getRefreshOnLaunch(requireContext()));
-            onLaunch.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setRefreshOnLaunch(requireContext(), (Boolean) value);
-                return true;
-            });
-
-            ListPreference interval = findPreference("refresh_interval_ui");
-            interval.setPersistent(false);
-            interval.setValue(String.valueOf(AppPreferences.getRefreshMinutes(requireContext())));
-            interval.setEnabled(!AppPreferences.getAutomaticRefresh(requireContext()));
-            interval.setOnPreferenceChangeListener((preference, value) -> {
-                AppPreferences.setRefreshMinutes(requireContext(), Integer.parseInt(String.valueOf(value)));
-                RefreshScheduler.schedulePeriodic(requireContext());
-                PhoneWearSync.pushSettings(requireContext());
-                return true;
-            });
-
-            ListPreference mode = findPreference("refresh_mode_ui");
-            mode.setPersistent(false);
-            mode.setValue(AppPreferences.getAutomaticRefresh(requireContext())
-                    ? "automatic" : "manual");
-            mode.setOnPreferenceChangeListener((preference, value) -> {
-                boolean automatic = "automatic".equals(String.valueOf(value));
-                AppPreferences.setAutomaticRefresh(requireContext(), automatic);
-                interval.setEnabled(!automatic);
-                RefreshScheduler.schedulePeriodic(requireContext());
-                PhoneWearSync.pushSettings(requireContext());
-                return true;
-            });
-        }
-
-        private void bindUsagePace() {
-            SwitchPreferenceCompat enabled = findPreference("usage_pace_enabled_ui");
-            enabled.setPersistent(false);
-            enabled.setChecked(UsagePacePreferences.isEnabled(requireContext()));
-
-            usagePaceSensitivityPreference = findPreference("usage_pace_sensitivity_ui");
-            usagePaceSensitivityPreference.setPersistent(false);
-            usagePaceSensitivityPreference.setValue(
-                    UsagePacePreferences.getSensitivity(requireContext()));
-            usagePaceSensitivityPreference.setEnabled(
-                    UsagePacePreferences.isEnabled(requireContext()));
-
-            enabled.setOnPreferenceChangeListener((preference, value) -> {
-                boolean isEnabled = (Boolean) value;
-                UsagePacePreferences.setEnabled(requireContext(), isEnabled);
-                usagePaceSensitivityPreference.setEnabled(isEnabled);
-                updateNowBarAcceleratedEnabledState();
-                NowBarManager.onPaceSettingsChanged(requireContext());
-                return true;
-            });
-            usagePaceSensitivityPreference.setOnPreferenceChangeListener((preference, value) -> {
-                String sensitivity = UsagePace.normalizeSensitivity(String.valueOf(value));
-                UsagePacePreferences.setSensitivity(requireContext(), sensitivity);
-                usagePaceSensitivityPreference.setValue(sensitivity);
-                updateNowBarAcceleratedEnabledState();
-                NowBarManager.onPaceSettingsChanged(requireContext());
-                return true;
-            });
-        }
-
-        private void bindUpdates() {
-            updateChannelPreference = findPreference("update_channel_ui");
-            updateChannelPreference.setPersistent(false);
-            updateChannelPreference.setValue(UpdatePreferences.channel(requireContext()));
-            updateChannelPreference.setOnPreferenceChangeListener((preference, value) -> {
-                String channel = UpdateChannel.normalize(String.valueOf(value));
-                if (channel.equals(UpdatePreferences.channel(requireContext()))) {
-                    return true;
-                }
-                if (UpdateChannel.ALPHA.equals(channel)) {
-                    new AlertDialog.Builder(requireContext())
-                            .setTitle("Switch to the alpha channel?")
-                            .setMessage("Alpha builds ship faster with less testing and may be "
-                                    + "unstable. They use the same signing key and version code "
-                                    + "as stable releases, so switching back to stable later is "
-                                    + "one in-place install with no uninstalling or data loss.")
-                            .setNegativeButton("Cancel", null)
-                            .setPositiveButton("Use alpha", (dialog, which) ->
-                                    applyUpdateChannel(UpdateChannel.ALPHA))
-                            .show();
-                    return false;
-                }
-                applyUpdateChannel(UpdateChannel.STABLE);
-                return true;
-            });
-
-            automaticUpdatePreference = findPreference("automatic_update_checks_ui");
-            automaticUpdatePreference.setPersistent(false);
-            automaticUpdatePreference.setChecked(UpdatePreferences.automaticChecks(requireContext()));
-            automaticUpdatePreference.setOnPreferenceChangeListener((preference, value) -> {
-                boolean enabled = (Boolean) value;
-                UpdatePreferences.setAutomaticChecks(requireContext(), enabled);
-                if (enabled) {
-                    ReleaseUpdateScheduler.ensureScheduled(requireContext());
-                } else {
-                    ReleaseUpdateScheduler.cancel(requireContext());
-                    if (notifyUpdatePreference != null) {
-                        notifyUpdatePreference.setChecked(false);
-                    }
-                }
-                updateAutomaticUpdateEnabledState();
-                updateAutomaticUpdateSummary();
-                return true;
-            });
-
-            updateIntervalPreference = findPreference("update_check_interval_ui");
-            updateIntervalPreference.setPersistent(false);
-            updateIntervalPreference.setValue(
-                    String.valueOf(UpdatePreferences.checkIntervalHours(requireContext())));
-            updateIntervalPreference.setOnPreferenceChangeListener((preference, value) -> {
-                int hours = UpdateCheckFrequency.normalize(Integer.parseInt(String.valueOf(value)));
-                UpdatePreferences.setCheckIntervalHours(requireContext(), hours);
-                updateIntervalPreference.setValue(String.valueOf(hours));
-                ReleaseUpdateScheduler.ensureScheduled(requireContext());
-                updateAutomaticUpdateSummary();
-                return true;
-            });
-
-            notifyUpdatePreference = findPreference("notify_update_available_ui");
-            notifyUpdatePreference.setPersistent(false);
-            notifyUpdatePreference.setChecked(
-                    UpdatePreferences.notifyUpdatesEnabled(requireContext()));
-            notifyUpdatePreference.setOnPreferenceChangeListener((preference, value) -> {
-                boolean enabled = (Boolean) value;
-                if (enabled && !ensureUpdateNotificationPermission()) {
-                    return false;
-                }
-                UpdatePreferences.setNotifyUpdatesEnabled(requireContext(), enabled);
-                if (enabled) {
-                    UpdateNotificationManager.ensureChannel(requireContext());
-                    UpdateNotificationManager.onReleasesUpdated(requireContext());
-                }
-                return true;
-            });
-
-            findPreference("check_for_updates").setOnPreferenceClickListener(preference -> {
-                startActivity(new Intent(requireContext(), UpdateActivity.class)
-                        .putExtra(UpdateActivity.EXTRA_FORCE_CHECK, true));
-                return true;
-            });
-            findPreference("release_history").setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), ReleaseHistoryActivity.class);
-                return true;
-            });
-            updateAutomaticUpdateEnabledState();
-            updateAutomaticUpdateSummary();
-            updateUpdateSummary();
-        }
-
-        private void applyUpdateChannel(String channel) {
-            UpdatePreferences.setChannel(requireContext(), channel);
-            if (updateChannelPreference != null) {
-                updateChannelPreference.setValue(channel);
-            }
-            updateUpdateSummary();
-            startActivity(new Intent(requireContext(), UpdateActivity.class)
-                    .putExtra(UpdateActivity.EXTRA_FORCE_CHECK, true));
-        }
-
-        private void updateAutomaticUpdateEnabledState() {
-            boolean enabled = UpdatePreferences.automaticChecks(requireContext());
-            if (updateIntervalPreference != null) {
-                updateIntervalPreference.setEnabled(enabled);
-            }
-            if (notifyUpdatePreference != null) {
-                notifyUpdatePreference.setEnabled(enabled);
-                if (!enabled) {
-                    notifyUpdatePreference.setChecked(false);
-                }
-            }
-        }
-
-        private void updateAutomaticUpdateSummary() {
-            if (automaticUpdatePreference == null || getContext() == null) {
-                return;
-            }
-            if (!UpdatePreferences.automaticChecks(requireContext())) {
-                automaticUpdatePreference.setSummary("Automatic GitHub release checks are off");
-                return;
-            }
-            automaticUpdatePreference.setSummary(UpdateCheckFrequency.summary(
-                    UpdatePreferences.checkIntervalHours(requireContext())));
-        }
-
-        private boolean ensureUpdateNotificationPermission() {
-            if (Build.VERSION.SDK_INT >= 33
-                    && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
-                    != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 8603);
-                Toast.makeText(requireContext(),
-                        "Allow notifications, then enable update alerts again.",
-                        Toast.LENGTH_LONG).show();
-                return false;
-            }
-            NotificationManager manager = (NotificationManager) requireContext()
-                    .getSystemService(NOTIFICATION_SERVICE);
-            if (manager != null && manager.areNotificationsEnabled()) {
-                return true;
-            }
-            Toast.makeText(requireContext(),
-                    "Enable app notifications, then turn on update alerts again.",
-                    Toast.LENGTH_LONG).show();
-            return false;
-        }
-
-        private void updateUpdateSummary() {
-            if (getContext() == null) {
-                return;
-            }
-            if (automaticUpdatePreference != null) {
-                automaticUpdatePreference.setChecked(
-                        UpdatePreferences.automaticChecks(requireContext()));
-            }
-            if (updateIntervalPreference != null) {
-                updateIntervalPreference.setValue(
-                        String.valueOf(UpdatePreferences.checkIntervalHours(requireContext())));
-            }
-            if (notifyUpdatePreference != null) {
-                notifyUpdatePreference.setChecked(
-                        UpdatePreferences.notifyUpdatesEnabled(requireContext()));
-            }
-            if (updateChannelPreference != null) {
-                updateChannelPreference.setValue(UpdatePreferences.channel(requireContext()));
-            }
-            updateAutomaticUpdateEnabledState();
-            updateAutomaticUpdateSummary();
-        }
-
         private void bindNotifications() {
             notificationLowUsageCategory = findPreference("notification_low_usage_category");
             notificationResetCreditCategory =
                     findPreference("notification_reset_credit_category");
             notificationTroubleshootingCategory =
                     findPreference("notification_troubleshooting_category");
+
+            Preference liveMonitor = findPreference("notification_live_monitor_settings");
+            liveMonitor.setOnPreferenceClickListener(preference -> {
+                DiagnosticLog.info(requireContext(), "user", "settings_page_opened",
+                        "page", PAGE_NOW_BAR);
+                startActivity(pageIntent(requireContext(), PAGE_NOW_BAR));
+                return true;
+            });
+
             SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
             allow.setEnabled(true);
             allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
@@ -794,11 +410,14 @@ public final class SettingsActivity extends AppCompatActivity {
                 setNotificationsEnabled((Boolean) value);
                 return true;
             });
+
             notificationStylePreference = findPreference("notification_style_ui");
             String currentStyle = ResetAlertPreferences.getStyle(requireContext());
-            notificationStylePreference.setValue(ResetAlertPreferences.STYLE_OFF.equals(currentStyle)
-                    ? ResetAlertPreferences.STYLE_NOTIFICATION : currentStyle);
-            notificationStylePreference.setEnabled(ResetAlertPreferences.enabled(requireContext()));
+            notificationStylePreference.setValue(
+                    ResetAlertPreferences.STYLE_OFF.equals(currentStyle)
+                            ? ResetAlertPreferences.STYLE_NOTIFICATION : currentStyle);
+            notificationStylePreference.setEnabled(
+                    ResetAlertPreferences.enabled(requireContext()));
             notificationStylePreference.setOnPreferenceChangeListener((preference, value) -> {
                 String style = String.valueOf(value);
                 saveAlert(style, ResetAlertPreferences.getMetric(requireContext()),
@@ -809,32 +428,40 @@ public final class SettingsActivity extends AppCompatActivity {
             ListPreference metric = findPreference("notification_metric_ui");
             metric.setValue(ResetAlertPreferences.getMetric(requireContext()));
             metric.setOnPreferenceChangeListener((preference, value) -> {
-                saveAlert(ResetAlertPreferences.getStyle(requireContext()), String.valueOf(value),
+                saveAlert(ResetAlertPreferences.getStyle(requireContext()),
+                        String.valueOf(value),
                         ResetAlertPreferences.getThreshold(requireContext()));
                 return true;
             });
 
             ListPreference threshold = findPreference("notification_threshold_ui");
-            threshold.setValue(String.valueOf(ResetAlertPreferences.getThreshold(requireContext())));
+            threshold.setValue(String.valueOf(
+                    ResetAlertPreferences.getThreshold(requireContext())));
             threshold.setOnPreferenceChangeListener((preference, value) -> {
                 saveAlert(ResetAlertPreferences.getStyle(requireContext()),
-                        ResetAlertPreferences.getMetric(requireContext()), Integer.parseInt(String.valueOf(value)));
+                        ResetAlertPreferences.getMetric(requireContext()),
+                        Integer.parseInt(String.valueOf(value)));
                 return true;
             });
 
             SwitchPreferenceCompat unexpectedRefills = findPreference("unexpected_refills_ui");
             unexpectedRefills.setPersistent(false);
-            unexpectedRefills.setChecked(ResetAlertPreferences.unexpectedRefillsEnabled(requireContext()));
+            unexpectedRefills.setChecked(
+                    ResetAlertPreferences.unexpectedRefillsEnabled(requireContext()));
             unexpectedRefills.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setUnexpectedRefillsEnabled(requireContext(), (Boolean) value);
+                ResetAlertPreferences.setUnexpectedRefillsEnabled(
+                        requireContext(), (Boolean) value);
                 return true;
             });
 
-            SwitchPreferenceCompat resetCreditIncreases = findPreference("reset_credit_increases_ui");
+            SwitchPreferenceCompat resetCreditIncreases =
+                    findPreference("reset_credit_increases_ui");
             resetCreditIncreases.setPersistent(false);
-            resetCreditIncreases.setChecked(ResetAlertPreferences.resetCreditIncreasesEnabled(requireContext()));
+            resetCreditIncreases.setChecked(
+                    ResetAlertPreferences.resetCreditIncreasesEnabled(requireContext()));
             resetCreditIncreases.setOnPreferenceChangeListener((preference, value) -> {
-                ResetAlertPreferences.setResetCreditIncreasesEnabled(requireContext(), (Boolean) value);
+                ResetAlertPreferences.setResetCreditIncreasesEnabled(
+                        requireContext(), (Boolean) value);
                 return true;
             });
 
@@ -905,7 +532,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     .setNegativeButton("Done", null);
             if (leadTimes.isEmpty()) {
                 builder.setMessage("No reminder times are configured. Add one to choose how "
-                        + "long before expiry Codex Meter should notify you.");
+                        + "long before expiry Codex Monitor should notify you.");
             } else {
                 String[] labels = new String[leadTimes.size()];
                 for (int i = 0; i < leadTimes.size(); i++) {
@@ -945,8 +572,8 @@ public final class SettingsActivity extends AppCompatActivity {
             amount.setHintTextColor(Ui.secondaryText(dark));
             amount.setInputType(InputType.TYPE_CLASS_NUMBER
                     | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-            inputRow.addView(amount, new LinearLayout.LayoutParams(0,
-                    Ui.dp(requireContext(), 54), 1.0f));
+            inputRow.addView(amount, new LinearLayout.LayoutParams(
+                    0, Ui.dp(requireContext(), 54), 1.0f));
             String[] units = {"Minutes", "Hours", "Days", "Weeks"};
             Spinner unit = Ui.spinner(requireContext(), units, dark);
             unit.setSelection(1);
@@ -964,7 +591,8 @@ public final class SettingsActivity extends AppCompatActivity {
                     .create();
             dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                     .setOnClickListener(view -> {
-                        Long leadTime = parseLeadTime(amount.getText().toString(),
+                        Long leadTime = parseLeadTime(
+                                amount.getText().toString(),
                                 unit.getSelectedItemPosition());
                         if (leadTime == null) {
                             amount.setError("Enter a time from 1 minute to 1 year, "
@@ -1025,7 +653,8 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             List<String> labels = new ArrayList<>();
             for (Long leadTime : leadTimes) labels.add(formatLeadTime(leadTime));
-            expiryTimesPreference.setSummary(String.join(", ", labels) + " before expiry");
+            expiryTimesPreference.setSummary(
+                    String.join(", ", labels) + " before expiry");
         }
 
         private String formatLeadTime(long millis) {
@@ -1046,8 +675,8 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void scheduleResetCreditExpiryReminders() {
-            ResetNotificationManager.onResetCreditExpirySettingsChanged(requireContext(),
-                    AppPreferences.loadResetCredits(requireContext()));
+            ResetNotificationManager.onResetCreditExpirySettingsChanged(
+                    requireContext(), AppPreferences.loadResetCredits(requireContext()));
         }
 
         private void bindNowBar() {
@@ -1122,7 +751,8 @@ public final class SettingsActivity extends AppCompatActivity {
             nowBarAutoStartPreference.setOnPreferenceChangeListener((preference, value) -> {
                 boolean enabled = (Boolean) value;
                 if (enabled && !ensureNotificationPermission()) return false;
-                saveNowBarAutoStart(enabled, NowBarPreferences.getMetric(requireContext()),
+                saveNowBarAutoStart(enabled,
+                        NowBarPreferences.getMetric(requireContext()),
                         NowBarPreferences.getThreshold(requireContext()));
                 return true;
             });
@@ -1143,9 +773,11 @@ public final class SettingsActivity extends AppCompatActivity {
 
             nowBarMetricPreference = findPreference("now_bar_metric_ui");
             nowBarMetricPreference.setPersistent(false);
-            nowBarMetricPreference.setValue(NowBarPreferences.getMetric(requireContext()));
+            nowBarMetricPreference.setValue(
+                    NowBarPreferences.getMetric(requireContext()));
             nowBarMetricPreference.setOnPreferenceChangeListener((preference, value) -> {
-                saveNowBarAutoStart(NowBarPreferences.isAutoStartEnabled(requireContext()),
+                saveNowBarAutoStart(
+                        NowBarPreferences.isAutoStartEnabled(requireContext()),
                         String.valueOf(value),
                         NowBarPreferences.getThreshold(requireContext()));
                 return true;
@@ -1156,9 +788,30 @@ public final class SettingsActivity extends AppCompatActivity {
             nowBarThresholdPreference.setValue(
                     String.valueOf(NowBarPreferences.getThreshold(requireContext())));
             nowBarThresholdPreference.setOnPreferenceChangeListener((preference, value) -> {
-                saveNowBarAutoStart(NowBarPreferences.isAutoStartEnabled(requireContext()),
+                saveNowBarAutoStart(
+                        NowBarPreferences.isAutoStartEnabled(requireContext()),
                         NowBarPreferences.getMetric(requireContext()),
                         Integer.parseInt(String.valueOf(value)));
+                return true;
+            });
+
+            Preference calendarAccess = findPreference("calendar_process_access");
+            calendarAccess.setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);
+                return true;
+            });
+
+            Preference overlayAccess = findPreference("idle_overlay_access");
+            overlayAccess.setOnPreferenceClickListener(preference -> {
+                Intent overlay = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + requireContext().getPackageName()));
+                try {
+                    startActivity(overlay);
+                } catch (RuntimeException exception) {
+                    Toast.makeText(requireContext(),
+                            "Overlay settings are not available on this device.",
+                            Toast.LENGTH_LONG).show();
+                }
                 return true;
             });
 
@@ -1184,15 +837,13 @@ public final class SettingsActivity extends AppCompatActivity {
                                     requireContext().getPackageName()));
                     return true;
                 }
-                // AUTO deliberately keeps this screen reachable: a false promotion result can
-                // mean either user-disabled access or an OEM policy denial. The API cannot
-                // distinguish them, and routing by the Samsung fallback would prevent users
-                // from enabling Android Live Updates here.
                 if (Build.VERSION.SDK_INT >= 36
                         && !NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
                         NowBarPreferences.getDisplayMode(requireContext()))) {
-                    Intent promotion = new Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
-                            .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName());
+                    Intent promotion =
+                            new Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
+                                    .putExtra(Settings.EXTRA_APP_PACKAGE,
+                                            requireContext().getPackageName());
                     try {
                         startActivity(promotion);
                         return true;
@@ -1200,13 +851,16 @@ public final class SettingsActivity extends AppCompatActivity {
                     }
                 }
                 startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
+                        .putExtra(Settings.EXTRA_APP_PACKAGE,
+                                requireContext().getPackageName()));
                 return true;
             });
-            findPreference("now_bar_setup_help").setOnPreferenceClickListener(preference -> {
-                showSamsungNowBarHelp();
-                return true;
-            });
+
+            findPreference("now_bar_setup_help")
+                    .setOnPreferenceClickListener(preference -> {
+                        showSamsungNowBarHelp();
+                        return true;
+                    });
             updateNowBarAutoStartEnabledState();
             updateNowBarSummary();
         }
@@ -1225,7 +879,7 @@ public final class SettingsActivity extends AppCompatActivity {
                             + "region, and firmware build even when Android and One UI versions "
                             + "match.\n\n"
                             + "If both modes remain ordinary notifications, that firmware or "
-                            + "device does not expose a third-party Now Bar surface. Codex Meter "
+                            + "device does not expose a third-party Now Bar surface. Codex Monitor "
                             + "cannot override Samsung’s system allowlist.")
                     .setNeutralButton("Developer options", (dialog, which) -> {
                         try {
@@ -1246,8 +900,8 @@ public final class SettingsActivity extends AppCompatActivity {
             updateNowBarAutoStartEnabledState();
             if (enabled) {
                 NowBarPreferences.clearSuppression(requireContext());
-                boolean started = NowBarManager.maybeAutoStart(requireContext(),
-                        AppPreferences.loadSnapshot(requireContext()));
+                boolean started = NowBarManager.maybeAutoStart(
+                        requireContext(), AppPreferences.loadSnapshot(requireContext()));
                 if (started) {
                     Toast.makeText(requireContext(),
                             "Live monitor started from the current usage threshold.",
@@ -1261,7 +915,9 @@ public final class SettingsActivity extends AppCompatActivity {
         private void updateNowBarAutoStartEnabledState() {
             boolean enabled = NowBarPreferences.isAutoStartEnabled(requireContext());
             if (nowBarMetricPreference != null) nowBarMetricPreference.setVisible(enabled);
-            if (nowBarThresholdPreference != null) nowBarThresholdPreference.setVisible(enabled);
+            if (nowBarThresholdPreference != null) {
+                nowBarThresholdPreference.setVisible(enabled);
+            }
         }
 
         private void updateNowBarAcceleratedEnabledState() {
@@ -1272,11 +928,14 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private boolean ensureNotificationPermission() {
             if (Build.VERSION.SDK_INT >= 33
-                    && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    && requireContext().checkSelfPermission(
+                    "android.permission.POST_NOTIFICATIONS")
                     != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 8602);
+                requestPermissions(
+                        new String[]{"android.permission.POST_NOTIFICATIONS"}, 8602);
                 Toast.makeText(requireContext(),
-                        "Allow notifications, then start the monitor again.", Toast.LENGTH_LONG).show();
+                        "Allow notifications, then start the monitor again.",
+                        Toast.LENGTH_LONG).show();
                 return false;
             }
             if (NowBarManager.canPostNotifications(requireContext())) return true;
@@ -1291,9 +950,11 @@ public final class SettingsActivity extends AppCompatActivity {
             boolean active = NowBarManager.isActive(requireContext());
             nowBarMonitorPreference.setChecked(active);
             if (active) {
-                String kind = NowBarManager.isPreview(requireContext()) ? "Sample preview" : "Live monitor";
-                boolean samsungCompatibility = NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
-                        NowBarManager.postedDisplayMode(requireContext()));
+                String kind = NowBarManager.isPreview(requireContext())
+                        ? "Sample preview" : "Live monitor";
+                boolean samsungCompatibility =
+                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(
+                                NowBarManager.postedDisplayMode(requireContext()));
                 String state = samsungCompatibility
                         ? "using Samsung compatibility"
                         : Build.VERSION.SDK_INT >= 36
@@ -1302,7 +963,8 @@ public final class SettingsActivity extends AppCompatActivity {
                         : "active, but not promoted by the system")
                         : "active";
                 nowBarMonitorPreference.setSummary(kind + " " + state + " · ends "
-                        + UsageFormat.absolute(requireContext(), NowBarManager.activeUntil(requireContext()),
+                        + UsageFormat.absolute(requireContext(),
+                        NowBarManager.activeUntil(requireContext()),
                         System.currentTimeMillis()));
             } else if (NowBarPreferences.isAutoStartEnabled(requireContext())
                     || (UsagePacePreferences.areWarningsEnabled(requireContext())
@@ -1313,6 +975,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarMonitorPreference.setSummary(
                         "Show remaining Codex allowance until the next available usage reset");
             }
+
             if (nowBarAutoStartPreference != null) {
                 nowBarAutoStartPreference.setChecked(
                         NowBarPreferences.isAutoStartEnabled(requireContext()));
@@ -1363,9 +1026,11 @@ public final class SettingsActivity extends AppCompatActivity {
                     ResetAlertPreferences.getMetric(requireContext()),
                     ResetAlertPreferences.getThreshold(requireContext()));
             if (enabled && Build.VERSION.SDK_INT >= 33
-                    && requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    && requireContext().checkSelfPermission(
+                    "android.permission.POST_NOTIFICATIONS")
                     != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 8601);
+                requestPermissions(
+                        new String[]{"android.permission.POST_NOTIFICATIONS"}, 8601);
             }
             if (enabled) {
                 ResetNotificationManager.ensureChannel(requireContext());
@@ -1379,267 +1044,29 @@ public final class SettingsActivity extends AppCompatActivity {
             ResetAlertPreferences.save(requireContext(), style, metric, threshold);
             if (!ResetAlertPreferences.STYLE_OFF.equals(style)) {
                 ResetNotificationManager.ensureChannel(requireContext());
-                ResetNotificationManager.onUsageUpdated(requireContext(), AppPreferences.loadSnapshot(requireContext()));
-                ResetNotificationManager.onResetCreditsUpdated(requireContext(), AppPreferences.loadResetCredits(requireContext()));
+                ResetNotificationManager.onUsageUpdated(
+                        requireContext(), AppPreferences.loadSnapshot(requireContext()));
+                ResetNotificationManager.onResetCreditsUpdated(
+                        requireContext(), AppPreferences.loadResetCredits(requireContext()));
             }
-            ResetAlertScheduler.scheduleFromSnapshot(requireContext(), AppPreferences.loadSnapshot(requireContext()));
+            ResetAlertScheduler.scheduleFromSnapshot(
+                    requireContext(), AppPreferences.loadSnapshot(requireContext()));
             scheduleResetCreditExpiryReminders();
         }
 
         private void updatePermissionSummary() {
             if (permissionPreference == null || getContext() == null) return;
-            NotificationManager manager = (NotificationManager) requireContext().getSystemService(NOTIFICATION_SERVICE);
+            NotificationManager manager = (NotificationManager) requireContext()
+                    .getSystemService(NOTIFICATION_SERVICE);
             boolean allowed = manager != null && manager.areNotificationsEnabled()
                     && (Build.VERSION.SDK_INT < 33
-                    || requireContext().checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    || requireContext().checkSelfPermission(
+                    "android.permission.POST_NOTIFICATIONS")
                     == PackageManager.PERMISSION_GRANTED);
             permissionPreference.setSummary(allowed ? "Allowed" : "Not allowed");
             if (testNotificationPreference != null) {
-                testNotificationPreference.setEnabled(allowed && ResetAlertPreferences.enabled(requireContext()));
-            }
-        }
-
-        private void bindTransfer() {
-            findPreference("export_settings_transfer").setOnPreferenceClickListener(preference -> {
-                showExportSectionDialog();
-                return true;
-            });
-            findPreference("import_settings_transfer").setOnPreferenceClickListener(preference -> {
-                Intent open = new Intent(Intent.ACTION_OPEN_DOCUMENT)
-                        .addCategory(Intent.CATEGORY_OPENABLE)
-                        .setType("application/json");
-                open.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
-                        "application/json",
-                        "text/plain",
-                        "text/json",
-                        "*/*"
-                });
-                try {
-                    startActivityForResult(open, REQUEST_IMPORT_TRANSFER);
-                } catch (RuntimeException exception) {
-                    Toast.makeText(requireContext(),
-                            "No file picker is available to import a transfer file.",
-                            Toast.LENGTH_LONG).show();
-                }
-                return true;
-            });
-        }
-
-        private void showExportSectionDialog() {
-            boolean signedIn = SecureTokenStore.isSignedIn(requireContext());
-            String[] labels = {
-                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_APP_SETTINGS)
-                            + "\n" + SettingsTransfer.sectionSummary(
-                            SettingsTransfer.SECTION_APP_SETTINGS),
-                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_NOTIFICATIONS)
-                            + "\n" + SettingsTransfer.sectionSummary(
-                            SettingsTransfer.SECTION_NOTIFICATIONS),
-                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_NOW_BAR)
-                            + "\n" + SettingsTransfer.sectionSummary(
-                            SettingsTransfer.SECTION_NOW_BAR),
-                    SettingsTransfer.sectionTitle(SettingsTransfer.SECTION_AUTHENTICATION)
-                            + "\n" + (signedIn
-                            ? SettingsTransfer.sectionSummary(
-                            SettingsTransfer.SECTION_AUTHENTICATION)
-                            : "Sign in first to export ChatGPT authentication")
-            };
-            boolean[] checked = {true, true, true, false};
-            new AlertDialog.Builder(requireContext())
-                    .setTitle("Export sections")
-                    .setMultiChoiceItems(labels, checked, (dialog, which, isChecked) -> {
-                        if (which == 3 && isChecked && !signedIn) {
-                            checked[3] = false;
-                            ((AlertDialog) dialog).getListView().setItemChecked(3, false);
-                            Toast.makeText(requireContext(),
-                                    "Sign in before exporting authentication.",
-                                    Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        checked[which] = isChecked;
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Continue", (dialog, which) -> {
-                        boolean any = checked[0] || checked[1] || checked[2] || checked[3];
-                        if (!any) {
-                            Toast.makeText(requireContext(),
-                                    "Select at least one section to export.",
-                                    Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        if (checked[3]) {
-                            confirmSensitiveExport(checked[0], checked[1], checked[2], true);
-                        } else {
-                            launchExportPicker(checked[0], checked[1], checked[2], false);
-                        }
-                    })
-                    .show();
-        }
-
-        private void confirmSensitiveExport(boolean appSettings, boolean notifications,
-                boolean nowBar, boolean authentication) {
-            new AlertDialog.Builder(requireContext())
-                    .setTitle("Authentication will be included")
-                    .setMessage(SettingsTransfer.SECURITY_WARNING
-                            + "\n\nOnly continue if you are moving Codex Meter to another device "
-                            + "you control.")
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Export anyway", (dialog, which) ->
-                            launchExportPicker(appSettings, notifications, nowBar, authentication))
-                    .show();
-        }
-
-        private void launchExportPicker(boolean appSettings, boolean notifications,
-                boolean nowBar, boolean authentication) {
-            pendingExportAppSettings = appSettings;
-            pendingExportNotifications = notifications;
-            pendingExportNowBar = nowBar;
-            pendingExportAuthentication = authentication;
-            String stamp = new SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(new Date());
-            String name = pendingExportAuthentication
-                    ? "codex-meter-transfer-AUTH-" + stamp + ".json"
-                    : "codex-meter-transfer-" + stamp + ".json";
-            Intent create = new Intent(Intent.ACTION_CREATE_DOCUMENT)
-                    .addCategory(Intent.CATEGORY_OPENABLE)
-                    .setType("application/json")
-                    .putExtra(Intent.EXTRA_TITLE, name);
-            try {
-                startActivityForResult(create, REQUEST_EXPORT_TRANSFER);
-            } catch (RuntimeException exception) {
-                Toast.makeText(requireContext(),
-                        "No file picker is available to export a transfer file.",
-                        Toast.LENGTH_LONG).show();
-            }
-        }
-
-        private void finishExport(Uri uri) {
-            try {
-                SettingsTransfer.Document document = SettingsTransferStore.collect(requireContext(),
-                        pendingExportAppSettings, pendingExportNotifications,
-                        pendingExportNowBar, pendingExportAuthentication);
-                SettingsTransferStore.write(requireContext(), uri, document);
-                String message = document.hasAuthentication()
-                        ? "Exported. Keep this file private — it includes ChatGPT authentication."
-                        : "Settings exported.";
-                Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
-            } catch (Exception exception) {
-                Toast.makeText(requireContext(),
-                        exception.getMessage() == null || exception.getMessage().isEmpty()
-                                ? "Could not export transfer file."
-                                : exception.getMessage(),
-                        Toast.LENGTH_LONG).show();
-            }
-        }
-
-        private void beginImport(Uri uri) {
-            try {
-                pendingImportDocument = SettingsTransferStore.read(requireContext(), uri);
-                showImportSectionDialog(pendingImportDocument);
-            } catch (Exception exception) {
-                pendingImportDocument = null;
-                Toast.makeText(requireContext(),
-                        exception.getMessage() == null || exception.getMessage().isEmpty()
-                                ? "Could not read transfer file."
-                                : exception.getMessage(),
-                        Toast.LENGTH_LONG).show();
-            }
-        }
-
-        private void showImportSectionDialog(SettingsTransfer.Document document) {
-            List<String> present = document.presentSections();
-            if (present.isEmpty()) {
-                Toast.makeText(requireContext(), "This transfer file has no sections.",
-                        Toast.LENGTH_LONG).show();
-                return;
-            }
-            String[] labels = new String[present.size()];
-            boolean[] checked = new boolean[present.size()];
-            for (int i = 0; i < present.size(); i++) {
-                String section = present.get(i);
-                String warning = SettingsTransfer.isAuthenticationSection(section)
-                        ? "\nWarning: replaces ChatGPT sign-in on this device"
-                        : "";
-                labels[i] = SettingsTransfer.sectionTitle(section)
-                        + "\n" + SettingsTransfer.sectionSummary(section) + warning;
-                checked[i] = !SettingsTransfer.isAuthenticationSection(section);
-            }
-            new AlertDialog.Builder(requireContext())
-                    .setTitle("Import sections")
-                    .setMultiChoiceItems(labels, checked,
-                            (dialog, which, isChecked) -> checked[which] = isChecked)
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Continue", (dialog, which) -> {
-                        boolean appSettings = false;
-                        boolean notifications = false;
-                        boolean nowBar = false;
-                        boolean authentication = false;
-                        for (int i = 0; i < present.size(); i++) {
-                            if (!checked[i]) continue;
-                            String section = present.get(i);
-                            if (SettingsTransfer.SECTION_APP_SETTINGS.equals(section)) {
-                                appSettings = true;
-                            } else if (SettingsTransfer.SECTION_NOTIFICATIONS.equals(section)) {
-                                notifications = true;
-                            } else if (SettingsTransfer.SECTION_NOW_BAR.equals(section)) {
-                                nowBar = true;
-                            } else if (SettingsTransfer.SECTION_AUTHENTICATION.equals(section)) {
-                                authentication = true;
-                            }
-                        }
-                        if (!(appSettings || notifications || nowBar || authentication)) {
-                            Toast.makeText(requireContext(),
-                                    "Select at least one section to import.",
-                                    Toast.LENGTH_LONG).show();
-                            return;
-                        }
-                        if (authentication) {
-                            confirmSensitiveImport(document, appSettings, notifications, nowBar,
-                                    true);
-                        } else {
-                            finishImport(document, appSettings, notifications, nowBar, false);
-                        }
-                    })
-                    .show();
-        }
-
-        private void confirmSensitiveImport(SettingsTransfer.Document document,
-                boolean appSettings, boolean notifications, boolean nowBar,
-                boolean authentication) {
-            new AlertDialog.Builder(requireContext())
-                    .setTitle("Import authentication?")
-                    .setMessage(SettingsTransfer.SECURITY_WARNING
-                            + "\n\nThis replaces ChatGPT sign-in on this device with the tokens "
-                            + "from the file.")
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Import anyway", (dialog, which) ->
-                            finishImport(document, appSettings, notifications, nowBar,
-                                    authentication))
-                    .show();
-        }
-
-        private void finishImport(SettingsTransfer.Document document, boolean appSettings,
-                boolean notifications, boolean nowBar, boolean authentication) {
-            try {
-                SettingsTransferStore.ApplyResult result = SettingsTransferStore.apply(
-                        requireContext(), document, appSettings, notifications, nowBar,
-                        authentication);
-                pendingImportDocument = null;
-                StringBuilder message = new StringBuilder("Imported ");
-                for (int i = 0; i < result.appliedSections.size(); i++) {
-                    if (i > 0) message.append(", ");
-                    message.append(SettingsTransfer.sectionTitle(result.appliedSections.get(i)));
-                }
-                message.append('.');
-                if (result.authenticationImported) {
-                    message.append(" Authentication replaced — keep the file private.");
-                }
-                Toast.makeText(requireContext(), message.toString(), Toast.LENGTH_LONG).show();
-                requireActivity().recreate();
-            } catch (Exception exception) {
-                Toast.makeText(requireContext(),
-                        exception.getMessage() == null || exception.getMessage().isEmpty()
-                                ? "Could not import transfer file."
-                                : exception.getMessage(),
-                        Toast.LENGTH_LONG).show();
+                testNotificationPreference.setEnabled(
+                        allowed && ResetAlertPreferences.enabled(requireContext()));
             }
         }
     }

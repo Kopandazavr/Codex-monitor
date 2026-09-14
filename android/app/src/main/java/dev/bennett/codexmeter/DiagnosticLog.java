@@ -23,11 +23,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-/** Opt-in, privacy-filtered, rotating JSONL diagnostics stored only in app-private storage. */
+/** Always-on, privacy-filtered, bounded rolling JSONL diagnostics in app-private storage. */
 public final class DiagnosticLog {
     private static final String DIRECTORY = "diagnostic-logs";
     private static final String CURRENT_FILE = "events.jsonl";
-    private static final String PREF_ENABLED = "enabled";
     private static final String PREF_SESSION = "session_id";
     private static final String PREFERENCES = "codex_meter_diagnostic_log_v1";
     private static final int MAX_ARCHIVES = 2;
@@ -64,10 +63,13 @@ public final class DiagnosticLog {
         if (app == null || !INSTALLED.compareAndSet(false, true)) {
             return;
         }
-        if (isEnabled(app)) {
-            preferences(app).edit().putString(PREF_SESSION, UUID.randomUUID().toString()).apply();
-        }
-        Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+
+        preferences(app).edit()
+                .putString(PREF_SESSION, UUID.randomUUID().toString())
+                .apply();
+
+        Thread.UncaughtExceptionHandler previous =
+                Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             error(app, "process", "uncaught_exception", throwable,
                     "crashed_thread", thread == null ? "" : thread.getName());
@@ -75,17 +77,35 @@ public final class DiagnosticLog {
                 previous.uncaughtException(thread, throwable);
             }
         });
+
+        info(app, "diagnostics", "always_on_capture_started",
+                "app_version", appVersion(app),
+                "android_sdk", Build.VERSION.SDK_INT,
+                "device", Build.MANUFACTURER + " " + Build.MODEL);
     }
 
+    /** Diagnostics is intentionally always on for this personal-use build. */
     public static boolean isEnabled(Context context) {
-        Context app = appContext(context);
-        return app != null && preferences(app).getBoolean(PREF_ENABLED, false);
+        return appContext(context) != null;
     }
 
     /**
-     * Enables bounded capture for an explicitly diagnostic test build without changing the user's
-     * persisted diagnostics preference. Turning the temporary mode off restores normal opt-in
-     * behavior immediately.
+     * Compatibility hook retained for callers/tests. Persisted opt-out is intentionally ignored;
+     * diagnostics stays on so failures that happen before the user visits Settings remain useful.
+     */
+    public static void setEnabled(Context context, boolean enabled) {
+        Context app = appContext(context);
+        if (app == null) return;
+        install(app);
+        if (!enabled) {
+            info(app, "diagnostics", "disable_request_ignored",
+                    "reason", "always_on_personal_build");
+        }
+    }
+
+    /**
+     * Marks the temporary 5-second notification experiment in the same always-on trace. This no
+     * longer gates capture; it only gives the diagnostic session an explicit experiment marker.
      */
     public static void setTemporaryTestCapture(Context context, boolean enabled) {
         Context app = appContext(context);
@@ -99,36 +119,9 @@ public final class DiagnosticLog {
                         "android_sdk", Build.VERSION.SDK_INT,
                         "device", Build.MANUFACTURER + " " + Build.MODEL);
             }
-        } else if (TEMPORARY_TEST_CAPTURE.get()) {
+        } else if (TEMPORARY_TEST_CAPTURE.compareAndSet(true, false)) {
             info(app, "diagnostics", "temporary_test_capture_disabled");
-            TEMPORARY_TEST_CAPTURE.set(false);
             temporarySessionId = "";
-        }
-    }
-
-    public static void setEnabled(Context context, boolean enabled) {
-        Context app = appContext(context);
-        if (app == null) {
-            return;
-        }
-        install(app);
-        boolean wasEnabled = isEnabled(app);
-        if (wasEnabled == enabled) {
-            return;
-        }
-        if (enabled) {
-            String session = UUID.randomUUID().toString();
-            preferences(app).edit()
-                    .putString(PREF_SESSION, session)
-                    .putBoolean(PREF_ENABLED, true)
-                    .apply();
-            info(app, "diagnostics", "tracing_enabled",
-                    "app_version", appVersion(app),
-                    "android_sdk", Build.VERSION.SDK_INT,
-                    "device", Build.MANUFACTURER + " " + Build.MODEL);
-        } else {
-            info(app, "diagnostics", "tracing_disabled");
-            preferences(app).edit().putBoolean(PREF_ENABLED, false).apply();
         }
     }
 
@@ -177,9 +170,7 @@ public final class DiagnosticLog {
 
     public static void clear(Context context) {
         Context app = appContext(context);
-        if (app == null) {
-            return;
-        }
+        if (app == null) return;
         synchronized (FILE_LOCK) {
             for (File file : orderedFiles(app)) {
                 if (file.exists()) {
@@ -196,16 +187,16 @@ public final class DiagnosticLog {
         }
         info(app, "diagnostics", "export_started");
         synchronized (FILE_LOCK) {
-            try (OutputStream raw = app.getContentResolver().openOutputStream(destination, "wt")) {
+            try (OutputStream raw =
+                    app.getContentResolver().openOutputStream(destination, "wt")) {
                 if (raw == null) {
-                    throw new IllegalStateException("Android could not open the export file.");
+                    throw new IllegalStateException(
+                            "Android could not open the export file.");
                 }
                 try (BufferedOutputStream output = new BufferedOutputStream(raw)) {
                     byte[] buffer = new byte[16 * 1024];
                     for (File file : orderedFiles(app)) {
-                        if (!file.isFile() || file.length() == 0L) {
-                            continue;
-                        }
+                        if (!file.isFile() || file.length() == 0L) continue;
                         try (BufferedInputStream input =
                                 new BufferedInputStream(new FileInputStream(file))) {
                             int read;
@@ -221,28 +212,26 @@ public final class DiagnosticLog {
     }
 
     public static String formatBytes(long bytes) {
-        if (bytes < 1024L) {
-            return bytes + " B";
-        }
+        if (bytes < 1024L) return bytes + " B";
         if (bytes < 1024L * 1024L) {
             return Math.max(1L, bytes / 1024L) + " KB";
         }
-        return String.format(java.util.Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0));
+        return String.format(java.util.Locale.US, "%.1f MB",
+                bytes / (1024.0 * 1024.0));
     }
 
     private static void write(Context context, String level, String category, String event,
             Throwable error, Object... fields) {
         Context app = appContext(context);
-        if (app == null || (!isEnabled(app) && !TEMPORARY_TEST_CAPTURE.get())) {
-            return;
-        }
+        if (app == null) return;
         try {
             JSONObject record = new JSONObject();
             record.put("timestamp", Instant.now().toString());
             record.put("elapsed_ms", SystemClock.elapsedRealtime());
             record.put("sequence", SEQUENCE.incrementAndGet());
             String sessionId = preferences(app).getString(PREF_SESSION, "");
-            if ((sessionId == null || sessionId.isEmpty()) && TEMPORARY_TEST_CAPTURE.get()) {
+            if ((sessionId == null || sessionId.isEmpty())
+                    && TEMPORARY_TEST_CAPTURE.get()) {
                 sessionId = temporarySessionId;
             }
             record.put("session_id", sessionId == null ? "" : sessionId);
@@ -269,8 +258,8 @@ public final class DiagnosticLog {
     private static JSONObject connectivity(Context app) throws Exception {
         JSONObject result = new JSONObject();
         try {
-            ConnectivityManager manager =
-                    (ConnectivityManager) app.getSystemService(Context.CONNECTIVITY_SERVICE);
+            ConnectivityManager manager = (ConnectivityManager)
+                    app.getSystemService(Context.CONNECTIVITY_SERVICE);
             if (manager == null) {
                 result.put("available", false);
                 return result;
@@ -280,18 +269,18 @@ public final class DiagnosticLog {
             result.put("available", capabilities != null);
             result.put("metered", manager.isActiveNetworkMetered());
             if (capabilities != null) {
-                result.put("internet",
-                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET));
-                result.put("validated",
-                        capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED));
-                result.put("wifi",
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI));
-                result.put("cellular",
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR));
-                result.put("ethernet",
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET));
-                result.put("vpn",
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN));
+                result.put("internet", capabilities.hasCapability(
+                        NetworkCapabilities.NET_CAPABILITY_INTERNET));
+                result.put("validated", capabilities.hasCapability(
+                        NetworkCapabilities.NET_CAPABILITY_VALIDATED));
+                result.put("wifi", capabilities.hasTransport(
+                        NetworkCapabilities.TRANSPORT_WIFI));
+                result.put("cellular", capabilities.hasTransport(
+                        NetworkCapabilities.TRANSPORT_CELLULAR));
+                result.put("ethernet", capabilities.hasTransport(
+                        NetworkCapabilities.TRANSPORT_ETHERNET));
+                result.put("vpn", capabilities.hasTransport(
+                        NetworkCapabilities.TRANSPORT_VPN));
             }
         } catch (RuntimeException exception) {
             result.put("available", false);
@@ -302,9 +291,7 @@ public final class DiagnosticLog {
 
     private static JSONObject details(Object... fields) throws Exception {
         JSONObject result = new JSONObject();
-        if (fields == null) {
-            return result;
-        }
+        if (fields == null) return result;
         for (int index = 0; index + 1 < fields.length; index += 2) {
             String key = safe(String.valueOf(fields[index]));
             Object value = fields[index + 1];
@@ -341,9 +328,7 @@ public final class DiagnosticLog {
         byte[] encoded = line.getBytes(StandardCharsets.UTF_8);
         synchronized (FILE_LOCK) {
             File directory = directory(app);
-            if (!directory.exists() && !directory.mkdirs()) {
-                return;
-            }
+            if (!directory.exists() && !directory.mkdirs()) return;
             File current = new File(directory, CURRENT_FILE);
             if (current.length() + encoded.length > MAX_FILE_BYTES) {
                 rotate(directory);
@@ -358,9 +343,7 @@ public final class DiagnosticLog {
 
     private static void rotate(File directory) {
         File oldest = archive(directory, MAX_ARCHIVES);
-        if (oldest.exists()) {
-            oldest.delete();
-        }
+        if (oldest.exists()) oldest.delete();
         for (int index = MAX_ARCHIVES - 1; index >= 1; index--) {
             File source = archive(directory, index);
             if (source.exists()) {
@@ -368,9 +351,7 @@ public final class DiagnosticLog {
             }
         }
         File current = new File(directory, CURRENT_FILE);
-        if (current.exists()) {
-            current.renameTo(archive(directory, 1));
-        }
+        if (current.exists()) current.renameTo(archive(directory, 1));
     }
 
     private static File[] orderedFiles(Context app) {
@@ -395,9 +376,7 @@ public final class DiagnosticLog {
     }
 
     private static Context appContext(Context context) {
-        if (context == null) {
-            return applicationContext;
-        }
+        if (context == null) return applicationContext;
         Context app = context.getApplicationContext();
         return app == null ? context : app;
     }

@@ -2,14 +2,10 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory android:title="Log tracing">
-        <SwitchPreferenceCompat
-            android:key="diagnostic_logging_enabled"
-            android:summary="Record detailed app, refresh, scheduler, Wear, and network events"
-            android:title="Save diagnostic logs"
-            app:iconSpaceReserved="false" />
+    <PreferenceCategory android:title="Diagnostic logs">
         <Preference
             android:key="diagnostic_log_status"
+            android:summary="Always on · bounded rolling storage"
             android:title="Saved logs"
             app:iconSpaceReserved="false"
             app:selectable="false" />
@@ -27,7 +23,7 @@
 
     <PreferenceCategory android:title="Privacy">
         <Preference
-            android:summary="Logs stay in private app storage until you export or clear them. Authentication tokens, cookies, authorization codes, email addresses, URL queries, and request/response bodies are never intentionally recorded. Review an export before sharing it."
+            android:summary="Diagnostics are always captured into bounded private app storage. Authentication tokens, cookies, authorization codes, email addresses, URL queries, and request/response bodies are never intentionally recorded. Review an export before sharing it."
             android:title="Sensitive data protection"
             app:iconSpaceReserved="false"
             app:selectable="false" />

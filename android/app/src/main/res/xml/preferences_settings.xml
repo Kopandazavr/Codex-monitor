@@ -9,27 +9,11 @@
         app:allowDividerBelow="false" />
 
     <PreferenceCategory android:title="Dashboard">
-        <!-- Keep legacy page keys in the tree so old SettingsActivity summary/binding code stays
-             null-safe, but remove them from the user-facing settings surface. -->
-        <Preference
-            android:key="settings_appearance"
-            android:title="Appearance"
-            app:iconSpaceReserved="false"
-            app:isPreferenceVisible="false" />
-        <Preference
-            android:key="settings_refresh_usage"
-            android:title="Refresh &amp; usage"
-            app:iconSpaceReserved="false"
-            app:isPreferenceVisible="false" />
         <Preference
             android:key="dashboard_reorder_root"
             android:summary="Arrange the dashboard from one place"
             android:title="Edit dashboard"
-            app:iconSpaceReserved="false">
-            <intent
-                android:targetPackage="dev.bennett.codexmeter"
-                android:targetClass="dev.bennett.codexmeter.DashboardReorderActivity" />
-        </Preference>
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Features">
@@ -37,38 +21,11 @@
             android:key="settings_notifications"
             android:title="Notifications &amp; live monitor"
             app:iconSpaceReserved="false" />
-        <!-- Now Bar remains a compatibility subpage, reachable from Notifications, rather than a
-             second top-level settings bucket. -->
         <Preference
-            android:key="settings_now_bar"
-            android:title="Now Bar"
-            app:iconSpaceReserved="false"
-            app:isPreferenceVisible="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="App &amp; data">
-        <Preference
-            android:key="settings_updates"
-            android:title="Updates"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="settings_transfer"
-            android:summary="Move settings between devices"
-            android:title="Backup &amp; transfer"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="settings_privacy"
-            android:summary="Local storage, encryption, and network access"
-            android:title="Privacy"
+            android:key="settings_diagnostics"
+            android:title="Diagnostics"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
-
-    <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="20dp" />
-
-    <Preference
-        android:key="about_codex_meter"
-        android:title="About Codex Meter"
-        app:iconSpaceReserved="false" />
 
     <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="28dp" />
 </PreferenceScreen>

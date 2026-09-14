@@ -74,11 +74,8 @@ public final class MainActivity extends AppCompatActivity {
                 MainActivity.this.rebuild();
                 return;
             }
-            if (AppConstants.ACTION_USAGE_UPDATED.equals(action) || AppConstants.ACTION_RESET_CREDITS_UPDATED.equals(action)) {
-                MainActivity.this.rebuild();
-                return;
-            }
-            if (AppConstants.ACTION_RELEASES_UPDATED.equals(action)) {
+            if (AppConstants.ACTION_USAGE_UPDATED.equals(action)
+                    || AppConstants.ACTION_RESET_CREDITS_UPDATED.equals(action)) {
                 MainActivity.this.rebuild();
             }
         }
@@ -107,7 +104,6 @@ public final class MainActivity extends AppCompatActivity {
         WidgetUpgradeRepair.runIfNeeded(this);
         rebuild();
         RefreshScheduler.schedulePeriodic(this);
-        ReleaseUpdateScheduler.ensureScheduled(this);
     }
 
     @Override
@@ -172,17 +168,19 @@ public final class MainActivity extends AppCompatActivity {
         intentFilter.addAction(AppConstants.ACTION_OAUTH_RESULT);
         intentFilter.addAction(AppConstants.ACTION_USAGE_UPDATED);
         intentFilter.addAction(AppConstants.ACTION_RESET_CREDITS_UPDATED);
-        intentFilter.addAction(AppConstants.ACTION_RELEASES_UPDATED);
         try {
             if (Build.VERSION.SDK_INT >= 33) {
-                registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null, 4);
+                registerReceiver(this.authReceiver, intentFilter,
+                        "dev.bennett.codexmeter.permission.INTERNAL", null, 4);
             } else {
-                registerReceiver(this.authReceiver, intentFilter, "dev.bennett.codexmeter.permission.INTERNAL", null);
+                registerReceiver(this.authReceiver, intentFilter,
+                        "dev.bennett.codexmeter.permission.INTERNAL", null);
             }
             this.receiverRegistered = true;
         } catch (RuntimeException e) {
             this.receiverRegistered = false;
-            AppPreferences.setSchedulerError(this, "App update receiver: " + safeMessage(e));
+            AppPreferences.setSchedulerError(this,
+                    "App broadcast receiver: " + safeMessage(e));
         }
         rebuild();
         if (this.launchSignInRequested) {
@@ -193,7 +191,9 @@ public final class MainActivity extends AppCompatActivity {
             AppPreferences.setOAuthPending(this, false, "");
             UsageSnapshot usageSnapshotLoadSnapshot = AppPreferences.loadSnapshot(this);
             if (AppPreferences.getRefreshOnLaunch(this)
-                    && (usageSnapshotLoadSnapshot == null || System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis > 300000)) {
+                    && (usageSnapshotLoadSnapshot == null
+                    || System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis
+                    > 300000)) {
                 RefreshScheduler.scheduleImmediate(this);
             }
         }
@@ -227,7 +227,8 @@ public final class MainActivity extends AppCompatActivity {
             intent.removeExtra("start_sign_in");
         }
         Uri data = intent == null ? null : intent.getData();
-        if (data != null && "codexmeter".equals(data.getScheme()) && "auth".equals(data.getHost())) {
+        if (data != null && "codexmeter".equals(data.getScheme())
+                && "auth".equals(data.getHost())) {
             if (SecureTokenStore.isSignedIn(this)) {
                 AppPreferences.setOAuthPending(this, false, "");
                 RefreshScheduler.scheduleImmediate(this);
@@ -275,11 +276,6 @@ public final class MainActivity extends AppCompatActivity {
     public void rebuild() {
         if (this.content != null) {
             this.content.removeAllViews();
-            GitHubRelease update = UpdatePreferences.availableUpdate(this);
-            if (update != null) {
-                this.content.addView(buildUpdateCard(update));
-                Ui.addSpacer(this.content, 20);
-            }
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
                 this.content.addView(dashboard);
@@ -288,15 +284,16 @@ public final class MainActivity extends AppCompatActivity {
             boolean signedIn = SecureTokenStore.isSignedIn(this);
             if (!signedIn) {
                 Button signIn = Ui.nativePrimaryButton(this,
-                        AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT");
+                        AppPreferences.isOAuthPending(this)
+                                ? "Continue sign-in" : "Sign in with ChatGPT");
                 signIn.setOnClickListener(view -> startOrContinueSignIn());
-                this.content.addView(signIn, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+                this.content.addView(signIn,
+                        new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
                 Ui.addSpacer(this.content, 20);
             }
             if (signedIn && dashboard.getChildCount() == 0) {
                 TextView empty = Ui.text(this,
-                        "No dashboard items are available. Refresh usage or choose items in "
-                                + "Settings → Refresh & usage.",
+                        "No dashboard items are available. Refresh usage or choose items with Edit dashboard.",
                         14.0f, Ui.secondaryText(this.dark));
                 empty.setGravity(Gravity.CENTER);
                 this.content.addView(empty, new LinearLayout.LayoutParams(-1, -2));
@@ -304,40 +301,12 @@ public final class MainActivity extends AppCompatActivity {
         }
     }
 
-    private LinearLayout buildUpdateCard(GitHubRelease release) {
-        boolean returnToStable = UpdateChannel.isReturnToStable(release,
-                UpdatePreferences.installedVersion(this));
-        LinearLayout card = Ui.card(this, this.dark);
-        TextView title = Ui.text(this, returnToStable
-                        ? "Return to Codex Meter " + release.version
-                        : "Codex Meter " + release.version + " is ready", 18,
-                Ui.mainText(this.dark));
-        title.setTypeface(Ui.mediumTypeface(this));
-        card.addView(title);
-        TextView summary = Ui.text(this,
-                returnToStable
-                        ? "You are back on the stable channel. The stable APK installs in place "
-                        + "over this alpha build after checksum verification."
-                        : release.prerelease
-                        ? "A signed alpha release is available. The APK will be checksum-verified "
-                        + "before Android asks you to approve installation."
-                        : "A signed GitHub release is available. The APK will be checksum-verified "
-                        + "before Android asks you to approve installation.",
-                13, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
-        summaryParams.setMargins(0, Ui.dp(this, 7), 0, Ui.dp(this, 14));
-        card.addView(summary, summaryParams);
-        Button update = Ui.nativePrimaryButton(this, "Review update");
-        update.setOnClickListener(view -> startActivity(new Intent(this, UpdateActivity.class)
-                .putExtra(UpdateActivity.EXTRA_VERSION, release.version)));
-        card.addView(update, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
-        return card;
-    }
-
     private void addHeader() {
-        TextView textViewText = Ui.text(this, "Your Codex allowance at a glance.", 15.0f, Ui.secondaryText(this.dark));
+        TextView textViewText = Ui.text(this, "Your Codex allowance at a glance.", 15.0f,
+                Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
-        layoutParams.setMargins(Ui.dp(this, 4.0f), Ui.dp(this, 4.0f), 0, Ui.dp(this, 2.0f));
+        layoutParams.setMargins(Ui.dp(this, 4.0f), Ui.dp(this, 4.0f), 0,
+                Ui.dp(this, 2.0f));
         this.content.addView(textViewText, layoutParams);
     }
 
@@ -378,7 +347,8 @@ public final class MainActivity extends AppCompatActivity {
                 }
             }
             // Zero, near-zero, and negative balances are always hidden regardless of settings.
-            if (AppPreferences.showDashboardUsageCredits(this) && snapshot.usageCredits != null
+            if (AppPreferences.showDashboardUsageCredits(this)
+                    && snapshot.usageCredits != null
                     && snapshot.usageCredits.shouldDisplay()) {
                 available.add(DashboardSections.USAGE_CREDITS);
             }
@@ -391,7 +361,8 @@ public final class MainActivity extends AppCompatActivity {
             }
         }
         // Zero available resets always hide the card, even when the Edit dashboard switch is on.
-        if (AppPreferences.showDashboardResetCredits(this) && shouldShowResetCreditsCard(snapshot)) {
+        if (AppPreferences.showDashboardResetCredits(this)
+                && shouldShowResetCreditsCard(snapshot)) {
             available.add(DashboardSections.RESET_CREDITS);
         }
         boolean inverted = false;
@@ -492,7 +463,8 @@ public final class MainActivity extends AppCompatActivity {
                     AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
                     snapshot.fetchedAtMillis,
                     UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
-            card.addView(fiveChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+            card.addView(fiveChart,
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
@@ -503,7 +475,8 @@ public final class MainActivity extends AppCompatActivity {
                     AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
                     snapshot.fetchedAtMillis,
                     UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
-            card.addView(weeklyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+            card.addView(weeklyChart,
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
@@ -514,7 +487,8 @@ public final class MainActivity extends AppCompatActivity {
                     AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY),
                     snapshot.fetchedAtMillis,
                     UsagePacePreferences.assess(this, snapshot, monthlyWindow, now));
-            card.addView(monthlyChart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
+            card.addView(monthlyChart,
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
@@ -529,8 +503,10 @@ public final class MainActivity extends AppCompatActivity {
         }
 
         Button open = Ui.button(this, "View history", false, this.dark);
-        open.setOnClickListener(view -> Ui.startSecondaryActivity(this, UsageHistoryActivity.class));
-        LinearLayout.LayoutParams openParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
+        open.setOnClickListener(view ->
+                Ui.startSecondaryActivity(this, UsageHistoryActivity.class));
+        LinearLayout.LayoutParams openParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
         return card;
@@ -552,7 +528,8 @@ public final class MainActivity extends AppCompatActivity {
         ImageView image = new ImageView(this);
         image.setImageResource(icon);
         image.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
-        row.addView(image, new LinearLayout.LayoutParams(Ui.dp(this, 30), Ui.dp(this, 30)));
+        row.addView(image,
+                new LinearLayout.LayoutParams(Ui.dp(this, 30), Ui.dp(this, 30)));
 
         LinearLayout labels = new LinearLayout(this);
         labels.setOrientation(LinearLayout.VERTICAL);
@@ -563,7 +540,8 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-2, -2);
         summaryParams.setMargins(0, Ui.dp(this, 2), 0, 0);
         labels.addView(summaryText, summaryParams);
-        LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        LinearLayout.LayoutParams labelParams =
+                new LinearLayout.LayoutParams(0, -2, 1.0f);
         labelParams.setMargins(Ui.dp(this, 16), 0, 0, 0);
         row.addView(labels, labelParams);
 
@@ -632,7 +610,8 @@ public final class MainActivity extends AppCompatActivity {
 
     private LinearLayout buildUsageCard() {
         LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        linearLayoutCard.setPadding(Ui.dp(this, 20.0f), Ui.dp(this, 20.0f), Ui.dp(this, 20.0f), Ui.dp(this, 10.0f));
+        linearLayoutCard.setPadding(Ui.dp(this, 20.0f), Ui.dp(this, 20.0f),
+                Ui.dp(this, 20.0f), Ui.dp(this, 10.0f));
         AuthTokens tokens = SecureTokenStore.load(this);
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
         boolean signedIn = tokens != null;
@@ -641,86 +620,115 @@ public final class MainActivity extends AppCompatActivity {
         ImageView avatar = new ImageView(this);
         avatar.setImageResource(R.drawable.codex_profile_avatar);
         Ui.makeAvatar(avatar);
-        account.addView(avatar, new LinearLayout.LayoutParams(Ui.dp(this, 44.0f), Ui.dp(this, 44.0f)));
+        account.addView(avatar,
+                new LinearLayout.LayoutParams(Ui.dp(this, 44.0f), Ui.dp(this, 44.0f)));
         LinearLayout identity = new LinearLayout(this);
         identity.setOrientation(LinearLayout.VERTICAL);
         String titleText = signedIn ? "ChatGPT account" : "Not connected";
         TextView title = Ui.text(this, titleText, 18.0f, Ui.mainText(this.dark));
         title.setSingleLine(true);
         identity.addView(title);
-        TextView subtitle = Ui.text(this, signedIn && !tokens.email.isEmpty() ? tokens.email : (signedIn ? "Connected" : "Sign in to view your usage"), 14.0f, Ui.secondaryText(this.dark));
+        TextView subtitle = Ui.text(this,
+                signedIn && !tokens.email.isEmpty()
+                        ? tokens.email
+                        : (signedIn ? "Connected" : "Sign in to view your usage"),
+                14.0f, Ui.secondaryText(this.dark));
         subtitle.setSingleLine(true);
         subtitle.setEllipsize(android.text.TextUtils.TruncateAt.END);
         identity.addView(subtitle);
-        LinearLayout.LayoutParams identityParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        LinearLayout.LayoutParams identityParams =
+                new LinearLayout.LayoutParams(0, -2, 1.0f);
         identityParams.setMargins(Ui.dp(this, 20.0f), 0, Ui.dp(this, 10.0f), 0);
         account.addView(identity, identityParams);
         if (signedIn && snapshot != null) {
             String plan = UsageFormat.planLabel(snapshot.planType);
-            TextView badge = Ui.text(this, plan.isEmpty() ? "Codex" : plan, 14.0f, Ui.mainText(this.dark));
+            TextView badge = Ui.text(this, plan.isEmpty() ? "Codex" : plan,
+                    14.0f, Ui.mainText(this.dark));
             badge.setTypeface(Ui.mediumTypeface(this));
             badge.setGravity(Gravity.CENTER);
-            badge.setPadding(Ui.dp(this, 13.0f), Ui.dp(this, 6.0f), Ui.dp(this, 13.0f), Ui.dp(this, 6.0f));
+            badge.setPadding(Ui.dp(this, 13.0f), Ui.dp(this, 6.0f),
+                    Ui.dp(this, 13.0f), Ui.dp(this, 6.0f));
             badge.setBackground(Ui.pillBackground(this, this.dark));
             account.addView(badge);
         }
-        linearLayoutCard.addView(account, new LinearLayout.LayoutParams(-1, Ui.dp(this, 55.0f)));
+        linearLayoutCard.addView(account,
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 55.0f)));
 
         View divider = new View(this);
         divider.setBackgroundColor(Ui.divider(this.dark));
-        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 1.0f));
+        LinearLayout.LayoutParams dividerParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 1.0f));
         dividerParams.setMargins(0, Ui.dp(this, 10.0f), 0, Ui.dp(this, 10.0f));
         linearLayoutCard.addView(divider, dividerParams);
 
         LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);
         if (!signedIn) {
-            Button button = Ui.button(this, AppPreferences.isOAuthPending(this) ? "Continue sign-in" : "Sign in with ChatGPT", true, this.dark);
-            button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.3
-                @Override // android.view.View.OnClickListener
+            Button button = Ui.button(this,
+                    AppPreferences.isOAuthPending(this)
+                            ? "Continue sign-in" : "Sign in with ChatGPT",
+                    true, this.dark);
+            button.setOnClickListener(new View.OnClickListener() {
+                @Override
                 public void onClick(View view) {
                     MainActivity.this.startOrContinueSignIn();
                 }
             });
-            linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
+            linearLayoutHorizontal.addView(button,
+                    new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
         } else {
             final Button button2 = Ui.button(this, "Refresh", true, this.dark);
             button2.setCompoundDrawables(null, null, null, null);
-            button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.4
-                @Override // android.view.View.OnClickListener
+            button2.setOnClickListener(new View.OnClickListener() {
+                @Override
                 public void onClick(View view) {
                     MainActivity.this.refreshNow(button2);
                 }
             });
-            linearLayoutHorizontal.addView(button2, new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f));
+            linearLayoutHorizontal.addView(button2,
+                    new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f));
             Button button3 = Ui.button(this, "Sign out", false, this.dark);
             button3.setCompoundDrawables(null, null, null, null);
-            LinearLayout.LayoutParams layoutParams4 = new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f);
+            LinearLayout.LayoutParams layoutParams4 =
+                    new LinearLayout.LayoutParams(0, Ui.dp(this, 60.0f), 1.0f);
             layoutParams4.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
             linearLayoutHorizontal.addView(button3, layoutParams4);
-            button3.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.5
-                @Override // android.view.View.OnClickListener
+            button3.setOnClickListener(new View.OnClickListener() {
+                @Override
                 public void onClick(View view) {
                     MainActivity.this.confirmSignOut();
                 }
             });
         }
-        linearLayoutCard.addView(linearLayoutHorizontal, new LinearLayout.LayoutParams(-1, Ui.dp(this, 74.0f)));
+        linearLayoutCard.addView(linearLayoutHorizontal,
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 74.0f)));
         return linearLayoutCard;
     }
 
     private void addUsageRow(LinearLayout linearLayout, String str, UsageWindow usageWindow) {
         LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 80);
-        linearLayoutHorizontal.addView(Ui.text(this, str, 13.0f, Ui.secondaryText(this.dark)), new LinearLayout.LayoutParams(0, -2, 1.0f));
-        TextView textViewText = Ui.text(this, usageWindow == null ? "Unavailable" : usageWindow.remainingPercent() + "% left", 20.0f, Ui.mainText(this.dark));
+        linearLayoutHorizontal.addView(
+                Ui.text(this, str, 13.0f, Ui.secondaryText(this.dark)),
+                new LinearLayout.LayoutParams(0, -2, 1.0f));
+        TextView textViewText = Ui.text(this,
+                usageWindow == null
+                        ? "Unavailable"
+                        : usageWindow.remainingPercent() + "% left",
+                20.0f, Ui.mainText(this.dark));
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutHorizontal.addView(textViewText);
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
         layoutParams.setMargins(0, Ui.dp(this, 4.0f), 0, Ui.dp(this, 6.0f));
         linearLayout.addView(linearLayoutHorizontal, layoutParams);
         ProgressBar progressBarProgress = Ui.progress(this, this.dark);
-        progressBarProgress.setProgress(usageWindow == null ? 0 : usageWindow.remainingPercent());
+        progressBarProgress.setProgress(
+                usageWindow == null ? 0 : usageWindow.remainingPercent());
         linearLayout.addView(progressBarProgress);
-        View viewText = Ui.text(this, usageWindow == null ? "Reset time unavailable" : UsageFormat.reset(this, usageWindow, "both", System.currentTimeMillis()), 11.0f, Ui.secondaryText(this.dark));
+        View viewText = Ui.text(this,
+                usageWindow == null
+                        ? "Reset time unavailable"
+                        : UsageFormat.reset(this, usageWindow, "both",
+                                System.currentTimeMillis()),
+                11.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
         layoutParams2.setMargins(0, Ui.dp(this, 5.0f), 0, Ui.dp(this, 13.0f));
         linearLayout.addView(viewText, layoutParams2);
@@ -803,7 +811,9 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout buildWidgetCard() {
         String str;
         LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        int length = AppWidgetManager.getInstance(this).getAppWidgetIds(new ComponentName(this, (Class<?>) CodexUsageWidget.class)).length + SamsungLockWidgetSupport.countAll(this);
+        int length = AppWidgetManager.getInstance(this)
+                .getAppWidgetIds(new ComponentName(this, (Class<?>) CodexUsageWidget.class)).length
+                + SamsungLockWidgetSupport.countAll(this);
         if (length == 0) {
             str = "Add Codex Meter widgets";
         } else {
@@ -812,25 +822,29 @@ public final class MainActivity extends AppCompatActivity {
         TextView textViewText = Ui.text(this, str, 16.0f, Ui.mainText(this.dark));
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutCard.addView(textViewText);
-        View viewText = Ui.text(this, "Home and Galaxy lock-screen widgets use two battery-style dials for 5-hour and weekly usage remaining, with One UI Home handling the native frame and blur.", 13.0f, Ui.secondaryText(this.dark));
+        View viewText = Ui.text(this,
+                "Home and Galaxy lock-screen widgets use two battery-style dials for 5-hour and weekly usage remaining, with One UI Home handling the native frame and blur.",
+                13.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
         layoutParams.setMargins(0, Ui.dp(this, 7.0f), 0, Ui.dp(this, 15.0f));
         linearLayoutCard.addView(viewText, layoutParams);
         LinearLayout linearLayoutHorizontal = Ui.horizontal(this, 16);
         Button button = Ui.button(this, "Add widget", true, this.dark);
-        button.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.7
-            @Override // android.view.View.OnClickListener
+        button.setOnClickListener(new View.OnClickListener() {
+            @Override
             public void onClick(View view) {
                 MainActivity.this.requestPinWidget();
             }
         });
-        linearLayoutHorizontal.addView(button, new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
+        linearLayoutHorizontal.addView(button,
+                new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f));
         Button button2 = Ui.button(this, "Customize", false, this.dark);
-        LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f);
+        LinearLayout.LayoutParams layoutParams2 =
+                new LinearLayout.LayoutParams(0, Ui.dp(this, 50.0f), 1.0f);
         layoutParams2.setMargins(Ui.dp(this, 10.0f), 0, 0, 0);
         linearLayoutHorizontal.addView(button2, layoutParams2);
-        button2.setOnClickListener(new View.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.8
-            @Override // android.view.View.OnClickListener
+        button2.setOnClickListener(new View.OnClickListener() {
+            @Override
             public void onClick(View view) {
                 Ui.startSecondaryActivity(MainActivity.this, SettingsActivity.class);
             }
@@ -841,17 +855,23 @@ public final class MainActivity extends AppCompatActivity {
 
     private LinearLayout buildOperationCard() {
         LinearLayout linearLayoutCard = Ui.card(this, this.dark);
-        TextView textViewText = Ui.text(this, "Automatic refresh every " + AppPreferences.getRefreshMinutes(this) + " minutes", 15.0f, Ui.mainText(this.dark));
+        TextView textViewText = Ui.text(this,
+                "Automatic refresh every " + AppPreferences.getRefreshMinutes(this) + " minutes",
+                15.0f, Ui.mainText(this.dark));
         textViewText.setTypeface(Ui.mediumTypeface(this));
         linearLayoutCard.addView(textViewText);
-        TextView textViewText2 = Ui.text(this, "Manual refreshes run immediately. Scheduled work follows Android battery and network policy, and another update is requested after the next known reset. Cached values remain visible offline.", 13.0f, Ui.secondaryText(this.dark));
+        TextView textViewText2 = Ui.text(this,
+                "Manual refreshes run immediately. Scheduled work follows Android battery and network policy, and another update is requested after the next known reset. Cached values remain visible offline.",
+                13.0f, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(-1, -2);
         layoutParams.setMargins(0, Ui.dp(this, 7.0f), 0, 0);
         linearLayoutCard.addView(textViewText2, layoutParams);
         String schedulerError = AppPreferences.getSchedulerError(this);
         if (!schedulerError.isEmpty()) {
-            TextView textViewText3 = Ui.text(this, schedulerError, 12.0f, Ui.danger(this.dark));
-            LinearLayout.LayoutParams layoutParams2 = new LinearLayout.LayoutParams(-1, -2);
+            TextView textViewText3 = Ui.text(this, schedulerError, 12.0f,
+                    Ui.danger(this.dark));
+            LinearLayout.LayoutParams layoutParams2 =
+                    new LinearLayout.LayoutParams(-1, -2);
             layoutParams2.setMargins(0, Ui.dp(this, 10.0f), 0, 0);
             linearLayoutCard.addView(textViewText3, layoutParams2);
         }
@@ -868,7 +888,8 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         try {
-            startForegroundService(new Intent(this, (Class<?>) OAuthService.class).setAction(OAuthService.ACTION_START));
+            startForegroundService(new Intent(this, (Class<?>) OAuthService.class)
+                    .setAction(OAuthService.ACTION_START));
             if (AppPreferences.isOAuthPending(this)) {
                 str = "Resuming secure OpenAI sign-in…";
             } else {
@@ -878,7 +899,8 @@ public final class MainActivity extends AppCompatActivity {
         } catch (RuntimeException e) {
             DiagnosticLog.error(this, "auth", "sign_in_service_start_failed", e);
             AppPreferences.setOAuthPending(this, false, "");
-            Toast.makeText(this, "Could not start sign-in: " + safeMessage(e), 1).show();
+            Toast.makeText(this,
+                    "Could not start sign-in: " + safeMessage(e), 1).show();
         }
     }
 
@@ -888,7 +910,8 @@ public final class MainActivity extends AppCompatActivity {
             try {
                 startActivity(new Intent("android.intent.action.VIEW", Uri.parse(str)));
             } catch (RuntimeException e) {
-                Toast.makeText(this, "No browser is available to complete sign-in.", 1).show();
+                Toast.makeText(this,
+                        "No browser is available to complete sign-in.", 1).show();
             }
         }
     }
@@ -898,14 +921,15 @@ public final class MainActivity extends AppCompatActivity {
         button.setEnabled(false);
         button.setText(R.string.refreshing);
         final Context applicationContext = getApplicationContext();
-        this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.9
-            @Override // java.lang.Runnable
+        this.executor.execute(new Runnable() {
+            @Override
             public void run() {
                 try {
-                    RefreshScheduler.scheduleAtNextReset(applicationContext, UsageApi.refreshAndCache(applicationContext));
+                    RefreshScheduler.scheduleAtNextReset(applicationContext,
+                            UsageApi.refreshAndCache(applicationContext));
                     WidgetRenderer.updateAll(applicationContext);
-                    MainActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.9.1
-                        @Override // java.lang.Runnable
+                    MainActivity.this.runOnUiThread(new Runnable() {
+                        @Override
                         public void run() {
                             DiagnosticLog.info(applicationContext, "user",
                                     "manual_refresh_finished", "source", "button");
@@ -914,14 +938,16 @@ public final class MainActivity extends AppCompatActivity {
                         }
                     });
                 } catch (Exception e) {
-                    DiagnosticLog.error(applicationContext, "user", "manual_refresh_failed", e,
-                            "source", "button");
-                    AppPreferences.setLastError(applicationContext, MainActivity.safeMessage(e));
+                    DiagnosticLog.error(applicationContext, "user",
+                            "manual_refresh_failed", e, "source", "button");
+                    AppPreferences.setLastError(applicationContext,
+                            MainActivity.safeMessage(e));
                     WidgetRenderer.updateAll(applicationContext);
-                    MainActivity.this.runOnUiThread(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.9.2
-                        @Override // java.lang.Runnable
+                    MainActivity.this.runOnUiThread(new Runnable() {
+                        @Override
                         public void run() {
-                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), 1).show();
+                            Toast.makeText(MainActivity.this,
+                                    MainActivity.safeMessage(e), 1).show();
                             MainActivity.this.rebuild();
                         }
                     });
@@ -936,14 +962,16 @@ public final class MainActivity extends AppCompatActivity {
             DiagnosticLog.warn(this, "user", "manual_refresh_rejected",
                     "source", "pull", "reason", "signed_out");
             this.swipeRefresh.setRefreshing(false);
-            Toast.makeText(this, "Sign in from Settings to refresh usage.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this,
+                    "Sign in from Settings to refresh usage.", Toast.LENGTH_SHORT).show();
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return;
         }
         final Context applicationContext = getApplicationContext();
         this.executor.execute(() -> {
             try {
-                RefreshScheduler.scheduleAtNextReset(applicationContext, UsageApi.refreshAndCache(applicationContext));
+                RefreshScheduler.scheduleAtNextReset(applicationContext,
+                        UsageApi.refreshAndCache(applicationContext));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
                     DiagnosticLog.info(applicationContext, "user",
@@ -952,8 +980,8 @@ public final class MainActivity extends AppCompatActivity {
                     rebuild();
                 });
             } catch (Exception e) {
-                DiagnosticLog.error(applicationContext, "user", "manual_refresh_failed", e,
-                        "source", "pull");
+                DiagnosticLog.error(applicationContext, "user",
+                        "manual_refresh_failed", e, "source", "pull");
                 AppPreferences.setLastError(applicationContext, safeMessage(e));
                 WidgetRenderer.updateAll(applicationContext);
                 runOnUiThread(() -> {
@@ -966,12 +994,16 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void confirmSignOut() {
-        AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Sign out?").setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.").setNegativeButton("Cancel", (DialogInterface.OnClickListener) null).setPositiveButton("Sign out", new DialogInterface.OnClickListener() { // from class: dev.bennett.codexmeter.MainActivity.10
-            @Override // android.content.DialogInterface.OnClickListener
-            public void onClick(DialogInterface dialogInterface, int i) {
-                MainActivity.this.signOut();
-            }
-        }).create();
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Sign out?")
+                .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
+                .setNegativeButton("Cancel", (DialogInterface.OnClickListener) null)
+                .setPositiveButton("Sign out", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        MainActivity.this.signOut();
+                    }
+                }).create();
         dialog.show();
     }
 
@@ -985,8 +1017,8 @@ public final class MainActivity extends AppCompatActivity {
         ResetAlertScheduler.cancelAll(this);
         WidgetRenderer.updateAll(this);
         rebuild();
-        this.executor.execute(new Runnable() { // from class: dev.bennett.codexmeter.MainActivity.11
-            @Override // java.lang.Runnable
+        this.executor.execute(new Runnable() {
+            @Override
             public void run() {
                 OAuthClient.revokeBestEffort(MainActivity.this.getApplicationContext(),
                         authTokensLoad);
@@ -996,12 +1028,18 @@ public final class MainActivity extends AppCompatActivity {
 
     public void requestPinWidget() {
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
-        ComponentName componentName = new ComponentName(this, (Class<?>) CodexUsageWidget.class);
+        ComponentName componentName =
+                new ComponentName(this, (Class<?>) CodexUsageWidget.class);
         if (appWidgetManager.isRequestPinAppWidgetSupported()) {
             appWidgetManager.requestPinAppWidget(componentName, null, null);
-            Toast.makeText(this, "Choose a size and place the widget on your home screen.", 1).show();
+            Toast.makeText(this,
+                    "Choose a size and place the widget on your home screen.", 1).show();
         } else {
-            AlertDialog dialog = new AlertDialog.Builder(this).setTitle("Add from your launcher").setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.").setPositiveButton("OK", (DialogInterface.OnClickListener) null).create();
+            AlertDialog dialog = new AlertDialog.Builder(this)
+                    .setTitle("Add from your launcher")
+                    .setMessage("Long-press an empty area of the home screen, open Widgets, then choose Codex Meter.")
+                    .setPositiveButton("OK", (DialogInterface.OnClickListener) null)
+                    .create();
             dialog.show();
         }
     }

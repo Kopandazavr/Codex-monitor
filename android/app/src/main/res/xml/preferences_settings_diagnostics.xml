@@ -21,7 +21,7 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Privacy">
+    <PreferenceCategory android:title="Sanitization">
         <Preference
             android:summary="Diagnostics are always captured into bounded private app storage. Authentication tokens, cookies, authorization codes, email addresses, URL queries, and request/response bodies are never intentionally recorded. Review an export before sharing it."
             android:title="Sensitive data protection"

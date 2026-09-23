@@ -387,7 +387,7 @@ public final class OAuthService extends Service {
         PendingIntent cancel = PendingIntent.getService(this, 7303, cancelIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_oui_notification)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle("Codex Meter sign-in")
                 .setContentText(text)
                 .setContentIntent(open)

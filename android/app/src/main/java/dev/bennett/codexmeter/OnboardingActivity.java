@@ -31,7 +31,6 @@ import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 public final class OnboardingActivity extends AppCompatActivity {
     public static final String EXTRA_AUTH_RETURN = "oauth_return";
     private static final int REQUEST_NOTIFICATIONS = 8601;
-    private static final int REQUEST_CALENDAR = 8603;
     private static final int STATUS_GREEN_LIGHT = 0xFF16843D;
     private static final int STATUS_GREEN_DARK = 0xFF6EDC8C;
     private static final int STATUS_RED_LIGHT = 0xFFD32F2F;
@@ -173,8 +172,6 @@ public final class OnboardingActivity extends AppCompatActivity {
                 return;
             }
             this.startMonitorAfterNotificationPermission = false;
-        } else if (requestCode == REQUEST_CALENDAR && granted) {
-            DualUsageNotificationManager.repostDelayed(this, 100L);
         }
         render();
     }
@@ -223,13 +220,12 @@ public final class OnboardingActivity extends AppCompatActivity {
                 hasNotificationPermission() ? statusGreen() : STATUS_YELLOW);
         addSetupRow(setup, notifications, true);
 
-        boolean calendarAllowed = checkSelfPermission(Manifest.permission.READ_CALENDAR)
-                == PackageManager.PERMISSION_GRANTED;
+        boolean calendarConnected = GoogleCalendarAuthorization.isConnected(this);
         String calendarState = calendarSummary();
-        CardItemView calendar = Ui.actionRow(this, "Calendar processes", calendarState,
+        CardItemView calendar = Ui.actionRow(this, "Google Calendar", calendarState,
                 R.drawable.ic_oui_calendar_week, view -> requestCalendarAccess());
         setMatchingTextColor(calendar, calendarState,
-                calendarAllowed ? statusGreen() : STATUS_YELLOW);
+                calendarConnected ? statusGreen() : STATUS_YELLOW);
         addSetupRow(setup, calendar, true);
 
         boolean overlayAllowed = IdleReminderOverlayService.canDraw(this);
@@ -322,10 +318,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private String calendarSummary() {
-        return checkSelfPermission(Manifest.permission.READ_CALENDAR)
-                == PackageManager.PERMISSION_GRANTED
-                ? "Allowed · reads locally synced GPT watchdogs"
-                : "Tap to allow local GPT watchdogs";
+        return GoogleCalendarAuthorization.statusSummary(this);
     }
 
     private String monitorSummary() {
@@ -400,12 +393,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void requestCalendarAccess() {
-        if (checkSelfPermission(Manifest.permission.READ_CALENDAR)
-                == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Calendar access is already allowed.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        requestPermissions(new String[]{Manifest.permission.READ_CALENDAR}, REQUEST_CALENDAR);
+        Ui.startSecondaryActivity(this, GoogleCalendarAuthorizationActivity.class);
     }
 
     private void enableLiveMonitor() {

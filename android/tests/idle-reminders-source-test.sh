@@ -62,7 +62,10 @@ grep -q 'COMPLETION_FRESH_MS' "$SRC/IdleReminderManager.java"
 grep -q '"completion_delivered"' "$SRC/IdleReminderManager.java"
 grep -q 'prefs.edit().putLong(key, idle.lastFinishedMillis).apply()' "$SRC/IdleReminderManager.java"
 grep -q 'deliverCompletionAttention' "$SRC/IdleReminderManager.java"
-grep -q 'new Handler(Looper.getMainLooper()).post' "$SRC/IdleReminderManager.java"
+grep -q 'COMPLETION_ATTENTION_DELAY_MS = 1_100L' "$SRC/IdleReminderManager.java"
+grep -q 'codex_idle_reminders_v2' "$SRC/IdleReminderManager.java"
+grep -q '"completion_attention_channel"' "$SRC/IdleReminderManager.java"
+grep -q 'new Handler(Looper.getMainLooper()).postDelayed' "$SRC/IdleReminderManager.java"
 grep -q 'Recurring idle alarms never create completion overlays' "$SRC/IdleReminderManager.java"
 
 # Every process-notification mode has a useful collapsed summary. Combined mode surfaces it inside
@@ -134,11 +137,13 @@ grep -q 'SYSTEM_ALERT_WINDOW' "$ROOT/app/src/main/AndroidManifest.xml"
 # Reboot/package replacement restores local reminder scheduling.
 grep -q 'IdleReminderManager.restore(context)' "$SRC/BootReceiver.java"
 
-# Current phone-acceptance follow-ups stay source-guarded in the same iteration. Quick Setup must
-# keep all functional content above the fold on the target Samsung by using only a small fixed gap.
-grep -q 'Ui.addSpacer(this.content, 12)' "$SRC/OnboardingActivity.java"
-! grep -q 'new LinearLayout.LayoutParams(-1, 0, 1.0f)' "$SRC/OnboardingActivity.java"
-grep -q 'Ui.nativePrimaryButton(this, "Open Codex Monitor")' "$SRC/OnboardingActivity.java"
+# 2.14 Quick Setup is a fixed, non-scrolling one-screen layout. The content owns the flexible
+# middle area while the primary CTA remains outside it at the bottom.
+grep -q 'installStaticLayout()' "$SRC/OnboardingActivity.java"
+grep -q 'new LinearLayout.LayoutParams(-1, 0, 1.0f)' "$SRC/OnboardingActivity.java"
+grep -q 'this.doneButton = Ui.nativePrimaryButton(this, "Open Codex Monitor")' "$SRC/OnboardingActivity.java"
+! grep -q 'Ui.installPage(this, "Quick setup"' "$SRC/OnboardingActivity.java"
+! grep -q 'NestedScrollView' "$SRC/OnboardingActivity.java"
 grep -q 'STATUS_YELLOW = 0xFFFFC107' "$SRC/OnboardingActivity.java"
 grep -q 'setStatusTokenColor(account, accountState' "$SRC/OnboardingActivity.java"
 grep -q 'new ForegroundColorSpan(color)' "$SRC/OnboardingActivity.java"

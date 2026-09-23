@@ -52,6 +52,10 @@ grep -q 'direct_cache_not_fresh' "$SRC/CalendarProcessReader.java"
 grep -q 'long finishedAt = watchedEventDeleted ? nowMillis : row.pendingEndMillis' "$SRC/IdleProcessState.java"
 grep -q 'row.pendingEndMillis = 0L' "$SRC/IdleProcessState.java"
 grep -q 'watchdog_deleted_early' "$SRC/IdleProcessState.java"
+grep -q 'deliverFreshCompletion(context, idle, nowMillis)' "$SRC/IdleReminderManager.java"
+grep -q 'COMPLETION_FRESH_MS' "$SRC/IdleReminderManager.java"
+grep -q '"completion_delivered"' "$SRC/IdleReminderManager.java"
+grep -q 'Recurring idle alarms never create completion overlays' "$SRC/IdleReminderManager.java"
 
 # Every process-notification mode has a useful collapsed summary. Combined mode surfaces it inside
 # the usage card; grouped / one-each use a compact summary view plus the full expanded row layout.

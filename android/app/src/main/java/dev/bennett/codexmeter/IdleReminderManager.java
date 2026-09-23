@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
 import android.os.Handler;
 import android.os.Looper;
 import java.util.Collections;
@@ -29,7 +31,8 @@ final class IdleReminderManager {
     private static final String KEY_COMPLETION_DELIVERED_PREFIX = "overlay_finished:";
     private static final long COMPLETION_FRESH_MS = 3L * 60_000L;
     private static final long COMPLETION_ATTENTION_DELAY_MS = 1_100L;
-    private static final String CHANNEL_ID = "codex_idle_reminders_v1";
+    private static final String CHANNEL_ID = "codex_idle_reminders_v2";
+    private static final String LEGACY_CHANNEL_ID = "codex_idle_reminders_v1";
     // Legacy separate reminder IDs are retained only so old cards can be cleaned up.
     private static final int NOTIFICATION_BASE = 31000;
     private static final int REQUEST_BASE = 41000;
@@ -294,10 +297,32 @@ final class IdleReminderManager {
 
     private static void ensureChannel(NotificationManager manager) {
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return;
+        NotificationChannel legacy = manager.getNotificationChannel(LEGACY_CHANNEL_ID);
+        int importance = legacy == null
+                ? NotificationManager.IMPORTANCE_DEFAULT : legacy.getImportance();
+        if (importance == NotificationManager.IMPORTANCE_UNSPECIFIED) {
+            importance = NotificationManager.IMPORTANCE_DEFAULT;
+        }
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Idle process reminders", NotificationManager.IMPORTANCE_DEFAULT);
+                "Idle process reminders", importance);
         channel.setDescription("Reminders when a watched GPT role has become idle");
         channel.setShowBadge(false);
+        android.net.Uri sound = legacy == null
+                ? RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                : legacy.getSound();
+        AudioAttributes attributes = legacy == null ? null : legacy.getAudioAttributes();
+        if (sound != null) {
+            if (attributes == null) {
+                attributes = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .build();
+            }
+            channel.setSound(sound, attributes);
+        } else {
+            channel.setSound(null, null);
+        }
+        if (legacy != null) channel.enableVibration(legacy.shouldVibrate());
         manager.createNotificationChannel(channel);
     }
 

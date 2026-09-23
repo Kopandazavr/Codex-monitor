@@ -36,11 +36,11 @@ grep -Fq 'private static final String PRODUCT_NAME = "Codex Monitor"' "$BRANDING
 grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
-# 2.13 is the bounded run147 Usage History gesture correction and stays aligned on phone/Wear.
-grep -Fq 'versionName = "2.13.0"' "$APP_GRADLE"
-grep -Fq 'versionCode = 39' "$APP_GRADLE"
-grep -Fq 'versionName = "2.13.0"' "$WEAR_GRADLE"
-grep -Fq 'versionCode = 39' "$WEAR_GRADLE"
+# 2.14 is the current bounded phone-follow-up release and stays aligned on phone/Wear.
+grep -Fq 'versionName = "2.14.0"' "$APP_GRADLE"
+grep -Fq 'versionCode = 40' "$APP_GRADLE"
+grep -Fq 'versionName = "2.14.0"' "$WEAR_GRADLE"
+grep -Fq 'versionCode = 40' "$WEAR_GRADLE"
 
 # Release artifacts keep the Codex Monitor identity, but the personal-use app no longer contains an
 # in-app update client, installer, release browser, install permission, or update API config.
@@ -61,11 +61,13 @@ for file in GitHubRelease.java GitHubReleaseParser.java GitHubReleaseSource.java
   ! test -e "$ROOT/app/src/main/java/dev/bennett/codexmeter/$file"
 done
 
-# Target-Samsung Quick Setup contract: the four required rows and CTA must not be pushed below the
-# fold by a weighted flexible spacer. Keep a small fixed top gap and live Codex Monitor wording.
-grep -Fq 'Ui.addSpacer(this.content, 12);' "$ONBOARDING"
-! grep -Fq 'LinearLayout.LayoutParams(-1, 0, 1.0f)' "$ONBOARDING"
-grep -Fq 'Ui.nativePrimaryButton(this, "Open Codex Monitor")' "$ONBOARDING"
+# Target-Samsung Quick Setup contract: static one-screen layout, no collapsing/scrolling surface,
+# and the primary CTA lives outside the flexible content area at the bottom.
+grep -Fq 'installStaticLayout()' "$ONBOARDING"
+grep -Fq 'LinearLayout.LayoutParams(-1, 0, 1.0f)' "$ONBOARDING"
+grep -Fq 'this.doneButton = Ui.nativePrimaryButton(this, "Open Codex Monitor")' "$ONBOARDING"
+! grep -Fq 'Ui.installPage(this, "Quick setup"' "$ONBOARDING"
+! grep -Fq 'NestedScrollView' "$ONBOARDING"
 grep -Fq 'Enable Codex Monitor notifications in Android Settings.' "$ONBOARDING"
 
 # Target-Samsung launcher contract: preserve the selected Focus artwork but inset it by ~10% of

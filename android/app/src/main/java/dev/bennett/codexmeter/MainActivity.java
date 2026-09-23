@@ -438,7 +438,7 @@ public final class MainActivity extends AppCompatActivity {
         titleParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), 0);
         card.addView(title, titleParams);
         TextView detail = Ui.text(this,
-                "On-device burn trends improve estimates as samples accumulate.",
+                "Measured 5-hour and Weekly usage over absolute time.",
                 12, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4));
@@ -471,21 +471,9 @@ public final class MainActivity extends AppCompatActivity {
             hasCharts = true;
         }
 
-        UsageWindow monthlyWindow = snapshot == null ? null : snapshot.monthly;
-        if (monthlyWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView monthlyChart = new UsageBurnChartView(this);
-            monthlyChart.setData("Monthly", monthlyWindow,
-                    AppPreferences.loadUsageHistory(this, UsageHistory.MONTHLY),
-                    snapshot.fetchedAtMillis,
-                    UsagePacePreferences.assess(this, snapshot, monthlyWindow, now));
-            card.addView(monthlyChart,
-                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
-            hasCharts = true;
-        }
-
         if (!hasCharts) {
             TextView waiting = Ui.text(this,
-                    "Charts appear once OpenAI reports your 5-hour, weekly, or monthly usage windows.",
+                    "Charts appear once OpenAI reports your 5-hour or Weekly usage window.",
                     12, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams waitingParams = new LinearLayout.LayoutParams(-1, -2);
             waitingParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 8),

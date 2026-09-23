@@ -123,6 +123,9 @@ grep -q 'WINDOW_MONTHLY' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/Usag
 # 2.12 bounded recovery, Calendar diagnostics, compact identity, and branding contracts.
 grep -q 'android:key="restart_onboarding"' "$RES/preferences_settings_diagnostics.xml"
 grep -q 'restart_onboarding_requested' "$SRC/SettingsActivity.java"
+grep -q 'EXTRA_RESTART_ONBOARDING = "restart_onboarding"' "$SRC/OnboardingActivity.java"
+grep -q 'putExtra(OnboardingActivity.EXTRA_RESTART_ONBOARDING, true)' "$SRC/SettingsActivity.java"
+grep -q 'AppPreferences.isOnboardingComplete(this) && !restartRequested' "$SRC/OnboardingActivity.java"
 grep -q 'android:paddingTop="12dp"' "$ROOT/app/src/main/res/layout/preference_account_card.xml"
 grep -q 'setCornerRadius(Ui.dp(requireContext(), 26))' "$SRC/SettingsActivity.java"
 grep -q 'CommonStatusCodes.DEVELOPER_ERROR' "$SRC/GoogleCalendarAuthorization.java"

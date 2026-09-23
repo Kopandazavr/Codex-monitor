@@ -541,13 +541,13 @@ public final class NowBarManager {
         PendingIntent dismissedIntent = PendingIntent.getBroadcast(context, REQUEST_DISMISSED,
                 new Intent(context, NowBarActionReceiver.class).setAction(ACTION_DISMISSED),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Icon stopActionIcon = Icon.createWithResource(context, R.drawable.ic_notification);
+        Icon stopActionIcon = Icon.createWithResource(context, R.drawable.ic_notification_codex_monitor);
         Icon refreshActionIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
         String displayMode = resolveDisplayMode(context);
 
         Notification.Builder builder = new Notification.Builder(context, CHANNEL_ID)
                 // Official Codex mark (white, no opaque square) — system tints status-bar icons.
-                .setSmallIcon(R.drawable.ic_notification)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setContentIntent(contentIntent)

@@ -236,6 +236,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 DiagnosticLog.info(requireContext(), "user", "restart_onboarding_requested",
                         "source", "diagnostics");
                 startActivity(new Intent(requireContext(), OnboardingActivity.class)
+                        .putExtra(OnboardingActivity.EXTRA_RESTART_ONBOARDING, true)
                         .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
                 return true;
             });

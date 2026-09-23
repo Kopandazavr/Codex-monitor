@@ -1,12 +1,8 @@
 package dev.bennett.codexmeter;
 
 import androidx.appcompat.app.AlertDialog;
-import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
-import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
@@ -48,7 +44,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
 
         LinearLayout intro = Ui.card(this, dark);
         intro.addView(Ui.text(this,
-                "Measured usage only. Tap a chart to zoom; drag inside a zoomed chart to pan.",
+                "Measured usage only.",
                 13, Ui.secondaryText(dark)));
         content.addView(intro);
         Ui.addSpacer(content, 20);
@@ -103,63 +99,10 @@ public final class UsageHistoryActivity extends AppCompatActivity {
         LinearLayout card = Ui.card(this, dark);
         card.setPadding(Ui.dp(this, 6), Ui.dp(this, 8), Ui.dp(this, 6), Ui.dp(this, 10));
 
-        FrameLayout chartFrame = new FrameLayout(this);
         UsageBurnChartView chart = new UsageBurnChartView(this);
-        chart.setScrubEnabled(true);
-        chart.setZoomEnabled(true);
         chart.setData(label, window, history,
                 snapshot == null ? System.currentTimeMillis() : snapshot.fetchedAtMillis, null);
-        chartFrame.addView(chart, new FrameLayout.LayoutParams(-1, Ui.dp(this, 220)));
-
-        TextView zoomOut = Ui.text(this, "−", 28, Ui.mainText(dark));
-        zoomOut.setGravity(Gravity.CENTER);
-        zoomOut.setContentDescription("Zoom Out");
-        zoomOut.setClickable(true);
-        zoomOut.setFocusable(true);
-        GradientDrawable zoomBackground = new GradientDrawable();
-        zoomBackground.setShape(GradientDrawable.OVAL);
-        zoomBackground.setColor(Ui.controlSurface(this, dark));
-        zoomBackground.setStroke(Ui.dp(this, 1), Ui.divider(dark));
-        zoomOut.setBackground(zoomBackground);
-        FrameLayout.LayoutParams zoomParams =
-                new FrameLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48),
-                        Gravity.TOP | Gravity.END);
-        zoomParams.setMargins(0, Ui.dp(this, 30), Ui.dp(this, 8), 0);
-        chartFrame.addView(zoomOut, zoomParams);
-        zoomOut.setVisibility(View.GONE);
-        zoomOut.setOnClickListener(view -> chart.zoomOut());
-        card.addView(chartFrame, new LinearLayout.LayoutParams(-1, Ui.dp(this, 220)));
-
-        TextView detail = Ui.text(this,
-                "Tap to zoom · drag to inspect measured points",
-                12, Ui.secondaryText(dark));
-        LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
-        detailParams.setMargins(Ui.dp(this, 12), Ui.dp(this, 4), Ui.dp(this, 12), Ui.dp(this, 4));
-        card.addView(detail, detailParams);
-
-        chart.setOnZoomChangedListener(zoomed -> {
-            zoomOut.setVisibility(zoomed ? View.VISIBLE : View.GONE);
-            detail.setText(zoomed
-                    ? "Drag horizontally to pan · hold a point to inspect"
-                    : "Tap to zoom · drag to inspect measured points");
-        });
-        chart.setOnScrubListener(new UsageBurnChartView.OnScrubListener() {
-            @Override
-            public void onScrub(long timeMillis, double usedPercent, boolean historicalWindow) {
-                String moment = UsageFormat.absolute(UsageHistoryActivity.this, timeMillis,
-                        System.currentTimeMillis());
-                detail.setTextColor(Ui.mainText(dark));
-                detail.setText(moment + " — " + Math.round(usedPercent) + "% used");
-            }
-
-            @Override
-            public void onScrubEnd() {
-                detail.setTextColor(Ui.secondaryText(dark));
-                detail.setText(chart.isZoomed()
-                        ? "Drag horizontally to pan · hold a point to inspect"
-                        : "Tap to zoom · drag to inspect measured points");
-            }
-        });
+        card.addView(chart, new LinearLayout.LayoutParams(-1, Ui.dp(this, 220)));
         return card;
     }
 }

@@ -145,6 +145,11 @@ final class IdleReminderManager {
         String key = KEY_COMPLETION_DELIVERED_PREFIX + idle.key;
         if (prefs.getLong(key, 0L) == idle.lastFinishedMillis) return;
 
+        // Mark before any notification rebuild: combined-mode re-alerting re-enters surfaceState
+        // and therefore sync(). Early marking makes completion delivery recursion-safe and keeps
+        // exactly-once semantics even if the overlay or alert transport later fails.
+        prefs.edit().putLong(key, idle.lastFinishedMillis).apply();
+
         boolean overlayShown = IdleReminderOverlayService.show(context, idle);
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -158,9 +163,6 @@ final class IdleReminderManager {
             }
         }
 
-        // Mark the logical completion handled even if overlay permission is absent. Permission or
-        // transport recovery must not replay an old completion as if it just happened.
-        prefs.edit().putLong(key, idle.lastFinishedMillis).apply();
         DiagnosticLog.info(context, "idle_process", "completion_delivered",
                 "role", idle.displayLabel(),
                 "finished_at", idle.lastFinishedMillis,

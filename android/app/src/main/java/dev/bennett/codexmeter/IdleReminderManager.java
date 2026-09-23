@@ -28,6 +28,7 @@ final class IdleReminderManager {
     // Preserve the existing preference key so upgrades retain completion dedupe state.
     private static final String KEY_COMPLETION_DELIVERED_PREFIX = "overlay_finished:";
     private static final long COMPLETION_FRESH_MS = 3L * 60_000L;
+    private static final long COMPLETION_ATTENTION_DELAY_MS = 1_100L;
     private static final String CHANNEL_ID = "codex_idle_reminders_v1";
     // Legacy separate reminder IDs are retained only so old cards can be cleaned up.
     private static final int NOTIFICATION_BASE = 31000;
@@ -152,8 +153,12 @@ final class IdleReminderManager {
 
         boolean overlayShown = IdleReminderOverlayService.show(context, idle);
         Context app = context.getApplicationContext();
-        new Handler(Looper.getMainLooper()).post(() ->
-                deliverCompletionAttention(app, idle, nowMillis, overlayShown));
+        DiagnosticLog.info(context, "idle_process", "completion_attention_scheduled",
+                "delay_ms", COMPLETION_ATTENTION_DELAY_MS,
+                "overlay", overlayShown);
+        new Handler(Looper.getMainLooper()).postDelayed(() ->
+                deliverCompletionAttention(app, idle, nowMillis, overlayShown),
+                COMPLETION_ATTENTION_DELAY_MS);
     }
 
     private static void deliverCompletionAttention(Context context,

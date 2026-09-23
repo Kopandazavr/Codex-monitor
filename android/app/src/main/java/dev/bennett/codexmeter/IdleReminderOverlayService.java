@@ -373,7 +373,7 @@ public final class IdleReminderOverlayService extends Service {
                         android.net.Uri.parse("package:" + getPackageName())),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_notification)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle("Completion overlay")
                 .setContentText("Codex Monitor is showing a completed watched session")
                 .setContentIntent(open)

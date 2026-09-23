@@ -36,11 +36,11 @@ grep -Fq 'private static final String PRODUCT_NAME = "Codex Monitor"' "$BRANDING
 grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
-# 2.12 is the current bounded Calendar/history/recovery upgrade and stays aligned on phone/Wear.
-grep -Fq 'versionName = "2.12.0"' "$APP_GRADLE"
-grep -Fq 'versionCode = 38' "$APP_GRADLE"
-grep -Fq 'versionName = "2.12.0"' "$WEAR_GRADLE"
-grep -Fq 'versionCode = 38' "$WEAR_GRADLE"
+# 2.13 is the bounded run147 Usage History gesture correction and stays aligned on phone/Wear.
+grep -Fq 'versionName = "2.13.0"' "$APP_GRADLE"
+grep -Fq 'versionCode = 39' "$APP_GRADLE"
+grep -Fq 'versionName = "2.13.0"' "$WEAR_GRADLE"
+grep -Fq 'versionCode = 39' "$WEAR_GRADLE"
 
 # Release artifacts keep the Codex Monitor identity, but the personal-use app no longer contains an
 # in-app update client, installer, release browser, install permission, or update API config.

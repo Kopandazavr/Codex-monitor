@@ -126,11 +126,13 @@ public final class IdleReminderOverlayService extends Service {
 
         overlayRoot = new FrameLayout(this);
         overlayRoot.setBackground(new DiagonalStripeDrawable(
-                0xB8444448, 0x2AFFFFFF, 0x24000000, dp(18), dp(52)));
+                0xE62A2A2E, 0xE64A4A50, dp(26)));
         overlayRoot.setClickable(true);
         overlayRoot.setOnClickListener(view -> dismissAll());
 
         ScrollView scroll = new ScrollView(this);
+        scroll.setClickable(true);
+        scroll.setOnClickListener(view -> dismissAll());
         scroll.setFillViewport(true);
         scroll.setClipToPadding(false);
         scroll.setPadding(dp(20), dp(36), dp(20), dp(36));
@@ -139,6 +141,8 @@ public final class IdleReminderOverlayService extends Service {
         shell.setOrientation(LinearLayout.VERTICAL);
         shell.setGravity(Gravity.CENTER_VERTICAL);
         shell.setPadding(dp(4), dp(8), dp(4), dp(8));
+        shell.setClickable(true);
+        shell.setOnClickListener(view -> dismissAll());
 
         TextView header = text("Codex Monitor", 18f, Color.WHITE);
         header.setGravity(Gravity.CENTER);
@@ -409,46 +413,39 @@ public final class IdleReminderOverlayService extends Service {
 
     private static final class DiagonalStripeDrawable extends Drawable {
         private final Paint base = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint light = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint dark = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint stripe = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final int stripeWidth;
-        private final int spacing;
 
-        DiagonalStripeDrawable(int baseColor, int lightColor, int darkColor,
-                int stripeWidth, int spacing) {
+        DiagonalStripeDrawable(int baseColor, int stripeColor, int stripeWidth) {
             base.setColor(baseColor);
-            light.setColor(lightColor);
-            dark.setColor(darkColor);
+            stripe.setColor(stripeColor);
             this.stripeWidth = stripeWidth;
-            this.spacing = spacing;
-            light.setStrokeWidth(stripeWidth);
-            dark.setStrokeWidth(stripeWidth);
+            stripe.setStrokeWidth(stripeWidth);
+            stripe.setStrokeCap(Paint.Cap.SQUARE);
         }
 
         @Override
         public void draw(Canvas canvas) {
             Rect bounds = getBounds();
             canvas.drawRect(bounds, base);
-            int span = bounds.width() + bounds.height();
-            int index = 0;
-            for (int x = -bounds.height(); x < bounds.width() + bounds.height(); x += spacing) {
-                Paint paint = (index++ & 1) == 0 ? light : dark;
-                canvas.drawLine(x, bounds.bottom, x + bounds.height(), bounds.top, paint);
+            int overscan = bounds.width() + bounds.height() + stripeWidth * 2;
+            int spacing = Math.max(2, stripeWidth * 2);
+            for (int x = -overscan; x < bounds.width() + overscan; x += spacing) {
+                canvas.drawLine(x, bounds.bottom + overscan,
+                        x + bounds.height() + overscan * 2, bounds.top - overscan, stripe);
             }
         }
 
         @Override
         public void setAlpha(int alpha) {
             base.setAlpha(alpha);
-            light.setAlpha(alpha);
-            dark.setAlpha(alpha);
+            stripe.setAlpha(alpha);
         }
 
         @Override
         public void setColorFilter(android.graphics.ColorFilter colorFilter) {
             base.setColorFilter(colorFilter);
-            light.setColorFilter(colorFilter);
-            dark.setColorFilter(colorFilter);
+            stripe.setColorFilter(colorFilter);
         }
 
         @Override

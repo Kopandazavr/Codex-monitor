@@ -558,6 +558,8 @@ public final class NowBarManager {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setColor(accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254))
                 .setShowWhen(false)
+                .setGroup(NotificationSurfaceContract.GROUP_KEY)
+                .setSortKey(NotificationSurfaceContract.SORT_USAGE)
                 .addAction(new Notification.Action.Builder(
                         stopActionIcon, "Stop", stopIntent).build());
         if (!preview) {

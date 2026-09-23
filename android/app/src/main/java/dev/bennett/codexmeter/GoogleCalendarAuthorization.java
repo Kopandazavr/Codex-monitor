@@ -89,6 +89,12 @@ final class GoogleCalendarAuthorization {
                 : "Not connected · tap to retry";
     }
 
+    static boolean shouldRetryTransient(Context context) {
+        String error = prefs(context).getString(KEY_LAST_ERROR, "");
+        return "transient:NETWORK_ERROR".equals(error)
+                || "transient:INTERNAL_ERROR".equals(error);
+    }
+
     static void beginInteractive(Activity activity, int requestCode,
             ActionCallback callback) {
         DiagnosticLog.info(activity, "calendar_api", "authorization_started",

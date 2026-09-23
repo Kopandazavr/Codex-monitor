@@ -391,7 +391,7 @@ public final class ResetNotificationManager {
                         | Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(context, channel)
-                .setSmallIcon(R.drawable.ic_oui_alarm)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
@@ -424,7 +424,7 @@ public final class ResetNotificationManager {
         PendingIntent useReset = PendingIntent.getActivity(context, id + 10_000, useIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(context, channel)
-                .setSmallIcon(R.drawable.ic_reset_notification)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))

@@ -95,8 +95,8 @@ grep -Fq 'ACTION_USAGE_UPDATED' "$USAGE_API"
 grep -Fq 'usage_update_broadcast_sent' "$USAGE_API"
 grep -Fq 'usage_notification_rebuilt' "$USAGE_API"
 
-# Role/display contract: reuse the canonical parser, normalize Calendar HTML, prefer role across
-# active/idle/one-each presentation, and retain project fallback only when role is unavailable.
+# Role/display contract: reuse the canonical parser, normalize Calendar HTML, persist optional
+# project_short through completion, and render compact project — role with legacy full-project fallback.
 grep -Fq 'replaceAll("(?is)<br\\s*/?>", " ")' "$CALENDAR"
 grep -Fq 'static String displayIdentity' "$CALENDAR"
 grep -Fq 'static boolean hasCanonicalRole' "$CALENDAR"

@@ -126,7 +126,7 @@ grep -q 'Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy)' "$SRC/UsageBur
 grep -q 'MONTHLY = "monthly"' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java"
 grep -q 'WINDOW_MONTHLY' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
 
-# 2.12 bounded recovery, Calendar diagnostics, compact identity, and branding contracts.
+# Carried 2.12 recovery/Calendar/branding contracts remain guarded in the 2.13 follow-up.
 grep -q 'android:key="restart_onboarding"' "$RES/preferences_settings_diagnostics.xml"
 grep -q 'restart_onboarding_requested' "$SRC/SettingsActivity.java"
 grep -q 'EXTRA_RESTART_ONBOARDING = "restart_onboarding"' "$SRC/OnboardingActivity.java"

@@ -100,7 +100,8 @@ final class IdleProcessState {
             if (activeKeys.contains(row.key) || row.pendingEndMillis <= 0L) continue;
             boolean scheduledEndReached = row.pendingEndMillis <= nowMillis;
             boolean watchedEventDeleted = !scheduledEndReached && row.pendingEventId > 0L
-                    && !CalendarProcessReader.eventExists(context, row.pendingEventId);
+                    && !CalendarProcessReader.eventExists(
+                    context, row.pendingEventId, row.pendingDirectSource);
             if (!scheduledEndReached && !watchedEventDeleted) continue;
 
             long finishedAt = watchedEventDeleted ? nowMillis : row.pendingEndMillis;
@@ -113,8 +114,10 @@ final class IdleProcessState {
                         "scheduled_end", row.pendingEndMillis,
                         "finished_at", finishedAt);
             }
+            row.pendingStartMillis = 0L;
             row.pendingEndMillis = 0L;
             row.pendingEventId = 0L;
+            row.pendingDirectSource = false;
         }
         save(context, rows);
         List<IdleRole> visible = new ArrayList<>();
@@ -207,6 +210,7 @@ final class IdleProcessState {
         row.pendingStartMillis = process.workStartMillis();
         row.pendingEndMillis = process.endMillis;
         row.pendingEventId = process.eventId;
+        row.pendingDirectSource = process.directSource;
         row.project = clean(process.project);
         row.role = clean(process.role);
         row.topic = clean(process.topic);
@@ -279,6 +283,7 @@ final class IdleProcessState {
         long pendingStartMillis;
         long pendingEndMillis;
         long pendingEventId;
+        boolean pendingDirectSource;
 
         MutableRole(String key) { this.key = clean(key); }
 
@@ -303,6 +308,7 @@ final class IdleProcessState {
                 json.put("pending_start", pendingStartMillis);
                 json.put("pending_end", pendingEndMillis);
                 json.put("pending_event", pendingEventId);
+                json.put("pending_direct", pendingDirectSource);
             } catch (JSONException ignored) {
             }
             return json;
@@ -322,6 +328,7 @@ final class IdleProcessState {
             row.pendingStartMillis = json.optLong("pending_start", 0L);
             row.pendingEndMillis = json.optLong("pending_end", 0L);
             row.pendingEventId = json.optLong("pending_event", 0L);
+            row.pendingDirectSource = json.optBoolean("pending_direct", false);
             return row;
         }
     }

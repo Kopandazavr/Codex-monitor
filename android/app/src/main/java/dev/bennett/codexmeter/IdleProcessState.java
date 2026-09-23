@@ -27,6 +27,7 @@ final class IdleProcessState {
     static final class IdleRole {
         final String key;
         final String project;
+        final String projectShort;
         final String role;
         final String topic;
         final long lastStartedMillis;
@@ -35,11 +36,12 @@ final class IdleProcessState {
         final boolean reminderEnabled;
         final long nextReminderAtMillis;
 
-        IdleRole(String key, String project, String role, String topic,
+        IdleRole(String key, String project, String projectShort, String role, String topic,
                 long lastStartedMillis, long lastFinishedMillis, long eventId,
                 boolean reminderEnabled, long nextReminderAtMillis) {
             this.key = clean(key);
             this.project = clean(project);
+            this.projectShort = clean(projectShort);
             this.role = clean(role);
             this.topic = clean(topic);
             this.lastStartedMillis = lastStartedMillis;
@@ -50,7 +52,7 @@ final class IdleProcessState {
         }
 
         String displayLabel() {
-            return CalendarProcess.displayIdentity(role, project, topic);
+            return CalendarProcess.displayIdentity(role, project, projectShort, topic);
         }
     }
 
@@ -92,8 +94,9 @@ final class IdleProcessState {
                 if (process.endMillis > nowMillis) continue;
                 String key = roleKey(process);
                 MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
-                promoteFinished(row, process.project, process.role, process.topic,
-                        process.eventId, process.workStartMillis(), process.endMillis, context);
+                promoteFinished(row, process.project, process.projectShort,
+                        process.role, process.topic, process.eventId,
+                        process.workStartMillis(), process.endMillis, context);
             }
         }
         for (MutableRole row : rows.values()) {
@@ -105,7 +108,7 @@ final class IdleProcessState {
             if (!scheduledEndReached && !watchedEventDeleted) continue;
 
             long finishedAt = watchedEventDeleted ? nowMillis : row.pendingEndMillis;
-            promoteFinished(row, row.project, row.role, row.topic,
+            promoteFinished(row, row.project, row.projectShort, row.role, row.topic,
                     row.pendingEventId, row.pendingStartMillis, finishedAt, context);
             if (watchedEventDeleted) {
                 DiagnosticLog.info(context, "idle_process", "watchdog_deleted_early",
@@ -212,6 +215,7 @@ final class IdleProcessState {
         row.pendingEventId = process.eventId;
         row.pendingDirectSource = process.directSource;
         row.project = clean(process.project);
+        row.projectShort = clean(process.projectShort);
         row.role = clean(process.role);
         row.topic = clean(process.topic);
     }
@@ -224,11 +228,12 @@ final class IdleProcessState {
         return merged;
     }
 
-    private static void promoteFinished(MutableRole row, String project, String role,
-            String topic, long eventId, long startedMillis, long finishedMillis,
+    private static void promoteFinished(MutableRole row, String project, String projectShort,
+            String role, String topic, long eventId, long startedMillis, long finishedMillis,
             Context context) {
         if (finishedMillis <= row.lastFinishedMillis) return;
         row.project = clean(project);
+        row.projectShort = clean(projectShort);
         row.role = clean(role);
         row.topic = clean(topic);
         row.eventId = eventId;
@@ -272,6 +277,7 @@ final class IdleProcessState {
     private static final class MutableRole {
         final String key;
         String project = "";
+        String projectShort = "";
         String role = "";
         String topic = "";
         long lastStartedMillis;
@@ -288,7 +294,7 @@ final class IdleProcessState {
         MutableRole(String key) { this.key = clean(key); }
 
         IdleRole freeze() {
-            return new IdleRole(key, project, role, topic, lastStartedMillis,
+            return new IdleRole(key, project, projectShort, role, topic, lastStartedMillis,
                     lastFinishedMillis, eventId, reminderEnabled, nextReminderAtMillis);
         }
 
@@ -297,6 +303,7 @@ final class IdleProcessState {
             try {
                 json.put("key", key);
                 json.put("project", project);
+                json.put("project_short", projectShort);
                 json.put("role", role);
                 json.put("topic", topic);
                 json.put("last_started", lastStartedMillis);
@@ -317,6 +324,7 @@ final class IdleProcessState {
         static MutableRole fromJson(JSONObject json) {
             MutableRole row = new MutableRole(json.optString("key", ""));
             row.project = clean(json.optString("project", ""));
+            row.projectShort = clean(json.optString("project_short", ""));
             row.role = clean(json.optString("role", ""));
             row.topic = clean(json.optString("topic", ""));
             row.lastStartedMillis = json.optLong("last_started", 0L);

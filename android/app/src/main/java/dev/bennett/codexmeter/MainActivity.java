@@ -49,6 +49,7 @@ public final class MainActivity extends AppCompatActivity {
     private boolean dark;
     private boolean receiverRegistered;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final Map<String, long[]> historyZoomViewports = new LinkedHashMap<>();
     private String lastLaunchedAuthUrl = "";
     private boolean launchSignInRequested;
     private final BroadcastReceiver authReceiver = new BroadcastReceiver() { // from class: dev.bennett.codexmeter.MainActivity.1
@@ -477,13 +478,6 @@ public final class MainActivity extends AppCompatActivity {
             card.addView(waiting, waitingParams);
         }
 
-        Button open = Ui.button(this, "View history", false, this.dark);
-        open.setOnClickListener(view ->
-                Ui.startSecondaryActivity(this, UsageHistoryActivity.class));
-        LinearLayout.LayoutParams openParams =
-                new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
-        openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
-        card.addView(open, openParams);
         return card;
     }
 
@@ -494,6 +488,10 @@ public final class MainActivity extends AppCompatActivity {
         UsageBurnChartView chart = new UsageBurnChartView(this);
         chart.setZoomEnabled(true);
         chart.setData(label, window, history, observedAtMillis, pace);
+        long[] savedViewport = historyZoomViewports.get(label);
+        if (savedViewport != null && savedViewport.length == 2) {
+            chart.restoreZoomViewport(savedViewport[0], savedViewport[1]);
+        }
         frame.addView(chart, new FrameLayout.LayoutParams(-1, Ui.dp(this, 126)));
 
         TextView zoomOut = Ui.text(this, "−", 28, Ui.mainText(this.dark));
@@ -511,10 +509,20 @@ public final class MainActivity extends AppCompatActivity {
                         Gravity.TOP | Gravity.END);
         zoomParams.setMargins(0, Ui.dp(this, 26), Ui.dp(this, 8), 0);
         frame.addView(zoomOut, zoomParams);
-        zoomOut.setVisibility(View.GONE);
+        zoomOut.setVisibility(chart.isZoomed() ? View.VISIBLE : View.GONE);
         zoomOut.setOnClickListener(view -> chart.zoomOut());
-        chart.setOnZoomChangedListener(
-                zoomed -> zoomOut.setVisibility(zoomed ? View.VISIBLE : View.GONE));
+        chart.setOnZoomChangedListener(zoomed -> {
+            zoomOut.setVisibility(zoomed ? View.VISIBLE : View.GONE);
+            if (zoomed) {
+                long start = chart.viewportStartMillis();
+                long end = chart.viewportEndMillis();
+                if (end > start) {
+                    historyZoomViewports.put(label, new long[]{start, end});
+                }
+            } else {
+                historyZoomViewports.remove(label);
+            }
+        });
 
         card.addView(frame, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
     }

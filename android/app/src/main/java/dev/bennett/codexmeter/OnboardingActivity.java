@@ -14,6 +14,7 @@ import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
+import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -22,8 +23,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.widget.NestedScrollView;
-
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 
@@ -39,7 +38,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private static final int STATUS_YELLOW = 0xFFFFC107;
 
     private LinearLayout content;
-    private Ui.Page page;
+    private Button doneButton;
     private boolean dark;
     private boolean receiverRegistered;
     private boolean oauthRequested;
@@ -89,9 +88,7 @@ public final class OnboardingActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        this.page = Ui.installPage(this, "Quick setup", false);
-        this.content = this.page.content;
-        findViewById(R.id.dashboard_refresh).setEnabled(false);
+        installStaticLayout();
         this.oauthRequested = AppPreferences.isOAuthPending(this);
         if (getIntent().getBooleanExtra(EXTRA_AUTH_RETURN, false)
                 && !SecureTokenStore.isSignedIn(this)) {
@@ -183,19 +180,6 @@ public final class OnboardingActivity extends AppCompatActivity {
         if (this.content == null) return;
         ensureNotificationFeatureDefault();
         this.content.removeAllViews();
-        this.page.toolbar.setTitle("Quick setup");
-        this.page.toolbar.setShowNavigationButtonAsBack(false);
-
-        // Keep the setup compact on phone viewports. A weighted spacer here expands inside the
-        // fillViewport scroll and can push required rows/CTA below the fold on Samsung One UI.
-        // Historical fixed-spacer audit marker only: Ui.addSpacer(this.content, 20);
-        Ui.addSpacer(this.content, 12);
-
-        TextView title = Ui.title(this, "Ready in a minute", this.dark);
-        title.setTextSize(28.0f);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
-        titleParams.setMargins(Ui.dp(this, 8), 0, Ui.dp(this, 8), 0);
-        this.content.addView(title, titleParams);
 
         TextView intro = Ui.text(this,
                 "Connect ChatGPT, allow notifications and Calendar, then turn on Live monitor. "
@@ -247,19 +231,44 @@ public final class OnboardingActivity extends AppCompatActivity {
         addSetupRow(setup, monitor, false);
         this.content.addView(setup);
 
-        Button done = Ui.nativePrimaryButton(this, "Open Codex Monitor");
-        done.setOnClickListener(view -> completeAndOpenMain());
-        LinearLayout.LayoutParams doneParams = new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
-        doneParams.setMargins(0, Ui.dp(this, 10), 0, 0);
-        this.content.addView(done, doneParams);
+        if (this.doneButton != null) {
+            this.doneButton.setEnabled(true);
+        }
+    }
 
-        NestedScrollView scroll = findViewById(R.id.dashboard_scroll);
-        scroll.post(() -> scroll.scrollTo(0, 0));
+    private void installStaticLayout() {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.TOP);
+        root.setFitsSystemWindows(true);
+        root.setPadding(Ui.dp(this, 18), Ui.dp(this, 14),
+                Ui.dp(this, 18), Ui.dp(this, 18));
+
+        TextView title = Ui.title(this, "Quick setup", this.dark);
+        title.setTextSize(30.0f);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
+        titleParams.setMargins(Ui.dp(this, 4), 0, Ui.dp(this, 4), Ui.dp(this, 8));
+        root.addView(title, titleParams);
+
+        this.content = new LinearLayout(this);
+        this.content.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams contentParams =
+                new LinearLayout.LayoutParams(-1, 0, 1.0f);
+        root.addView(this.content, contentParams);
+
+        this.doneButton = Ui.nativePrimaryButton(this, "Open Codex Monitor");
+        this.doneButton.setOnClickListener(view -> completeAndOpenMain());
+        LinearLayout.LayoutParams doneParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
+        doneParams.setMargins(0, Ui.dp(this, 8), 0, 0);
+        root.addView(this.doneButton, doneParams);
+
+        setContentView(root);
     }
 
     private void addSetupRow(RoundedLinearLayout setup, CardItemView row, boolean divider) {
         row.setShowBottomDivider(divider);
-        setup.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, 68)));
+        setup.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
     }
 
     private int statusGreen() {

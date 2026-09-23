@@ -86,6 +86,7 @@ configurations.configureEach {
 dependencies {
     implementation(project(":shared"))
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
+    implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("io.github.tribalfs:oneui-design:0.9.14+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
 }

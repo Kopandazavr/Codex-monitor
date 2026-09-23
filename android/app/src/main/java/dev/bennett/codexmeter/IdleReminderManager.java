@@ -23,6 +23,7 @@ final class IdleReminderManager {
 
     private static final String PREFS = "codex_idle_reminder_scheduler_v1";
     private static final String KEY_ENABLED_KEYS = "enabled_role_keys";
+    private static final String KEY_OVERLAY_FINISHED_PREFIX = "overlay_finished:";
     private static final String CHANNEL_ID = "codex_idle_reminders_v1";
     // Legacy separate reminder IDs are retained only so old cards can be cleaned up.
     private static final int NOTIFICATION_BASE = 31000;
@@ -61,7 +62,7 @@ final class IdleReminderManager {
         } else {
             keys.remove(key);
             cancelAlarm(context, key);
-            dismissSurface(context, key);
+            clearLegacyReminderCard(context, key);
         }
         saveEnabledKeys(context, keys);
     }
@@ -103,7 +104,20 @@ final class IdleReminderManager {
             return;
         }
 
-        boolean overlayShown = IdleReminderOverlayService.show(context, idle);
+        long previousOverlayFinished = preferences(context).getLong(
+                KEY_OVERLAY_FINISHED_PREFIX + idle.key, 0L);
+        long overlayFreshWindow = IdleProcessState.cadenceMillis(context)
+                + java.util.concurrent.TimeUnit.MINUTES.toMillis(2);
+        boolean freshCompletion = expectedFinished > 0L
+                && now >= expectedFinished
+                && now - expectedFinished <= overlayFreshWindow;
+        boolean firstOverlayForCompletion = previousOverlayFinished != expectedFinished;
+        boolean overlayShown = freshCompletion && firstOverlayForCompletion
+                && IdleReminderOverlayService.show(context, idle);
+        if (firstOverlayForCompletion) {
+            preferences(context).edit().putLong(
+                    KEY_OVERLAY_FINISHED_PREFIX + idle.key, expectedFinished).apply();
+        }
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         boolean persistentSurfaceAlerted = false;
@@ -222,11 +236,19 @@ final class IdleReminderManager {
     }
 
     private static void dismissSurface(Context context, String key) {
+        clearLegacyReminderCard(context, key);
+        IdleReminderOverlayService.dismiss(context, key);
+    }
+
+    private static void clearLegacyReminderCard(Context context, String key) {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         // Clean any legacy separate reminder card left by an older build/runtime.
         if (manager != null) manager.cancel(notificationId(key));
-        IdleReminderOverlayService.dismiss(context, key);
+    }
+
+    private static SharedPreferences preferences(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     private static void ensureChannel(NotificationManager manager) {
@@ -239,13 +261,13 @@ final class IdleReminderManager {
     }
 
     private static Set<String> enabledKeys(Context context) {
-        SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        return new HashSet<>(preferences.getStringSet(KEY_ENABLED_KEYS, Collections.emptySet()));
+        return new HashSet<>(preferences(context)
+                .getStringSet(KEY_ENABLED_KEYS, Collections.emptySet()));
     }
 
     private static void saveEnabledKeys(Context context, Set<String> keys) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().putStringSet(KEY_ENABLED_KEYS, new HashSet<>(keys)).apply();
+        preferences(context).edit()
+                .putStringSet(KEY_ENABLED_KEYS, new HashSet<>(keys)).apply();
     }
 
     private static int requestCode(String key, int kind) {

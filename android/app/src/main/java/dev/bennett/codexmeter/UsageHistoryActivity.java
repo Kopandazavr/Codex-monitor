@@ -1,6 +1,6 @@
 package dev.bennett.codexmeter;
 
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.Gravity;

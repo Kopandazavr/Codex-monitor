@@ -37,9 +37,14 @@
             app:entryValues="@array/process_notification_mode_values"
             app:viewType="noImage" />
         <Preference
+            android:key="google_calendar_connection"
+            android:summary="Direct read-only watchdog discovery, independent of the Calendar app"
+            android:title="Google Calendar connection"
+            app:iconSpaceReserved="false" />
+        <Preference
             android:key="calendar_process_access"
-            android:summary="Allow local synced GPT watchdogs to appear in notifications"
-            android:title="Calendar access"
+            android:summary="Optional fallback through Android's locally synced Calendar Provider"
+            android:title="Local Calendar fallback"
             app:iconSpaceReserved="false" />
         <ListPreference
             android:defaultValue="5"

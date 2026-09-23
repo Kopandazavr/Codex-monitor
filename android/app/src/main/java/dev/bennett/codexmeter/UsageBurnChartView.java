@@ -371,7 +371,7 @@ public final class UsageBurnChartView extends View {
     private long[] defaultAxis() {
         if (window == null || observedAtMillis <= 0L || window.windowSeconds <= 0L) return null;
         long reset = window.effectiveResetAtMillis(observedAtMillis);
-        long right = reset > observedAtMillis ? reset : observedAtMillis;
+        long right = reset > 0L ? reset : System.currentTimeMillis();
         long duration;
         try {
             duration = Math.multiplyExact(window.windowSeconds, 1000L);

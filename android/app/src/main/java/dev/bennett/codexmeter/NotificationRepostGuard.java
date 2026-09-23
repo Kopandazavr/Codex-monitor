@@ -30,7 +30,7 @@ final class NotificationRepostGuard {
                 synchronized (NotificationRepostGuard.class) {
                     pendingActivityResume = null;
                 }
-                repostSafely(app, "activity_resume");
+                repostSafely(app, "activity_resume", false);
             };
             MAIN.postDelayed(pendingActivityResume, ACTIVITY_RESUME_DELAY_MS);
         }
@@ -44,12 +44,16 @@ final class NotificationRepostGuard {
         long now = System.currentTimeMillis();
         boolean enabled = IdleProcessState.toggleReminder(context, key, now);
         IdleReminderManager.onReminderToggled(context, key, enabled, now);
-        repostSafely(context.getApplicationContext(), "idle_reminder_toggle");
+        repostSafely(context.getApplicationContext(), "idle_reminder_toggle", true);
     }
 
-    private static void repostSafely(Context context, String reason) {
+    private static void repostSafely(Context context, String reason, boolean processOnly) {
         try {
-            DualUsageNotificationManager.repostForProcessChange(context);
+            if (processOnly) {
+                DualUsageNotificationManager.repostForProcessChange(context);
+            } else {
+                DualUsageNotificationManager.repostFromCache(context);
+            }
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "notification_surface", "guarded_repost_failed",
                     exception, "reason", reason);

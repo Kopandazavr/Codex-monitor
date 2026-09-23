@@ -46,6 +46,7 @@
         <activity android:name="dev.bennett.codexmeter.OnboardingActivity" android:exported="false" android:launchMode="singleTop"/>
         <activity android:name="dev.bennett.codexmeter.SettingsActivity" android:exported="false"/>
         <activity android:name="dev.bennett.codexmeter.CalendarPermissionActivity" android:exported="false"/>
+        <activity android:name="dev.bennett.codexmeter.GoogleCalendarAuthorizationActivity" android:exported="false"/>
         <activity android:name="dev.bennett.codexmeter.UsageHistoryActivity" android:exported="false"/>
         <activity android:name="dev.bennett.codexmeter.DashboardReorderActivity" android:exported="false"/>
         <activity android:name="dev.bennett.codexmeter.ResetCreditActivity" android:exported="false" android:launchMode="singleTop" android:excludeFromRecents="true"/>

@@ -73,10 +73,20 @@ final class CalendarProcessReader {
      * permission and read failures remain UNKNOWN (true) so they cannot manufacture completion.
      */
     static boolean eventExists(Context context, long eventId) {
+        return eventExists(context, eventId, false);
+    }
+
+    static boolean eventExists(Context context, long eventId, boolean directSource) {
         if (context == null || eventId <= 0L) return true;
         long now = System.currentTimeMillis();
-        if (GoogleCalendarAuthorization.isConnected(context)
-                && GoogleCalendarProcessSource.hasFreshCache(context, now)) {
+        if (directSource) {
+            if (!GoogleCalendarAuthorization.isConnected(context)
+                    || !GoogleCalendarProcessSource.hasFreshCache(context, now)) {
+                DiagnosticLog.info(context, "calendar_api", "watchdog_presence_unknown",
+                        "event_id", eventId,
+                        "reason", "direct_cache_not_fresh");
+                return true;
+            }
             boolean exists = GoogleCalendarProcessSource.cachedEventExists(
                     context, eventId, now);
             DiagnosticLog.info(context, "calendar_api", "watchdog_presence_checked",

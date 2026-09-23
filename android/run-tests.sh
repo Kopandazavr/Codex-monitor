@@ -105,7 +105,7 @@ grep -q 'USAGE_HISTORY = "usage_history"' "$ROOT/shared/src/main/java/dev/bennet
 ! grep -q 'setScrubEnabled' "$SRC/UsageBurnChartView.java"
 ! grep -q 'OnScrubListener' "$SRC/UsageBurnChartView.java"
 ! grep -q 'drawScrub' "$SRC/UsageBurnChartView.java"
-grep -q 'FIVE_HOUR_ZOOM_MS = TimeUnit.MINUTES.toMillis(30)' "$SRC/UsageBurnChartView.java"
+grep -q 'FIVE_HOUR_ZOOM_MS = TimeUnit.HOURS.toMillis(1)' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1)' "$SRC/UsageBurnChartView.java"
 grep -q 'FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(5)' "$SRC/UsageBurnChartView.java"
 grep -q 'reset > 0L ? reset : System.currentTimeMillis()' "$SRC/UsageBurnChartView.java"

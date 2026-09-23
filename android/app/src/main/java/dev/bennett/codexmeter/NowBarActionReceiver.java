@@ -33,16 +33,25 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
                 ProcessNotificationScheduler.cancel(context);
                 ProcessNotificationManager.clearAll(context);
             } else {
-                DiagnosticLog.info(context, "notification", "diagnostic_5s_repaint",
+                PendingResult pending = goAsync();
+                Context app = context.getApplicationContext();
+                DiagnosticLog.info(app, "notification", "local_repaint_requested",
                         "correlation_id", correlationId,
-                        "source", "process_notification_scheduler",
-                        "diagnostic_5s", ProcessNotificationScheduler.DIAGNOSTIC_FIVE_SECOND_REPAINT);
-                boolean posted = DualUsageNotificationManager.repostFromCache(context);
-                DiagnosticLog.info(context, "notification", "local_repaint_completed",
-                        "correlation_id", correlationId,
-                        "posted", posted,
-                        "remote_fetch", false);
-                ProcessNotificationScheduler.schedule(context);
+                        "source", "process_notification_scheduler");
+                GoogleCalendarProcessSource.refreshIfDue(app, () -> {
+                    try {
+                        boolean posted = DualUsageNotificationManager.repostFromCache(app);
+                        DiagnosticLog.info(app, "notification", "local_repaint_completed",
+                                "correlation_id", correlationId,
+                                "posted", posted,
+                                "remote_usage_fetch", false,
+                                "calendar_api_connected",
+                                GoogleCalendarAuthorization.isConnected(app));
+                        ProcessNotificationScheduler.schedule(app);
+                    } finally {
+                        pending.finish();
+                    }
+                });
             }
         } else if (NowBarManager.ACTION_DISMISSED.equals(action)) {
             DiagnosticLog.info(context, "notification", "notification_action",

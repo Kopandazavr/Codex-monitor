@@ -109,6 +109,44 @@ final class DualUsageNotificationManager {
         return snapshot != null && postFromSnapshot(context, snapshot);
     }
 
+    /**
+     * Rebuild only the process-owned persistent surface. In Two cards / One each this keeps the
+     * upper usage notification untouched while process countdowns, bells, or idle rows change.
+     */
+    static boolean repostProcessesFromCache(Context context) {
+        if (context == null) return false;
+        if (!NowBarManager.isActive(context)) {
+            ProcessNotificationManager.clearAll(context);
+            return false;
+        }
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+        if (snapshot == null) return false;
+        SurfaceState state = surfaceState(context, snapshot);
+        if (state == null) return false;
+        ProcessNotificationManager.sync(context, state.processes, state.idleRoles,
+                state.processMode, state.now);
+        ProcessNotificationScheduler.schedule(context);
+        DiagnosticLog.info(context, "notification", "persistent_surface_posted",
+                "surface", "processes_only",
+                "mode", state.processMode,
+                "process_count", state.processes.size(),
+                "idle_count", state.idleRoles.size());
+        return true;
+    }
+
+    static boolean repostForProcessChange(Context context) {
+        if (context == null) return false;
+        return ProcessNotificationMode.COMBINED.equals(ProcessNotificationMode.current(context))
+                ? repostFromCache(context) : repostProcessesFromCache(context);
+    }
+
+    static void repostForProcessChangeDelayed(Context context, long delayMillis) {
+        if (context == null) return;
+        Context app = context.getApplicationContext();
+        new Handler(Looper.getMainLooper()).postDelayed(
+                () -> repostForProcessChange(app), Math.max(0L, delayMillis));
+    }
+
     static void repostDelayed(Context context, long delayMillis) {
         if (context == null) return;
         Context app = context.getApplicationContext();

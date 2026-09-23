@@ -55,6 +55,9 @@ grep -q 'watchdog_deleted_early' "$SRC/IdleProcessState.java"
 grep -q 'deliverFreshCompletion(context, idle, nowMillis)' "$SRC/IdleReminderManager.java"
 grep -q 'COMPLETION_FRESH_MS' "$SRC/IdleReminderManager.java"
 grep -q '"completion_delivered"' "$SRC/IdleReminderManager.java"
+grep -q 'prefs.edit().putLong(key, idle.lastFinishedMillis).apply()' "$SRC/IdleReminderManager.java"
+grep -q 'deliverCompletionAttention' "$SRC/IdleReminderManager.java"
+grep -q 'new Handler(Looper.getMainLooper()).post' "$SRC/IdleReminderManager.java"
 grep -q 'Recurring idle alarms never create completion overlays' "$SRC/IdleReminderManager.java"
 
 # Every process-notification mode has a useful collapsed summary. Combined mode surfaces it inside

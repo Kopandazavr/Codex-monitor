@@ -229,7 +229,7 @@ final class ProcessNotificationManager {
 
         String content = summary.isEmpty() ? countLabel(activeCount, idleCount) : summary;
         return new Notification.Builder(context, channelId)
-                .setSmallIcon(R.drawable.ic_notification)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(title)
                 .setContentText(content)
                 .setContentIntent(contentIntent)

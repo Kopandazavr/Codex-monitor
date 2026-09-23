@@ -102,13 +102,13 @@ grep -A6 -F 'android:key="notification_metric_ui"' "$RES/preferences_settings_no
 grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.java"
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 
-# 2.11 code-bearing candidate identity.
-grep -Fq 'versionCode = 37' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.11.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionCode = 37' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'versionName = "2.11.0"' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 37' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.11.0"' "$SRC/AppConstants.java"
+# 2.12 code-bearing candidate identity.
+grep -Fq 'versionCode = 38' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.12.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionCode = 38' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'versionName = "2.12.0"' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'VERSION_CODE = 38' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = "2.12.0"' "$SRC/AppConstants.java"
 
 grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java"
 grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"

@@ -8,24 +8,30 @@
         app:allowDividerAbove="false"
         app:allowDividerBelow="false" />
 
-    <PreferenceCategory android:title="Dashboard">
-        <Preference
-            android:key="dashboard_reorder_root"
-            android:summary="Arrange the dashboard from one place"
-            android:title="Edit dashboard"
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
+    <SwitchPreferenceCompat
+        android:key="notifications_allowed_ui"
+        android:summary="Usage and account activity alerts"
+        android:title="Allow notifications" />
 
-    <PreferenceCategory android:title="Features">
-        <Preference
-            android:key="settings_notifications"
-            android:title="Notifications &amp; live monitor"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="settings_diagnostics"
-            android:title="Diagnostics"
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
+    <Preference
+        android:key="notification_permission"
+        android:title="System notifications"
+        app:iconSpaceReserved="false" />
+
+    <Preference
+        android:key="settings_notifications"
+        android:title="Notifications"
+        app:iconSpaceReserved="false" />
+
+    <Preference
+        android:key="settings_now_bar"
+        android:title="Live monitoring &amp; process notifications"
+        app:iconSpaceReserved="false" />
+
+    <Preference
+        android:key="settings_diagnostics"
+        android:title="Diagnostics"
+        app:iconSpaceReserved="false" />
 
     <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="28dp" />
 </PreferenceScreen>

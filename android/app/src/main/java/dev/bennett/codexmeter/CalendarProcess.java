@@ -20,19 +20,36 @@ final class CalendarProcess {
     final String project;
     final String role;
     final String topic;
+    final boolean directSource;
 
     CalendarProcess(long eventId, long beginMillis, long endMillis,
             String project, String role, String topic) {
+        this(eventId, beginMillis, endMillis, project, role, topic, false);
+    }
+
+    private CalendarProcess(long eventId, long beginMillis, long endMillis,
+            String project, String role, String topic, boolean directSource) {
         this.eventId = eventId;
         this.beginMillis = beginMillis;
         this.endMillis = endMillis;
         this.project = clean(project);
         this.role = clean(role);
         this.topic = clean(topic);
+        this.directSource = directSource;
     }
 
     static CalendarProcess fromEvent(long eventId, String title, String description,
             long beginMillis, long endMillis) {
+        return fromEvent(eventId, title, description, beginMillis, endMillis, false);
+    }
+
+    static CalendarProcess fromDirectEvent(long eventId, String title, String description,
+            long beginMillis, long endMillis) {
+        return fromEvent(eventId, title, description, beginMillis, endMillis, true);
+    }
+
+    private static CalendarProcess fromEvent(long eventId, String title, String description,
+            long beginMillis, long endMillis, boolean directSource) {
         if (title == null || !title.startsWith(WATCHDOG_PREFIX)
                 || beginMillis <= 0L || endMillis <= beginMillis) {
             return null;
@@ -42,7 +59,8 @@ final class CalendarProcess {
         String project = valueOr(metadata.get("project"), titleProject);
         String role = metadata.get("role");
         String topic = metadata.get("topic");
-        return new CalendarProcess(eventId, beginMillis, endMillis, project, role, topic);
+        return new CalendarProcess(eventId, beginMillis, endMillis,
+                project, role, topic, directSource);
     }
 
     static Map<String, String> parseMetadata(String description) {

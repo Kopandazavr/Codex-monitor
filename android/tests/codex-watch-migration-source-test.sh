@@ -36,11 +36,11 @@ grep -Fq 'private static final String PRODUCT_NAME = "Codex Monitor"' "$BRANDING
 grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
-# 2.14 is the current bounded phone-follow-up release and stays aligned on phone/Wear.
-grep -Fq 'versionName = "2.14.0"' "$APP_GRADLE"
-grep -Fq 'versionCode = 40' "$APP_GRADLE"
-grep -Fq 'versionName = "2.14.0"' "$WEAR_GRADLE"
-grep -Fq 'versionCode = 40' "$WEAR_GRADLE"
+# 2.15 is the current bounded phone-follow-up release and stays aligned on phone/Wear.
+grep -Fq 'versionName = "2.15.0"' "$APP_GRADLE"
+grep -Fq 'versionCode = 41' "$APP_GRADLE"
+grep -Fq 'versionName = "2.15.0"' "$WEAR_GRADLE"
+grep -Fq 'versionCode = 41' "$WEAR_GRADLE"
 
 # Release artifacts keep the Codex Monitor identity, but the personal-use app no longer contains an
 # in-app update client, installer, release browser, install permission, or update API config.

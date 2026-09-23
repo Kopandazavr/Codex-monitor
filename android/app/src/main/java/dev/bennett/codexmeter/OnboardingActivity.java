@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -231,6 +232,14 @@ public final class OnboardingActivity extends AppCompatActivity {
                 calendarAllowed ? statusGreen() : STATUS_YELLOW);
         addSetupRow(setup, calendar, true);
 
+        boolean overlayAllowed = IdleReminderOverlayService.canDraw(this);
+        String overlayState = overlayAllowed ? "Allowed" : "Tap to allow completion overlays";
+        CardItemView overlay = Ui.actionRow(this, "Completion overlay", overlayState,
+                R.drawable.ic_oui_notification, view -> requestOverlayAccess());
+        setMatchingTextColor(overlay, overlayState,
+                overlayAllowed ? statusGreen() : STATUS_YELLOW);
+        addSetupRow(setup, overlay, true);
+
         String monitorState = monitorSummary();
         CardItemView monitor = Ui.actionRow(this, "Live monitor", monitorState,
                 R.drawable.ic_oui_time, view -> enableLiveMonitor());
@@ -373,6 +382,21 @@ public final class OnboardingActivity extends AppCompatActivity {
         ResetAlertPreferences.save(this, ResetAlertPreferences.STYLE_NOTIFICATION,
                 ResetAlertPreferences.getMetric(this), ResetAlertPreferences.getThreshold(this));
         ResetNotificationManager.ensureChannel(this);
+    }
+
+    private void requestOverlayAccess() {
+        if (IdleReminderOverlayService.canDraw(this)) {
+            Toast.makeText(this, "Completion overlay access is already allowed.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:" + getPackageName())));
+        } catch (RuntimeException exception) {
+            Toast.makeText(this, "Could not open overlay permission settings.",
+                    Toast.LENGTH_LONG).show();
+        }
     }
 
     private void requestCalendarAccess() {

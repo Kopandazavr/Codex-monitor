@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 
 /** Factual measured-usage chart with reset-anchored absolute time and bounded tap-to-zoom. */
 public final class UsageBurnChartView extends View {
-    private static final long FIVE_HOUR_ZOOM_MS = TimeUnit.MINUTES.toMillis(30);
+    private static final long FIVE_HOUR_ZOOM_MS = TimeUnit.HOURS.toMillis(1);
     private static final long WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1);
     private static final long FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(5);
     private static final long FIVE_HOUR_DEFAULT_TICK_MS = TimeUnit.HOURS.toMillis(1);

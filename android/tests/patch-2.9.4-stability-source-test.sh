@@ -12,7 +12,7 @@ EDITOR="$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.
 # failures are contained rather than crashing the foreground task.
 grep -Fq 'NotificationRepostGuard.repostAfterActivityResume(this);' "$APP"
 grep -Fq 'MAIN.removeCallbacks(pendingActivityResume);' "$GUARD"
-grep -Fq 'repostSafely(app, "activity_resume");' "$GUARD"
+grep -Fq 'repostSafely(app, "activity_resume", false);' "$GUARD"
 grep -Fq 'catch (RuntimeException exception)' "$GUARD"
 grep -Fq '"guarded_repost_failed"' "$GUARD"
 
@@ -26,7 +26,7 @@ grep -Fq 'persistOrder();' "$EDITOR"
 grep -Fq 'NotificationRepostGuard.toggleIdleReminder(context, intent);' "$RECEIVER"
 grep -Fq 'IdleProcessState.toggleReminder(context, key, now);' "$GUARD"
 grep -Fq 'IdleReminderManager.onReminderToggled(context, key, enabled, now);' "$GUARD"
-grep -Fq 'repostSafely(context.getApplicationContext(), "idle_reminder_toggle");' "$GUARD"
+grep -Fq 'repostSafely(context.getApplicationContext(), "idle_reminder_toggle", true);' "$GUARD"
 ! grep -Fq 'IdleReminderManager.toggleFromIntent(context, intent);' "$RECEIVER"
 
 echo 'Codex Monitor 2.9.4 stability source contract PASS'

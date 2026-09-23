@@ -23,7 +23,9 @@ final class IdleReminderManager {
 
     private static final String PREFS = "codex_idle_reminder_scheduler_v1";
     private static final String KEY_ENABLED_KEYS = "enabled_role_keys";
-    private static final String KEY_OVERLAY_FINISHED_PREFIX = "overlay_finished:";
+    // Preserve the existing preference key so upgrades retain completion dedupe state.
+    private static final String KEY_COMPLETION_DELIVERED_PREFIX = "overlay_finished:";
+    private static final long COMPLETION_FRESH_MS = 3L * 60_000L;
     private static final String CHANNEL_ID = "codex_idle_reminders_v1";
     // Legacy separate reminder IDs are retained only so old cards can be cleaned up.
     private static final int NOTIFICATION_BASE = 31000;
@@ -47,6 +49,7 @@ final class IdleReminderManager {
             for (IdleProcessState.IdleRole idle : visibleIdle) {
                 if (!idle.reminderEnabled) continue;
                 enabledKeys.add(idle.key);
+                deliverFreshCompletion(context, idle, nowMillis);
                 schedule(context, idle, nowMillis);
             }
         }
@@ -104,20 +107,9 @@ final class IdleReminderManager {
             return;
         }
 
-        long previousOverlayFinished = preferences(context).getLong(
-                KEY_OVERLAY_FINISHED_PREFIX + idle.key, 0L);
-        long overlayFreshWindow = IdleProcessState.cadenceMillis(context)
-                + java.util.concurrent.TimeUnit.MINUTES.toMillis(2);
-        boolean freshCompletion = expectedFinished > 0L
-                && now >= expectedFinished
-                && now - expectedFinished <= overlayFreshWindow;
-        boolean firstOverlayForCompletion = previousOverlayFinished != expectedFinished;
-        boolean overlayShown = freshCompletion && firstOverlayForCompletion
-                && IdleReminderOverlayService.show(context, idle);
-        if (firstOverlayForCompletion) {
-            preferences(context).edit().putLong(
-                    KEY_OVERLAY_FINISHED_PREFIX + idle.key, expectedFinished).apply();
-        }
+        // Recurring idle alarms never create completion overlays. Completion delivery happens
+        // once, immediately after a newly finished watchdog is observed in sync().
+        boolean overlayShown = false;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         boolean persistentSurfaceAlerted = false;
@@ -136,6 +128,42 @@ final class IdleReminderManager {
         scheduleAt(context, idle, next);
         DiagnosticLog.info(context, "idle_process", "reminder_fired",
                 "role", idle.displayLabel(),
+                "overlay", overlayShown,
+                "persistent_surface_alerted", persistentSurfaceAlerted);
+    }
+
+    private static void deliverFreshCompletion(Context context,
+            IdleProcessState.IdleRole idle, long nowMillis) {
+        if (context == null || idle == null || !idle.reminderEnabled
+                || idle.lastFinishedMillis <= 0L || nowMillis < idle.lastFinishedMillis) {
+            return;
+        }
+        long age = nowMillis - idle.lastFinishedMillis;
+        if (age > COMPLETION_FRESH_MS) return;
+
+        SharedPreferences prefs = preferences(context);
+        String key = KEY_COMPLETION_DELIVERED_PREFIX + idle.key;
+        if (prefs.getLong(key, 0L) == idle.lastFinishedMillis) return;
+
+        boolean overlayShown = IdleReminderOverlayService.show(context, idle);
+        NotificationManager manager = (NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        boolean persistentSurfaceAlerted = false;
+        if (manager != null) {
+            ensureChannel(manager);
+            persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
+                    context, idle, CHANNEL_ID, nowMillis);
+            if (persistentSurfaceAlerted) {
+                DualUsageNotificationManager.repostDelayed(context, 5_000L);
+            }
+        }
+
+        // Mark the logical completion handled even if overlay permission is absent. Permission or
+        // transport recovery must not replay an old completion as if it just happened.
+        prefs.edit().putLong(key, idle.lastFinishedMillis).apply();
+        DiagnosticLog.info(context, "idle_process", "completion_delivered",
+                "role", idle.displayLabel(),
+                "finished_at", idle.lastFinishedMillis,
                 "overlay", overlayShown,
                 "persistent_surface_alerted", persistentSurfaceAlerted);
     }

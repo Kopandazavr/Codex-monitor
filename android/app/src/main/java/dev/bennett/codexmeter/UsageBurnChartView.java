@@ -7,6 +7,7 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Typeface;
 import android.text.format.DateFormat;
+import android.os.SystemClock;
 import android.util.AttributeSet;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -27,6 +28,8 @@ public final class UsageBurnChartView extends View {
     private static final long FIVE_HOUR_DEFAULT_TICK_MS = TimeUnit.HOURS.toMillis(1);
     private static final long WEEKLY_ZOOM_TICK_MS = TimeUnit.HOURS.toMillis(4);
     private static final long WEEKLY_DEFAULT_TICK_MS = TimeUnit.DAYS.toMillis(1);
+    private static final long TAP_TOGGLE_GUARD_MS = 250L;
+    private static final float TAP_SLOP_MULTIPLIER = 2.0f;
     // Same orange used by the Weekly dashboard fill.
     private static final int WEEKLY_ORANGE = 0xFFFF9800;
 
@@ -39,6 +42,7 @@ public final class UsageBurnChartView extends View {
     private final Typeface regularTypeface = Typeface.create("sec", Typeface.NORMAL);
     private final Typeface boldTypeface = Typeface.create("sec", Typeface.BOLD);
     private final int touchSlop;
+    private final int tapSlop;
 
     private String label = "";
     private UsageWindow window;
@@ -54,6 +58,7 @@ public final class UsageBurnChartView extends View {
     private float lastX;
     private boolean moved;
     private boolean horizontalPan;
+    private long lastTapToggleUptimeMillis = Long.MIN_VALUE;
 
     public UsageBurnChartView(Context context) {
         this(context, null);
@@ -62,6 +67,8 @@ public final class UsageBurnChartView extends View {
     public UsageBurnChartView(Context context, AttributeSet attrs) {
         super(context, attrs);
         touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        tapSlop = Math.max(touchSlop,
+                Math.round(touchSlop * TAP_SLOP_MULTIPLIER));
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
 
@@ -119,29 +126,35 @@ public final class UsageBurnChartView extends View {
                 lastX = downX;
                 moved = false;
                 horizontalPan = false;
+                // Keep small finger jitter from being stolen by the dashboard scroll parent.
+                // As soon as movement is clearly vertical we release interception below.
+                getParent().requestDisallowInterceptTouchEvent(true);
                 return true;
             case MotionEvent.ACTION_MOVE:
                 float x = event.getX();
                 float dx = x - downX;
                 float dy = event.getY() - downY;
-                if (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop) {
-                    moved = true;
-                }
+                float absDx = Math.abs(dx);
+                float absDy = Math.abs(dy);
                 if (zoomed && (horizontalPan
-                        || (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy)))) {
+                        || (absDx > touchSlop && absDx > absDy))) {
+                    moved = true;
                     horizontalPan = true;
                     getParent().requestDisallowInterceptTouchEvent(true);
                     panBy(x - lastX);
+                } else if (absDy > tapSlop && absDy > absDx) {
+                    moved = true;
+                    // Intentional vertical motion belongs to the dashboard scroll container.
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                } else if (absDx > tapSlop || absDy > tapSlop) {
+                    moved = true;
                 }
                 lastX = x;
                 return true;
             case MotionEvent.ACTION_UP:
                 if (!moved) {
-                    if (zoomed) {
-                        if (isChartInteractionX(event.getX())) zoomOut();
-                    } else if (isMeasuredInteractionX(event.getX())) {
-                        zoomAt(event.getX());
-                    }
+                    performClick();
+                    handleTapToggle(event.getX());
                 }
                 finishTouch();
                 return true;
@@ -153,25 +166,68 @@ public final class UsageBurnChartView extends View {
         }
     }
 
+    @Override
+    public boolean performClick() {
+        super.performClick();
+        return true;
+    }
+
+    private void handleTapToggle(float touchX) {
+        long now = SystemClock.uptimeMillis();
+        if (lastTapToggleUptimeMillis != Long.MIN_VALUE
+                && now - lastTapToggleUptimeMillis < TAP_TOGGLE_GUARD_MS) {
+            DiagnosticLog.info(getContext(), "usage_history", "chart_tap_duplicate_suppressed",
+                    "label", label,
+                    "delta_ms", now - lastTapToggleUptimeMillis);
+            return;
+        }
+        if (zoomed) {
+            if (!isChartInteractionX(touchX)) {
+                DiagnosticLog.info(getContext(), "usage_history", "chart_tap_outside_domain",
+                        "label", label,
+                        "zoomed", true);
+                return;
+            }
+            lastTapToggleUptimeMillis = now;
+            zoomOut();
+            DiagnosticLog.info(getContext(), "usage_history", "chart_tap_toggle",
+                    "label", label,
+                    "zoomed", false);
+            return;
+        }
+        if (!isMeasuredInteractionX(touchX)) {
+            DiagnosticLog.info(getContext(), "usage_history", "chart_tap_outside_domain",
+                    "label", label,
+                    "zoomed", false);
+            return;
+        }
+        if (zoomAt(touchX)) {
+            lastTapToggleUptimeMillis = now;
+            DiagnosticLog.info(getContext(), "usage_history", "chart_tap_toggle",
+                    "label", label,
+                    "zoomed", true);
+        }
+    }
+
     private void finishTouch() {
         getParent().requestDisallowInterceptTouchEvent(false);
         horizontalPan = false;
         invalidate();
     }
 
-    private void zoomAt(float touchX) {
+    private boolean zoomAt(float touchX) {
         long[] full = defaultAxis();
-        if (full == null) return;
+        if (full == null) return false;
         long zoomSpan = isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS;
         long fullSpan = full[1] - full[0];
-        if (fullSpan <= zoomSpan) return;
+        if (fullSpan <= zoomSpan) return false;
         float left = chartLeft();
         float right = chartRight();
         double ratio = Math.max(0d, Math.min(1d,
                 (touchX - left) / Math.max(1d, right - left)));
         long center = full[0] + Math.round(ratio * fullSpan);
         long measuredEnd = measuredEndMillis();
-        if (measuredEnd <= full[0]) return;
+        if (measuredEnd <= full[0]) return false;
         long start = center - zoomSpan / 2L;
         long maxStart = Math.max(full[0], measuredEnd - zoomSpan);
         start = Math.max(full[0], Math.min(start, maxStart));
@@ -180,6 +236,30 @@ public final class UsageBurnChartView extends View {
         zoomed = true;
         performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
         if (zoomChangedListener != null) zoomChangedListener.onZoomChanged(true);
+        invalidate();
+        return true;
+    }
+
+    public long viewportStartMillis() {
+        return zoomed ? viewportStartMillis : 0L;
+    }
+
+    public long viewportEndMillis() {
+        return zoomed ? viewportEndMillis : 0L;
+    }
+
+    public void restoreZoomViewport(long requestedStartMillis, long requestedEndMillis) {
+        long[] full = defaultAxis();
+        if (!zoomEnabled || full == null) return;
+        long span = requestedEndMillis - requestedStartMillis;
+        if (span <= 0L || full[1] - full[0] <= span) return;
+        long measuredEnd = measuredEndMillis();
+        if (measuredEnd <= full[0]) return;
+        long maxStart = Math.max(full[0], measuredEnd - span);
+        long start = Math.max(full[0], Math.min(requestedStartMillis, maxStart));
+        viewportStartMillis = start;
+        viewportEndMillis = start + span;
+        zoomed = true;
         invalidate();
     }
 
@@ -195,6 +275,7 @@ public final class UsageBurnChartView extends View {
         start = Math.max(full[0], Math.min(start, maxStart));
         viewportStartMillis = start;
         viewportEndMillis = start + span;
+        if (zoomChangedListener != null) zoomChangedListener.onZoomChanged(true);
         invalidate();
     }
 

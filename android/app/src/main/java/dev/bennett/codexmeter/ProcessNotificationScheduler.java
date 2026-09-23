@@ -13,10 +13,8 @@ final class ProcessNotificationScheduler {
     static final String ACTION_REFRESH = "dev.bennett.codexmeter.action.PROCESS_NOTIFICATION_REFRESH";
     private static final int REQUEST_REFRESH = 8631;
 
-    // TEMPORARY 2.10 PHONE DIAGNOSTIC: deliberately stress the exact same local notification
-    // rebuild/repost path every five seconds so Samsung expanded-view flicker can be correlated.
-    // This must be returned to the normal product cadence after PHONE evidence is collected.
-    static final boolean DIAGNOSTIC_FIVE_SECOND_REPAINT = true;
+    // Normal product cadence. The temporary 2.10 five-second PHONE diagnostic is retired.
+    static final boolean DIAGNOSTIC_FIVE_SECOND_REPAINT = false;
     private static final long INTERVAL_MS = DIAGNOSTIC_FIVE_SECOND_REPAINT
             ? TimeUnit.SECONDS.toMillis(5) : TimeUnit.MINUTES.toMillis(1);
 

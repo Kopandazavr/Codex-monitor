@@ -18,21 +18,23 @@ final class CalendarProcess {
     final long beginMillis;
     final long endMillis;
     final String project;
+    final String projectShort;
     final String role;
     final String topic;
     final boolean directSource;
 
     CalendarProcess(long eventId, long beginMillis, long endMillis,
             String project, String role, String topic) {
-        this(eventId, beginMillis, endMillis, project, role, topic, false);
+        this(eventId, beginMillis, endMillis, project, "", role, topic, false);
     }
 
     private CalendarProcess(long eventId, long beginMillis, long endMillis,
-            String project, String role, String topic, boolean directSource) {
+            String project, String projectShort, String role, String topic, boolean directSource) {
         this.eventId = eventId;
         this.beginMillis = beginMillis;
         this.endMillis = endMillis;
         this.project = clean(project);
+        this.projectShort = clean(projectShort);
         this.role = clean(role);
         this.topic = clean(topic);
         this.directSource = directSource;
@@ -57,10 +59,11 @@ final class CalendarProcess {
         String titleProject = clean(title.substring(WATCHDOG_PREFIX.length()));
         Map<String, String> metadata = parseMetadata(description);
         String project = valueOr(metadata.get("project"), titleProject);
+        String projectShort = metadata.get("project_short");
         String role = metadata.get("role");
         String topic = metadata.get("topic");
         return new CalendarProcess(eventId, beginMillis, endMillis,
-                project, role, topic, directSource);
+                project, projectShort, role, topic, directSource);
     }
 
     static Map<String, String> parseMetadata(String description) {
@@ -142,19 +145,24 @@ final class CalendarProcess {
     }
 
     String displayLabel() {
-        return displayIdentity(role, project, topic);
+        return displayIdentity(role, project, projectShort, topic);
     }
 
     static String displayIdentity(String role, String project, String topic) {
+        return displayIdentity(role, project, "", topic);
+    }
+
+    static String displayIdentity(String role, String project, String projectShort, String topic) {
         String cleanRole = clean(role);
         String cleanProject = clean(project);
+        String compactProject = valueOr(projectShort, cleanProject);
         if (hasCanonicalRole(cleanRole)) {
-            if (!cleanProject.isEmpty() && !cleanProject.equalsIgnoreCase(cleanRole)) {
-                return cleanRole + " — " + cleanProject;
+            if (!compactProject.isEmpty() && !compactProject.equalsIgnoreCase(cleanRole)) {
+                return compactProject + " — " + cleanRole;
             }
             return cleanRole;
         }
-        if (!cleanProject.isEmpty()) return cleanProject;
+        if (!compactProject.isEmpty()) return compactProject;
         String cleanTopic = clean(topic);
         return cleanTopic.isEmpty() ? "Active process" : cleanTopic;
     }

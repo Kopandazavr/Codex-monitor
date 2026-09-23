@@ -228,7 +228,13 @@ public final class IdleReminderOverlayService extends Service {
 
         String finished = new SimpleDateFormat("HH:mm", Locale.getDefault())
                 .format(new Date(idle.lastFinishedMillis));
-        TextView meta = text("Finished · " + finished, 13f, 0xFFB8B8BD);
+        StringBuilder metaCopy = new StringBuilder("Finished · ").append(finished);
+        long duration = idle.lastStartedMillis > 0L
+                ? Math.max(0L, idle.lastFinishedMillis - idle.lastStartedMillis) : 0L;
+        if (duration > 0L) {
+            metaCopy.append(" · ").append(formatDuration(duration));
+        }
+        TextView meta = text(metaCopy.toString(), 13f, 0xFFB8B8BD);
         LinearLayout.LayoutParams metaParams = matchWrap();
         metaParams.setMargins(0, dp(7), 0, 0);
         copy.addView(meta, metaParams);
@@ -387,6 +393,14 @@ public final class IdleReminderOverlayService extends Service {
         channel.setShowBadge(false);
         channel.setSound(null, null);
         manager.createNotificationChannel(channel);
+    }
+
+    private static String formatDuration(long durationMillis) {
+        long minutes = Math.max(1L, (durationMillis + 59_999L) / 60_000L);
+        if (minutes < 60L) return minutes + "m session";
+        long hours = minutes / 60L;
+        long rest = minutes % 60L;
+        return rest == 0L ? hours + "h session" : hours + "h " + rest + "m session";
     }
 
     private int dp(int value) {

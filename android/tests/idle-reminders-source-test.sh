@@ -13,6 +13,8 @@ grep -q 'row.reminderEnabled = !row.reminderEnabled' "$SRC/IdleProcessState.java
 # whitespace-separated key=value pairs so explicit role/topic survive local Calendar sync.
 grep -q 'METADATA_PAIR' "$SRC/CalendarProcess.java"
 grep -q 'Matcher matcher = METADATA_PAIR.matcher' "$SRC/CalendarProcess.java"
+grep -q 'metadata.get("project_short")' "$SRC/CalendarProcess.java"
+grep -q 'compactProject + " — " + cleanRole' "$SRC/CalendarProcess.java"
 test -f "$ROOT/tests/CalendarProcessSelfTest.java"
 
 # Future watchdogs are observed before BEGIN and persisted into idle lifecycle state. Once a known

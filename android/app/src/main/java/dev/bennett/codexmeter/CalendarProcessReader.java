@@ -13,7 +13,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-/** Reads GPT watchdogs from Android's locally synced Calendar Provider. */
+/** Reads GPT watchdogs from direct Google Calendar when fresh, with local Provider fallback. */
 final class CalendarProcessReader {
     private static final long LOOKBACK_MS = TimeUnit.HOURS.toMillis(24);
     private static final long LOOKAHEAD_MS = TimeUnit.HOURS.toMillis(2);
@@ -68,16 +68,23 @@ final class CalendarProcessReader {
     }
 
     /**
-     * Returns false only when the Calendar Provider can definitively confirm that a previously
-     * observed watchdog event no longer exists. Permission/read failures are treated as unknown
-     * (true) so a transient provider problem cannot manufacture a false early completion.
+     * Returns false only on authoritative disappearance evidence. A fresh successful direct
+     * Google Calendar cache is primary; otherwise the local Provider is a fallback. Auth/network,
+     * permission and read failures remain UNKNOWN (true) so they cannot manufacture completion.
      */
     static boolean eventExists(Context context, long eventId) {
         if (context == null || eventId <= 0L) return true;
         long now = System.currentTimeMillis();
         if (GoogleCalendarAuthorization.isConnected(context)
                 && GoogleCalendarProcessSource.hasFreshCache(context, now)) {
-            return GoogleCalendarProcessSource.cachedEventExists(context, eventId, now);
+            boolean exists = GoogleCalendarProcessSource.cachedEventExists(
+                    context, eventId, now);
+            DiagnosticLog.info(context, "calendar_api", "watchdog_presence_checked",
+                    "event_id", eventId,
+                    "exists", exists,
+                    "authoritative", true,
+                    "source", "direct_api");
+            return exists;
         }
         if (context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
                 != PackageManager.PERMISSION_GRANTED) {

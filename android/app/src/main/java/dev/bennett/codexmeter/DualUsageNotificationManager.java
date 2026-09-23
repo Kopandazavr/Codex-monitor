@@ -173,7 +173,7 @@ final class DualUsageNotificationManager {
                 new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_DISMISSED),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Icon stopIcon = Icon.createWithResource(context, R.drawable.ic_notification);
+        Icon stopIcon = Icon.createWithResource(context, R.drawable.ic_notification_codex_monitor);
         Icon refreshIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
         RemoteViews compact = buildViews(context, R.layout.notification_usage_dual_bars,
                 state.fiveHour, state.longWindow, state.longLabel, state.observedAt, state.now,
@@ -187,7 +187,7 @@ final class DualUsageNotificationManager {
         // Reset controls now live directly beside both visible limit rows, so the old focused-metric
         // action is deliberately absent. Stop + manual Refresh remain notification actions.
         Notification.Builder builder = new Notification.Builder(context, channelId)
-                .setSmallIcon(R.drawable.ic_notification)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(title)
                 .setContentText(text)
                 .setContentIntent(contentIntent)

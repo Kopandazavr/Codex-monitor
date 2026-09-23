@@ -26,7 +26,7 @@ public final class UsageHistoryActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Rebuilding is deliberate: zoom/pan is ephemeral and resets on every foreground resume.
+        // Rebuild factual data on foreground resume; charts on this screen are intentionally static.
         render();
     }
 

@@ -183,8 +183,12 @@ final class GoogleCalendarProcessSource {
                 JSONObject row = new JSONObject();
                 try {
                     row.put("id", process.eventId);
-                    row.put("title", process.title);
-                    row.put("description", process.description);
+                    row.put("title", CalendarProcess.WATCHDOG_PREFIX + process.project);
+                    StringBuilder metadata = new StringBuilder("codex_meter_watchdog=v1");
+                    if (!process.project.isEmpty()) metadata.append(" project=").append(process.project);
+                    if (!process.role.isEmpty()) metadata.append(" role=").append(process.role);
+                    if (!process.topic.isEmpty()) metadata.append(" topic=").append(process.topic);
+                    row.put("description", metadata.toString());
                     row.put("begin", process.beginMillis);
                     row.put("end", process.endMillis);
                     rows.put(row);

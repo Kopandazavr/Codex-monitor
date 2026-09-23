@@ -10,6 +10,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.ColorStateList;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,6 +19,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -438,7 +440,7 @@ public final class MainActivity extends AppCompatActivity {
         titleParams.setMargins(Ui.dp(this, 10), 0, Ui.dp(this, 10), 0);
         card.addView(title, titleParams);
         TextView detail = Ui.text(this,
-                "Measured 5-hour and Weekly usage over absolute time.",
+                "Measured 5-hour and Weekly usage. Tap a chart to zoom; pan horizontally when zoomed.",
                 12, Ui.secondaryText(this.dark));
         LinearLayout.LayoutParams detailParams = new LinearLayout.LayoutParams(-1, -2);
         detailParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), Ui.dp(this, 4));
@@ -449,25 +451,19 @@ public final class MainActivity extends AppCompatActivity {
         boolean hasCharts = false;
         UsageWindow fiveWindow = snapshot == null ? null : snapshot.fiveHour;
         if (fiveWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView fiveChart = new UsageBurnChartView(this);
-            fiveChart.setData("5-hour", fiveWindow,
+            addInteractiveHistoryChart(card, "5-hour", fiveWindow,
                     AppPreferences.loadUsageHistory(this, UsageHistory.FIVE_HOUR),
                     snapshot.fetchedAtMillis,
                     UsagePacePreferences.assess(this, snapshot, fiveWindow, now));
-            card.addView(fiveChart,
-                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
         UsageWindow weeklyWindow = snapshot == null ? null : snapshot.weekly;
         if (weeklyWindow != null && snapshot.fetchedAtMillis > 0L) {
-            UsageBurnChartView weeklyChart = new UsageBurnChartView(this);
-            weeklyChart.setData("Weekly", weeklyWindow,
+            addInteractiveHistoryChart(card, "Weekly", weeklyWindow,
                     AppPreferences.loadUsageHistory(this, UsageHistory.WEEKLY),
                     snapshot.fetchedAtMillis,
                     UsagePacePreferences.assess(this, snapshot, weeklyWindow, now));
-            card.addView(weeklyChart,
-                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
             hasCharts = true;
         }
 
@@ -489,6 +485,38 @@ public final class MainActivity extends AppCompatActivity {
         openParams.setMargins(Ui.dp(this, 10), Ui.dp(this, 4), Ui.dp(this, 10), 0);
         card.addView(open, openParams);
         return card;
+    }
+
+    private void addInteractiveHistoryChart(LinearLayout card, String label,
+            UsageWindow window, UsageHistory history, long observedAtMillis,
+            UsagePace.Assessment pace) {
+        FrameLayout frame = new FrameLayout(this);
+        UsageBurnChartView chart = new UsageBurnChartView(this);
+        chart.setZoomEnabled(true);
+        chart.setData(label, window, history, observedAtMillis, pace);
+        frame.addView(chart, new FrameLayout.LayoutParams(-1, Ui.dp(this, 126)));
+
+        TextView zoomOut = Ui.text(this, "−", 28, Ui.mainText(this.dark));
+        zoomOut.setGravity(Gravity.CENTER);
+        zoomOut.setContentDescription("Zoom Out");
+        zoomOut.setClickable(true);
+        zoomOut.setFocusable(true);
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.OVAL);
+        background.setColor(Ui.controlSurface(this, this.dark));
+        background.setStroke(Ui.dp(this, 1), Ui.divider(this.dark));
+        zoomOut.setBackground(background);
+        FrameLayout.LayoutParams zoomParams =
+                new FrameLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48),
+                        Gravity.TOP | Gravity.END);
+        zoomParams.setMargins(0, Ui.dp(this, 26), Ui.dp(this, 8), 0);
+        frame.addView(zoomOut, zoomParams);
+        zoomOut.setVisibility(View.GONE);
+        zoomOut.setOnClickListener(view -> chart.zoomOut());
+        chart.setOnZoomChangedListener(
+                zoomed -> zoomOut.setVisibility(zoomed ? View.VISIBLE : View.GONE));
+
+        card.addView(frame, new LinearLayout.LayoutParams(-1, Ui.dp(this, 126)));
     }
 
     private LinearLayout buildUsageCreditsCard(UsageCredits credits) {

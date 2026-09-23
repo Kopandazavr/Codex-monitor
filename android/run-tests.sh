@@ -142,7 +142,7 @@ done
 # Navigation never hard-codes the obsolete pre-migration applicationId in Settings resources.
 ! grep -R -F 'android:targetPackage="dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
 ! grep -R -F 'android:data="package:dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
-grep -Fq 'Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);' "$SRC/SettingsActivity.java"
+! grep -Fq 'DashboardReorderActivity.class' "$SRC/SettingsActivity.java"
 grep -Fq 'Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);' "$SRC/SettingsActivity.java"
 grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/SettingsActivity.java"
 

@@ -20,11 +20,11 @@ grep -Fq 'request(app, "foreground_periodic", false)' "$SRC/ForegroundUsageRefre
 grep -Fq 'RefreshScheduler.suspendPeriodic(app)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'ForegroundUsageRefresh.startActivePolling(this);' "$SRC/CodexMeterApplication.java"
 grep -Fq 'ForegroundUsageRefresh.stopActivePolling(this);' "$SRC/CodexMeterApplication.java"
-grep -Fq 'DIAGNOSTIC_FIVE_SECOND_REPAINT = true' "$SRC/ProcessNotificationScheduler.java"
-grep -Fq 'TimeUnit.SECONDS.toMillis(5)' "$SRC/ProcessNotificationScheduler.java"
-grep -Fq '"diagnostic_5s_repaint"' "$SRC/NowBarActionReceiver.java"
-grep -Fq 'DualUsageNotificationManager.repostFromCache(context)' "$SRC/NowBarActionReceiver.java"
-grep -Fq '"remote_fetch", false' "$SRC/NowBarActionReceiver.java"
+grep -Fq 'DIAGNOSTIC_FIVE_SECOND_REPAINT = false' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'TimeUnit.MINUTES.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
+! grep -Fq '"diagnostic_5s_repaint"' "$SRC/NowBarActionReceiver.java"
+grep -Fq 'GoogleCalendarProcessSource.refreshIfDue(app' "$SRC/NowBarActionReceiver.java"
+grep -Fq '"remote_usage_fetch", false' "$SRC/NowBarActionReceiver.java"
 ! grep -Fq 'UsageApi.' "$SRC/ProcessNotificationScheduler.java"
 
 # Cached cards stay visible while refreshing and surface restrained freshness state.
@@ -76,7 +76,7 @@ done
 # Settings navigation uses runtime/class-based routing, never the obsolete applicationId.
 ! grep -R -F 'android:targetPackage="dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
 ! grep -R -F 'android:data="package:dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
-grep -Fq 'Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);' "$SRC/SettingsActivity.java"
+! grep -Fq 'DashboardReorderActivity.class' "$SRC/SettingsActivity.java"
 grep -Fq 'Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);' "$SRC/SettingsActivity.java"
 grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/SettingsActivity.java"
 
@@ -92,20 +92,26 @@ grep -Fq 'process.elapsedPercent' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'processes, idleRoles, nowMillis, true);' "$SRC/ProcessNotificationManager.java"
 
 # Notification/live-monitor IA remains direct and the old one/both selector stays hidden.
-grep -Fq 'android:title="Notifications &amp; live monitor"' "$RES/preferences_settings.xml"
-grep -Fq 'android:key="notification_live_monitor_settings"' "$RES/preferences_settings_notifications.xml"
+grep -Fq 'android:title="Notifications"' "$RES/preferences_settings.xml"
+grep -Fq 'android:key="settings_now_bar"' "$RES/preferences_settings.xml"
+! grep -Fq 'notification_live_monitor_settings' "$RES/preferences_settings_notifications.xml"
+! grep -Fq 'notification_style_ui' "$RES/preferences_settings_notifications.xml"
 grep -A6 -F 'android:key="notification_metric_ui"' "$RES/preferences_settings_notifications.xml" | grep -Fq 'app:isPreferenceVisible="false"'
 
 # Background usage cadence remains separate from the local 5-second repaint.
 grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.java"
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 
-# Still the same 2.10 diagnostic release line.
-grep -Fq 'versionCode = 36' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.10.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionCode = 36' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'versionName = "2.10.0"' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 36' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.10.0"' "$SRC/AppConstants.java"
+# 2.11 code-bearing candidate identity.
+grep -Fq 'versionCode = 37' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.11.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionCode = 37' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'versionName = "2.11.0"' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'VERSION_CODE = 37' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = "2.11.0"' "$SRC/AppConstants.java"
 
-echo 'Codex Monitor 2.10.0 personal-settings/direct-controls source contract PASS'
+grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java"
+grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"
+grep -Fq 'GoogleCalendarAuthorizationActivity' "$MANIFEST"
+grep -Fq 'DiagonalStripeDrawable' "$SRC/IdleReminderOverlayService.java"
+echo 'Codex Monitor 2.11.0 scoped source contract PASS'

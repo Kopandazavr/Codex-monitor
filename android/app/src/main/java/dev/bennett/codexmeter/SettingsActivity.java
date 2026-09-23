@@ -207,6 +207,12 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            permissionPreference = findPreference("notification_permission");
+            permissionPreference.setOnPreferenceClickListener(preference -> {
+                startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
+                return true;
+            });
 
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
             bindPageLink("settings_now_bar", PAGE_NOW_BAR);
@@ -823,6 +829,14 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            Preference googleCalendar = findPreference("google_calendar_connection");
+            googleCalendar.setSummary(GoogleCalendarAuthorization.statusSummary(requireContext()));
+            googleCalendar.setOnPreferenceClickListener(preference -> {
+                Ui.startSecondaryActivity(requireActivity(),
+                        GoogleCalendarAuthorizationActivity.class);
+                return true;
+            });
+
             Preference calendarAccess = findPreference("calendar_process_access");
             calendarAccess.setOnPreferenceClickListener(preference -> {
                 Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);
@@ -1021,6 +1035,12 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarPercentModePreference.setValue(
                         NowBarPreferences.getPercentMode(requireContext()));
             }
+            Preference googleCalendar = findPreference("google_calendar_connection");
+            if (googleCalendar != null) {
+                googleCalendar.setSummary(
+                        GoogleCalendarAuthorization.statusSummary(requireContext()));
+            }
+
             if (nowBarPermissionPreference != null) {
                 String summary;
                 if (!NowBarManager.canPostNotifications(requireContext())) {

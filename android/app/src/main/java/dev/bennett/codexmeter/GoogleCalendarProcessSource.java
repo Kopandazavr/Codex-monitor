@@ -51,7 +51,7 @@ final class GoogleCalendarProcessSource {
             for (int index = 0; index < rows.length(); index++) {
                 JSONObject row = rows.optJSONObject(index);
                 if (row == null) continue;
-                CalendarProcess process = CalendarProcess.fromEvent(
+                CalendarProcess process = CalendarProcess.fromDirectEvent(
                         row.optLong("id", 0L),
                         row.optString("title", ""),
                         row.optString("description", ""),
@@ -169,7 +169,7 @@ final class GoogleCalendarProcessSource {
             long begin = eventMillis(item.optJSONObject("start"));
             long end = eventMillis(item.optJSONObject("end"));
             if (begin <= 0L || end <= begin) continue;
-            CalendarProcess process = CalendarProcess.fromEvent(
+            CalendarProcess process = CalendarProcess.fromDirectEvent(
                     stableEventId(remoteId), title, description, begin, end);
             if (process != null) result.add(process);
         }

@@ -13,6 +13,7 @@ public final class CalendarProcessSelfTest {
         testAnotherCanonicalRole();
         testProjectFallbackWithoutRole();
         testUnsupportedMetadataFallsBackSoft();
+        testDirectSourceProvenance();
         testCanonicalWorkWindow();
         System.out.println("CalendarProcess metadata/display/timing self-test passed.");
     }
@@ -110,6 +111,25 @@ public final class CalendarProcessSelfTest {
         require("Title fallback".equals(process.project), "title fallback project");
         require(process.role.isEmpty(), "unsupported metadata role ignored");
         require(process.topic.isEmpty(), "unsupported metadata topic ignored");
+    }
+
+    private static void testDirectSourceProvenance() {
+        CalendarProcess provider = CalendarProcess.fromEvent(
+                451L,
+                "GPT_WATCHDOG|urgent|Codex Monitor",
+                "codex_meter_watchdog=v1 project=Codex Monitor role=Developer",
+                10_000L,
+                20_000L);
+        CalendarProcess direct = CalendarProcess.fromDirectEvent(
+                452L,
+                "GPT_WATCHDOG|urgent|Codex Monitor",
+                "codex_meter_watchdog=v1 project=Codex Monitor role=Developer",
+                10_000L,
+                20_000L);
+        require(provider != null && !provider.directSource,
+                "provider watchdog keeps provider provenance");
+        require(direct != null && direct.directSource,
+                "direct watchdog keeps direct provenance");
     }
 
     private static void testCanonicalWorkWindow() {

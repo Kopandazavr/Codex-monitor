@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -145,12 +147,17 @@ final class IdleReminderManager {
         String key = KEY_COMPLETION_DELIVERED_PREFIX + idle.key;
         if (prefs.getLong(key, 0L) == idle.lastFinishedMillis) return;
 
-        // Mark before any notification rebuild: combined-mode re-alerting re-enters surfaceState
-        // and therefore sync(). Early marking makes completion delivery recursion-safe and keeps
-        // exactly-once semantics even if the overlay or alert transport later fails.
+        // Mark before side effects so the same logical completion cannot recursively re-enter.
         prefs.edit().putLong(key, idle.lastFinishedMillis).apply();
 
         boolean overlayShown = IdleReminderOverlayService.show(context, idle);
+        Context app = context.getApplicationContext();
+        new Handler(Looper.getMainLooper()).post(() ->
+                deliverCompletionAttention(app, idle, nowMillis, overlayShown));
+    }
+
+    private static void deliverCompletionAttention(Context context,
+            IdleProcessState.IdleRole idle, long nowMillis, boolean overlayShown) {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         boolean persistentSurfaceAlerted = false;
@@ -162,7 +169,6 @@ final class IdleReminderManager {
                 DualUsageNotificationManager.repostDelayed(context, 5_000L);
             }
         }
-
         DiagnosticLog.info(context, "idle_process", "completion_delivered",
                 "role", idle.displayLabel(),
                 "finished_at", idle.lastFinishedMillis,

@@ -40,7 +40,7 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
                         "source", "process_notification_scheduler");
                 GoogleCalendarProcessSource.refreshIfDue(app, () -> {
                     try {
-                        boolean posted = DualUsageNotificationManager.repostFromCache(app);
+                        boolean posted = DualUsageNotificationManager.repostForProcessChange(app);
                         DiagnosticLog.info(app, "notification", "local_repaint_completed",
                                 "correlation_id", correlationId,
                                 "posted", posted,

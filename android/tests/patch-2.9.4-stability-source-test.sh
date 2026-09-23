@@ -16,8 +16,8 @@ grep -Fq 'repostSafely(app, "activity_resume");' "$GUARD"
 grep -Fq 'catch (RuntimeException exception)' "$GUARD"
 grep -Fq '"guarded_repost_failed"' "$GUARD"
 
-# Edit Dashboard remains the same secondary editor and keeps its drag/reorder implementation.
-grep -Fq 'Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);' "$SETTINGS"
+# 2.11 removes the user-facing Edit Dashboard affordance while leaving historical editor code isolated.
+! grep -Fq 'DashboardReorderActivity.class' "$SETTINGS"
 grep -Fq 'touchHelper.startDrag(holder);' "$EDITOR"
 grep -Fq 'persistOrder();' "$EDITOR"
 

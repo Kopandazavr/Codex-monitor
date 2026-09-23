@@ -171,6 +171,13 @@ final class IdleReminderManager {
         boolean persistentSurfaceAlerted = false;
         if (manager != null) {
             ensureChannel(manager);
+            NotificationChannel attentionChannel = manager.getNotificationChannel(CHANNEL_ID);
+            DiagnosticLog.info(context, "idle_process", "completion_attention_channel",
+                    "channel", CHANNEL_ID,
+                    "importance", attentionChannel == null ? -1 : attentionChannel.getImportance(),
+                    "sound_configured",
+                    attentionChannel != null && attentionChannel.getSound() != null,
+                    "vibration", attentionChannel != null && attentionChannel.shouldVibrate());
             persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
                     context, idle, CHANNEL_ID, nowMillis);
             if (persistentSurfaceAlerted) {

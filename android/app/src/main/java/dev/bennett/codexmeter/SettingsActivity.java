@@ -3,6 +3,7 @@ package dev.bennett.codexmeter;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.NotificationManager;
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
@@ -11,6 +12,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
@@ -113,7 +116,6 @@ public final class SettingsActivity extends AppCompatActivity {
         private PreferenceCategory notificationLowUsageCategory;
         private PreferenceCategory notificationResetCreditCategory;
         private PreferenceCategory notificationTroubleshootingCategory;
-        private ListPreference notificationStylePreference;
         private SwitchPreferenceCompat nowBarMonitorPreference;
         private SwitchPreferenceCompat nowBarAutoStartPreference;
         private SwitchPreferenceCompat nowBarAcceleratedPreference;
@@ -197,17 +199,20 @@ public final class SettingsActivity extends AppCompatActivity {
         private void bindRoot() {
             bindAccount();
 
-            Preference dashboard = findPreference("dashboard_reorder_root");
-            dashboard.setOnPreferenceClickListener(preference -> {
-                DiagnosticLog.info(requireContext(), "user", "dashboard_editor_opened",
-                        "source", "settings_root");
-                Ui.startSecondaryActivity(requireActivity(), DashboardReorderActivity.class);
+            SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
+            allow.setEnabled(true);
+            allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
+            allow.setOnPreferenceChangeListener((preference, value) -> {
+                setNotificationsEnabled((Boolean) value);
                 return true;
             });
 
+
             bindPageLink("settings_notifications", PAGE_NOTIFICATIONS);
+            bindPageLink("settings_now_bar", PAGE_NOW_BAR);
             bindPageLink("settings_diagnostics", PAGE_DIAGNOSTICS);
             updateRootSummaries();
+            updatePermissionSummary();
         }
 
         private void bindPageLink(String key, String targetPage) {
@@ -252,6 +257,11 @@ public final class SettingsActivity extends AppCompatActivity {
                         + (stats.files == 1 ? " in 1 file"
                         : " across " + stats.files + " files"));
             }
+            Preference build = findPreference("diagnostic_build_identity");
+            if (build != null) {
+                build.setSummary(BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE
+                        + ") · " + BuildConfig.GIT_SHA);
+            }
             Preference export = findPreference("export_diagnostic_logs");
             if (export != null) export.setEnabled(stats.hasLogs());
             Preference clear = findPreference("clear_diagnostic_logs");
@@ -266,11 +276,53 @@ public final class SettingsActivity extends AppCompatActivity {
                 return;
             }
             String stamp = new SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(new Date());
+            String filename = "codex-monitor-diagnostics-" + stamp + ".jsonl";
+            if (Build.VERSION.SDK_INT >= 29) {
+                Uri destination = null;
+                try {
+                    ContentValues values = new ContentValues();
+                    values.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+                    values.put(MediaStore.MediaColumns.MIME_TYPE, "application/x-ndjson");
+                    values.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                            Environment.DIRECTORY_DOWNLOADS);
+                    values.put(MediaStore.MediaColumns.IS_PENDING, 1);
+                    destination = requireContext().getContentResolver().insert(
+                            MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                    if (destination == null) {
+                        throw new IllegalStateException(
+                                "Android could not create the Download file.");
+                    }
+                    DiagnosticLog.export(requireContext(), destination);
+                    values.clear();
+                    values.put(MediaStore.MediaColumns.IS_PENDING, 0);
+                    requireContext().getContentResolver().update(
+                            destination, values, null, null);
+                    updateDiagnosticSummary();
+                    Toast.makeText(requireContext(), "Saved to Download/" + filename,
+                            Toast.LENGTH_LONG).show();
+                    return;
+                } catch (Exception exception) {
+                    if (destination != null) {
+                        try {
+                            requireContext().getContentResolver().delete(
+                                    destination, null, null);
+                        } catch (RuntimeException ignored) {
+                        }
+                    }
+                    DiagnosticLog.error(requireContext(), "diagnostics",
+                            "download_export_failed", exception);
+                    Toast.makeText(requireContext(),
+                            "Could not save diagnostic logs to Download: "
+                                    + MainActivity.safeMessage(exception),
+                            Toast.LENGTH_LONG).show();
+                    return;
+                }
+            }
+
             Intent create = new Intent(Intent.ACTION_CREATE_DOCUMENT)
                     .addCategory(Intent.CATEGORY_OPENABLE)
                     .setType("application/x-ndjson")
-                    .putExtra(Intent.EXTRA_TITLE,
-                            "codex-monitor-diagnostics-" + stamp + ".jsonl");
+                    .putExtra(Intent.EXTRA_TITLE, filename);
             try {
                 startActivityForResult(create, REQUEST_EXPORT_DIAGNOSTICS);
             } catch (RuntimeException exception) {
@@ -301,9 +353,17 @@ public final class SettingsActivity extends AppCompatActivity {
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
 
+            SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
+            if (allow != null) allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
+
             Preference notifications = findPreference("settings_notifications");
             if (notifications != null) {
-                notifications.setSummary("Alerts, live usage, process rows, and role reminders");
+                notifications.setSummary("Low-usage and account activity alerts");
+            }
+
+            Preference liveMonitor = findPreference("settings_now_bar");
+            if (liveMonitor != null) {
+                liveMonitor.setSummary("Live usage, processes, role reminders and Samsung controls");
             }
 
             Preference diagnostics = findPreference("settings_diagnostics");
@@ -311,6 +371,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 DiagnosticLog.Stats stats = DiagnosticLog.stats(requireContext());
                 diagnostics.setSummary("Always on · " + DiagnosticLog.formatBytes(stats.bytes));
             }
+            updatePermissionSummary();
         }
 
         private void bindAccount() {
@@ -395,36 +456,6 @@ public final class SettingsActivity extends AppCompatActivity {
             notificationTroubleshootingCategory =
                     findPreference("notification_troubleshooting_category");
 
-            Preference liveMonitor = findPreference("notification_live_monitor_settings");
-            liveMonitor.setOnPreferenceClickListener(preference -> {
-                DiagnosticLog.info(requireContext(), "user", "settings_page_opened",
-                        "page", PAGE_NOW_BAR);
-                startActivity(pageIntent(requireContext(), PAGE_NOW_BAR));
-                return true;
-            });
-
-            SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
-            allow.setEnabled(true);
-            allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
-            allow.setOnPreferenceChangeListener((preference, value) -> {
-                setNotificationsEnabled((Boolean) value);
-                return true;
-            });
-
-            notificationStylePreference = findPreference("notification_style_ui");
-            String currentStyle = ResetAlertPreferences.getStyle(requireContext());
-            notificationStylePreference.setValue(
-                    ResetAlertPreferences.STYLE_OFF.equals(currentStyle)
-                            ? ResetAlertPreferences.STYLE_NOTIFICATION : currentStyle);
-            notificationStylePreference.setEnabled(
-                    ResetAlertPreferences.enabled(requireContext()));
-            notificationStylePreference.setOnPreferenceChangeListener((preference, value) -> {
-                String style = String.valueOf(value);
-                saveAlert(style, ResetAlertPreferences.getMetric(requireContext()),
-                        ResetAlertPreferences.getThreshold(requireContext()));
-                return true;
-            });
-
             ListPreference metric = findPreference("notification_metric_ui");
             metric.setValue(ResetAlertPreferences.getMetric(requireContext()));
             metric.setOnPreferenceChangeListener((preference, value) -> {
@@ -508,9 +539,6 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private void updateNotificationEnabledState() {
             boolean enabled = ResetAlertPreferences.enabled(requireContext());
-            if (notificationStylePreference != null) {
-                notificationStylePreference.setEnabled(enabled);
-            }
             if (notificationLowUsageCategory != null) {
                 notificationLowUsageCategory.setVisible(enabled);
             }
@@ -1019,10 +1047,8 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void setNotificationsEnabled(boolean enabled) {
-            String selectedStyle = notificationStylePreference == null
-                    ? ResetAlertPreferences.STYLE_NOTIFICATION
-                    : notificationStylePreference.getValue();
-            saveAlert(enabled ? selectedStyle : ResetAlertPreferences.STYLE_OFF,
+            saveAlert(enabled ? ResetAlertPreferences.STYLE_NOTIFICATION
+                    : ResetAlertPreferences.STYLE_OFF,
                     ResetAlertPreferences.getMetric(requireContext()),
                     ResetAlertPreferences.getThreshold(requireContext()));
             if (enabled && Build.VERSION.SDK_INT >= 33
@@ -1055,7 +1081,7 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void updatePermissionSummary() {
-            if (permissionPreference == null || getContext() == null) return;
+            if (getContext() == null) return;
             NotificationManager manager = (NotificationManager) requireContext()
                     .getSystemService(NOTIFICATION_SERVICE);
             boolean allowed = manager != null && manager.areNotificationsEnabled()
@@ -1063,7 +1089,9 @@ public final class SettingsActivity extends AppCompatActivity {
                     || requireContext().checkSelfPermission(
                     "android.permission.POST_NOTIFICATIONS")
                     == PackageManager.PERMISSION_GRANTED);
-            permissionPreference.setSummary(allowed ? "Allowed" : "Not allowed");
+            if (permissionPreference != null) {
+                permissionPreference.setSummary(allowed ? "Allowed" : "Not allowed");
+            }
             if (testNotificationPreference != null) {
                 testNotificationPreference.setEnabled(
                         allowed && ResetAlertPreferences.enabled(requireContext()));

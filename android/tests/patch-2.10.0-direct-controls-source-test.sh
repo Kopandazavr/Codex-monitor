@@ -114,4 +114,4 @@ grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java
 grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'GoogleCalendarAuthorizationActivity' "$MANIFEST"
 grep -Fq 'DiagonalStripeDrawable' "$SRC/IdleReminderOverlayService.java"
-echo 'Codex Monitor 2.11.0 scoped source contract PASS'
+echo 'Codex Monitor 2.12.0 scoped source contract PASS'

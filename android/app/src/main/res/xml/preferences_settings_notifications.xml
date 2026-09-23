@@ -2,24 +2,6 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory>
-        <SwitchPreferenceCompat
-            android:key="notifications_allowed_ui"
-            android:summary="Usage and account activity alerts"
-            android:title="Allow notifications" />
-        <ListPreference
-            android:entries="@array/settings_alert_style_entries"
-            android:entryValues="@array/settings_alert_style_values"
-            android:key="notification_style_ui"
-            android:title="Delivery style"
-            app:useSimpleSummaryProvider="true" />
-        <Preference
-            android:key="notification_live_monitor_settings"
-            android:summary="Live usage card, process rows, role reminders, and Samsung Now Bar controls"
-            android:title="Live monitor &amp; process notifications"
-            app:iconSpaceReserved="false" />
-    </PreferenceCategory>
-
     <PreferenceCategory
         android:key="notification_low_usage_category"
         android:title="Low usage">
@@ -62,10 +44,6 @@
     <PreferenceCategory
         android:key="notification_troubleshooting_category"
         android:title="Troubleshooting">
-        <Preference
-            android:key="notification_permission"
-            android:title="System notification access"
-            app:iconSpaceReserved="false" />
         <Preference
             android:key="notification_test"
             android:summary="Verify alert delivery now"

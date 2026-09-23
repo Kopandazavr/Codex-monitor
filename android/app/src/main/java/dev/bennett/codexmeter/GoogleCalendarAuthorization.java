@@ -144,36 +144,40 @@ final class GoogleCalendarAuthorization {
         DiagnosticLog.info(activity, "calendar_api", "authorization_activity_result",
                 "result_code", resultCode,
                 "data_present", data != null);
+        // Some Google Play services failures return a non-OK Activity result together with
+        // diagnostic result data. Parse that data first so OAuth/client misconfiguration is not
+        // accidentally flattened into a generic user-cancel path.
+        if (data != null) {
+            try {
+                AuthorizationResult result = Identity.getAuthorizationClient(activity)
+                        .getAuthorizationResultFromIntent(data);
+                if (accept(activity, result)) {
+                    return new AuthOutcome(true, "Google Calendar connected.");
+                }
+                markNeedsAction(activity, "token_missing");
+                DiagnosticLog.warn(activity, "calendar_api", "authorization_token_missing",
+                        "stage", "activity_result",
+                        "result_code", resultCode,
+                        "recoverable", false);
+                return new AuthOutcome(false,
+                        "Google Calendar authorization returned no access token.");
+            } catch (Exception exception) {
+                return recordFailure(activity, "activity_result", exception);
+            }
+        }
         if (resultCode != Activity.RESULT_OK) {
             markDisconnected(activity);
             DiagnosticLog.info(activity, "calendar_api", "authorization_cancelled",
                     "result_code", resultCode,
-                    "data_present", data != null);
+                    "data_present", false);
             return new AuthOutcome(false, "Google Calendar authorization was canceled.");
         }
-        if (data == null) {
-            markNeedsAction(activity, "result_missing");
-            DiagnosticLog.warn(activity, "calendar_api", "authorization_result_missing",
-                    "result_code", resultCode,
-                    "recoverable", true);
-            return new AuthOutcome(false,
-                    "Google Calendar returned no authorization result. Try again.");
-        }
-        try {
-            AuthorizationResult result = Identity.getAuthorizationClient(activity)
-                    .getAuthorizationResultFromIntent(data);
-            if (accept(activity, result)) {
-                return new AuthOutcome(true, "Google Calendar connected.");
-            }
-            markNeedsAction(activity, "token_missing");
-            DiagnosticLog.warn(activity, "calendar_api", "authorization_token_missing",
-                    "stage", "activity_result",
-                    "recoverable", false);
-            return new AuthOutcome(false,
-                    "Google Calendar authorization returned no access token.");
-        } catch (Exception exception) {
-            return recordFailure(activity, "activity_result", exception);
-        }
+        markNeedsAction(activity, "result_missing");
+        DiagnosticLog.warn(activity, "calendar_api", "authorization_result_missing",
+                "result_code", resultCode,
+                "recoverable", true);
+        return new AuthOutcome(false,
+                "Google Calendar returned no authorization result. Try again.");
     }
 
     /** Compatibility wrapper retained for bounded callers/tests. */

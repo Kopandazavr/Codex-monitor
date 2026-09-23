@@ -233,6 +233,13 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindDiagnostics() {
+            findPreference("restart_onboarding").setOnPreferenceClickListener(preference -> {
+                DiagnosticLog.info(requireContext(), "user", "restart_onboarding_requested",
+                        "source", "diagnostics");
+                startActivity(new Intent(requireContext(), OnboardingActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+                return true;
+            });
             findPreference("export_diagnostic_logs").setOnPreferenceClickListener(preference -> {
                 launchDiagnosticExport();
                 return true;
@@ -383,8 +390,13 @@ public final class SettingsActivity extends AppCompatActivity {
         private void bindAccount() {
             boolean dark = Ui.isDark(requireContext());
             LayoutPreference preference = findPreference("account_card");
-            RoundedLinearLayout card = preference.findViewById(R.id.settings_account_card);
-            card.setBackground(Ui.card(requireContext(), dark).getBackground());
+            LinearLayout card = preference.findViewById(R.id.settings_account_card);
+            GradientDrawable cardBackground = new GradientDrawable();
+            cardBackground.setShape(GradientDrawable.RECTANGLE);
+            cardBackground.setColor(Ui.cardColor(requireContext(), dark));
+            cardBackground.setCornerRadius(Ui.dp(requireContext(), 26));
+            card.setBackground(cardBackground);
+            card.setClipToOutline(true);
             ImageView avatar = preference.findViewById(R.id.settings_account_avatar);
             GradientDrawable avatarBackground = new GradientDrawable();
             avatarBackground.setShape(GradientDrawable.OVAL);

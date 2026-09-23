@@ -97,8 +97,11 @@ grep -q 'cancelAlarm(context, key)' "$SRC/IdleReminderManager.java"
 # Idle rows expose dismiss + bell actions, while overlay taps have explicit strong haptics.
 grep -q 'notification_process_dismiss' "$ROOT/app/src/main/res/layout/notification_process_row.xml"
 grep -q 'notification_process_reminder' "$ROOT/app/src/main/res/layout/notification_process_row.xml"
-grep -q 'FLAG_WATCH_OUTSIDE_TOUCH' "$SRC/IdleReminderOverlayService.java"
+grep -q 'DiagonalStripeDrawable' "$SRC/IdleReminderOverlayService.java"
 grep -q 'VibrationEffect.createOneShot(160L, 255)' "$SRC/IdleReminderOverlayService.java"
+grep -q 'GoogleCalendarProcessSource.refreshIfDue' "$SRC/CalendarProcessReader.java"
+grep -q 'calendar.events.readonly' "$SRC/GoogleCalendarAuthorization.java"
+grep -q 'overlay_bell_toggled' "$SRC/IdleReminderOverlayService.java"
 grep -q 'IdleReminderOverlayService' "$ROOT/app/src/main/AndroidManifest.xml"
 grep -q 'SYSTEM_ALERT_WINDOW' "$ROOT/app/src/main/AndroidManifest.xml"
 
@@ -120,7 +123,7 @@ grep -q 'Ui.versionName(activity)' "$SRC/HomeVersionLabel.java"
 grep -q 'RelativeSizeSpan' "$SRC/HomeVersionLabel.java"
 grep -q 'HomeVersionLabel.apply(activity)' "$SRC/CodexMeterApplication.java"
 grep -q 'normalizeAutomaticDefaults' "$SRC/CodexMeterApplication.java"
-grep -q 'dashboard_reorder_root' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
+! grep -q 'dashboard_reorder_root' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 grep -q 'android:key="settings_diagnostics"' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 
 # Selected Focus launcher/adaptive assets keep the original artwork but now place it behind an

@@ -265,7 +265,7 @@ public final class IdleReminderOverlayService extends Service {
                 roles.put(idle.key, updated);
                 updateBell(view, updated);
             }
-            DualUsageNotificationManager.repostDelayed(this, 120L);
+            DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
             DiagnosticLog.info(this, "idle_process", "overlay_bell_toggled",
                     "role", idle.displayLabel(),
                     "enabled", enabled);

@@ -29,18 +29,20 @@ final class IdleProcessState {
         final String project;
         final String role;
         final String topic;
+        final long lastStartedMillis;
         final long lastFinishedMillis;
         final long eventId;
         final boolean reminderEnabled;
         final long nextReminderAtMillis;
 
         IdleRole(String key, String project, String role, String topic,
-                long lastFinishedMillis, long eventId, boolean reminderEnabled,
-                long nextReminderAtMillis) {
+                long lastStartedMillis, long lastFinishedMillis, long eventId,
+                boolean reminderEnabled, long nextReminderAtMillis) {
             this.key = clean(key);
             this.project = clean(project);
             this.role = clean(role);
             this.topic = clean(topic);
+            this.lastStartedMillis = lastStartedMillis;
             this.lastFinishedMillis = lastFinishedMillis;
             this.eventId = eventId;
             this.reminderEnabled = reminderEnabled;
@@ -91,7 +93,7 @@ final class IdleProcessState {
                 String key = roleKey(process);
                 MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
                 promoteFinished(row, process.project, process.role, process.topic,
-                        process.eventId, process.endMillis, context);
+                        process.eventId, process.workStartMillis(), process.endMillis, context);
             }
         }
         for (MutableRole row : rows.values()) {
@@ -103,7 +105,7 @@ final class IdleProcessState {
 
             long finishedAt = watchedEventDeleted ? nowMillis : row.pendingEndMillis;
             promoteFinished(row, row.project, row.role, row.topic,
-                    row.pendingEventId, finishedAt, context);
+                    row.pendingEventId, row.pendingStartMillis, finishedAt, context);
             if (watchedEventDeleted) {
                 DiagnosticLog.info(context, "idle_process", "watchdog_deleted_early",
                         "event_id", row.pendingEventId,
@@ -202,6 +204,7 @@ final class IdleProcessState {
     private static void rememberObserved(MutableRole row, CalendarProcess process) {
         if (row == null || process == null) return;
         if (process.endMillis < row.pendingEndMillis) return;
+        row.pendingStartMillis = process.workStartMillis();
         row.pendingEndMillis = process.endMillis;
         row.pendingEventId = process.eventId;
         row.project = clean(process.project);
@@ -218,12 +221,14 @@ final class IdleProcessState {
     }
 
     private static void promoteFinished(MutableRole row, String project, String role,
-            String topic, long eventId, long finishedMillis, Context context) {
+            String topic, long eventId, long startedMillis, long finishedMillis,
+            Context context) {
         if (finishedMillis <= row.lastFinishedMillis) return;
         row.project = clean(project);
         row.role = clean(role);
         row.topic = clean(topic);
         row.eventId = eventId;
+        row.lastStartedMillis = Math.max(0L, Math.min(startedMillis, finishedMillis));
         row.lastFinishedMillis = finishedMillis;
         row.nextReminderAtMillis = row.reminderEnabled
                 ? finishedMillis + cadenceMillis(context) : 0L;
@@ -265,19 +270,21 @@ final class IdleProcessState {
         String project = "";
         String role = "";
         String topic = "";
+        long lastStartedMillis;
         long lastFinishedMillis;
         long eventId;
         long dismissedThroughMillis;
         boolean reminderEnabled;
         long nextReminderAtMillis;
+        long pendingStartMillis;
         long pendingEndMillis;
         long pendingEventId;
 
         MutableRole(String key) { this.key = clean(key); }
 
         IdleRole freeze() {
-            return new IdleRole(key, project, role, topic, lastFinishedMillis, eventId,
-                    reminderEnabled, nextReminderAtMillis);
+            return new IdleRole(key, project, role, topic, lastStartedMillis,
+                    lastFinishedMillis, eventId, reminderEnabled, nextReminderAtMillis);
         }
 
         JSONObject toJson() {
@@ -287,11 +294,13 @@ final class IdleProcessState {
                 json.put("project", project);
                 json.put("role", role);
                 json.put("topic", topic);
+                json.put("last_started", lastStartedMillis);
                 json.put("last_finished", lastFinishedMillis);
                 json.put("event_id", eventId);
                 json.put("dismissed_through", dismissedThroughMillis);
                 json.put("reminder", reminderEnabled);
                 json.put("next_reminder", nextReminderAtMillis);
+                json.put("pending_start", pendingStartMillis);
                 json.put("pending_end", pendingEndMillis);
                 json.put("pending_event", pendingEventId);
             } catch (JSONException ignored) {
@@ -304,11 +313,13 @@ final class IdleProcessState {
             row.project = clean(json.optString("project", ""));
             row.role = clean(json.optString("role", ""));
             row.topic = clean(json.optString("topic", ""));
+            row.lastStartedMillis = json.optLong("last_started", 0L);
             row.lastFinishedMillis = json.optLong("last_finished", 0L);
             row.eventId = json.optLong("event_id", 0L);
             row.dismissedThroughMillis = json.optLong("dismissed_through", 0L);
             row.reminderEnabled = json.optBoolean("reminder", false);
             row.nextReminderAtMillis = json.optLong("next_reminder", 0L);
+            row.pendingStartMillis = json.optLong("pending_start", 0L);
             row.pendingEndMillis = json.optLong("pending_end", 0L);
             row.pendingEventId = json.optLong("pending_event", 0L);
             return row;

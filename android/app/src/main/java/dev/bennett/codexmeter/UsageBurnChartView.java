@@ -3,7 +3,6 @@ package dev.bennett.codexmeter;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.DashPathEffect;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.RectF;
@@ -13,41 +12,60 @@ import android.util.AttributeSet;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 
-/** Compact local-history chart showing actual, sustainable, and projected quota burn. */
+/** Factual measured-usage chart with reset-anchored absolute time and bounded tap-to-zoom. */
 public final class UsageBurnChartView extends View {
-    /** Reports finger-scrub positions so hosts can surface point-in-time detail. */
+    private static final long FIVE_HOUR_ZOOM_MS = TimeUnit.MINUTES.toMillis(30);
+    private static final long WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1);
+    private static final long FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(5);
+    private static final long FIVE_HOUR_DEFAULT_TICK_MS = TimeUnit.HOURS.toMillis(1);
+    private static final long WEEKLY_ZOOM_TICK_MS = TimeUnit.HOURS.toMillis(4);
+    private static final long WEEKLY_DEFAULT_TICK_MS = TimeUnit.DAYS.toMillis(1);
+    // Same orange used by the Weekly dashboard fill.
+    private static final int WEEKLY_ORANGE = 0xFFFF9800;
+
     public interface OnScrubListener {
         void onScrub(long timeMillis, double usedPercent, boolean historicalWindow);
 
         void onScrubEnd();
     }
 
+    public interface OnZoomChangedListener {
+        void onZoomChanged(boolean zoomed);
+    }
+
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
     private final RectF bubbleRect = new RectF();
-    private final DashPathEffect budgetDash;
-    private final DashPathEffect projectionDash;
     private final Typeface regularTypeface = Typeface.create("sec", Typeface.NORMAL);
     private final Typeface boldTypeface = Typeface.create("sec", Typeface.BOLD);
+    private final int touchSlop;
+
     private String label = "";
     private UsageWindow window;
     private List<UsageSample> samples = Collections.emptyList();
-    private List<List<UsageSample>> windows = Collections.emptyList();
-    private UsagePace.Assessment pace;
     private long observedAtMillis;
     private boolean scrubEnabled;
+    private boolean zoomEnabled;
+    private boolean zoomed;
+    private long viewportStartMillis;
+    private long viewportEndMillis;
     private OnScrubListener scrubListener;
-    private int selectedWindowIndex = -1;
+    private OnZoomChangedListener zoomChangedListener;
     private boolean scrubbing;
     private long scrubTimeMillis;
     private double scrubPercent = -1d;
     private long lastHapticBucket = Long.MIN_VALUE;
+    private float downX;
+    private float lastX;
+    private boolean moved;
 
     public UsageBurnChartView(Context context) {
         this(context, null);
@@ -55,132 +73,169 @@ public final class UsageBurnChartView extends View {
 
     public UsageBurnChartView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        float density = getResources().getDisplayMetrics().density;
-        budgetDash = new DashPathEffect(new float[]{5f * density, 5f * density}, 0);
-        projectionDash = new DashPathEffect(new float[]{7f * density, 5f * density}, 0);
+        touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
     }
 
     public void setData(String label, UsageWindow window, UsageHistory history,
-            long observedAtMillis, UsagePace.Assessment pace) {
+            long observedAtMillis, UsagePace.Assessment ignoredPace) {
         this.label = label == null ? "" : label;
         this.window = window;
         this.samples = history == null ? Collections.emptyList() : history.currentWindowSamples();
-        this.windows = history == null ? Collections.emptyList() : history.recentWindows(5);
         this.observedAtMillis = observedAtMillis;
-        this.pace = pace;
-        this.selectedWindowIndex = -1;
-        String detail = samples.size() < 2 ? "Building local history"
-                : samples.size() + " local samples";
-        if (pace != null && pace.available) {
-            detail += ", projected exhaustion "
-                    + UsageFormat.relative(pace.estimatedExhaustionAtMillis,
-                            System.currentTimeMillis());
-        }
-        if (scrubEnabled) {
-            detail += ". Touch and drag to inspect points in time";
-        }
-        setContentDescription(this.label + " usage burn chart. " + detail + ".");
+        boolean wasZoomed = zoomed;
+        zoomed = false;
+        viewportStartMillis = 0L;
+        viewportEndMillis = 0L;
+        scrubbing = false;
+        String detail = samples.size() < 2 ? "Building measured history"
+                : samples.size() + " measured samples";
+        if (zoomEnabled) detail += ". Tap to zoom and drag to inspect";
+        setContentDescription(this.label + " measured usage chart. " + detail + ".");
+        if (wasZoomed && zoomChangedListener != null) zoomChangedListener.onZoomChanged(false);
         invalidate();
     }
 
-    /** Enables finger scrubbing across the burn line for point-in-time inspection. */
     public void setScrubEnabled(boolean enabled) {
-        this.scrubEnabled = enabled;
+        scrubEnabled = enabled;
+    }
+
+    public void setZoomEnabled(boolean enabled) {
+        zoomEnabled = enabled;
+        if (!enabled && zoomed) zoomOut();
+    }
+
+    public boolean isZoomed() {
+        return zoomed;
+    }
+
+    public void zoomOut() {
+        if (!zoomed) return;
+        zoomed = false;
+        viewportStartMillis = 0L;
+        viewportEndMillis = 0L;
+        scrubbing = false;
+        lastHapticBucket = Long.MIN_VALUE;
+        if (scrubListener != null) scrubListener.onScrubEnd();
+        if (zoomChangedListener != null) zoomChangedListener.onZoomChanged(false);
+        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        invalidate();
     }
 
     public void setOnScrubListener(OnScrubListener listener) {
-        this.scrubListener = listener;
+        scrubListener = listener;
     }
 
-    /**
-     * Highlights one recorded window and points scrubbing at it. Accepts an index into
-     * {@code recentWindows(5)} ordering (oldest first); any other value selects the
-     * current window.
-     */
-    public void setSelectedWindow(int index) {
-        this.selectedWindowIndex = index >= 0 && index < windows.size() - 1 ? index : -1;
-        this.scrubbing = false;
-        invalidate();
-    }
-
-    public int windowCount() {
-        return windows.size();
-    }
-
-    private boolean historicalSelection() {
-        return selectedWindowIndex >= 0 && selectedWindowIndex < windows.size() - 1;
-    }
-
-    private List<UsageSample> activeSamples() {
-        return historicalSelection() ? windows.get(selectedWindowIndex) : samples;
-    }
-
-    /** Start and end of the time axis for the actively scrubbed window. */
-    private long[] activeAxis() {
-        if (historicalSelection()) {
-            List<UsageSample> selected = windows.get(selectedWindowIndex);
-            UsageSample reference = selected.get(selected.size() - 1);
-            long start = reference.resetAtMillis - reference.windowSeconds * 1000L;
-            return new long[]{start, reference.resetAtMillis};
-        }
-        if (window == null || observedAtMillis <= 0L) return null;
-        long resetAt = window.effectiveResetAtMillis(observedAtMillis);
-        long duration = window.windowSeconds * 1000L;
-        long startAt = resetAt - duration;
-        if (resetAt <= startAt) return null;
-        return new long[]{startAt, resetAt};
+    public void setOnZoomChangedListener(OnZoomChangedListener listener) {
+        zoomChangedListener = listener;
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (!scrubEnabled) return super.onTouchEvent(event);
-        List<UsageSample> active = activeSamples();
-        long[] axis = activeAxis();
-        if (active.isEmpty() || axis == null) return super.onTouchEvent(event);
+        if (!scrubEnabled && !zoomEnabled) return super.onTouchEvent(event);
+        long[] axis = visibleAxis();
+        if (axis == null || samples.isEmpty()) return super.onTouchEvent(event);
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-            case MotionEvent.ACTION_MOVE:
                 getParent().requestDisallowInterceptTouchEvent(true);
-                updateScrub(event.getX(), active, axis);
+                downX = event.getX();
+                lastX = downX;
+                moved = false;
+                if (scrubEnabled) updateScrub(event.getX(), axis);
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                float x = event.getX();
+                if (Math.abs(x - downX) > touchSlop) moved = true;
+                if (zoomEnabled && zoomed && moved) {
+                    if (scrubbing) {
+                        scrubbing = false;
+                        if (scrubListener != null) scrubListener.onScrubEnd();
+                    }
+                    panBy(x - lastX);
+                    lastX = x;
+                } else if (scrubEnabled) {
+                    updateScrub(x, axis);
+                }
                 return true;
             case MotionEvent.ACTION_UP:
+                if (zoomEnabled && !moved && !zoomed) {
+                    zoomAt(event.getX());
+                }
+                finishTouch();
+                return true;
             case MotionEvent.ACTION_CANCEL:
-                scrubbing = false;
-                lastHapticBucket = Long.MIN_VALUE;
-                if (scrubListener != null) scrubListener.onScrubEnd();
-                invalidate();
+                finishTouch();
                 return true;
             default:
                 return super.onTouchEvent(event);
         }
     }
 
-    private void updateScrub(float touchX, List<UsageSample> active, long[] axis) {
-        float density = getResources().getDisplayMetrics().density;
-        float left = 16f * density;
-        float right = getWidth() - 16f * density;
+    private void finishTouch() {
+        getParent().requestDisallowInterceptTouchEvent(false);
+        scrubbing = false;
+        lastHapticBucket = Long.MIN_VALUE;
+        if (scrubListener != null) scrubListener.onScrubEnd();
+        invalidate();
+    }
+
+    private void zoomAt(float touchX) {
+        long[] full = defaultAxis();
+        if (full == null) return;
+        long zoomSpan = isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS;
+        long fullSpan = full[1] - full[0];
+        if (fullSpan <= zoomSpan) return;
+        float left = chartLeft();
+        float right = chartRight();
         double ratio = Math.max(0d, Math.min(1d,
-                (touchX - left) / (double) Math.max(1f, right - left)));
+                (touchX - left) / Math.max(1d, right - left)));
+        long center = full[0] + Math.round(ratio * fullSpan);
+        long start = center - zoomSpan / 2L;
+        start = Math.max(full[0], Math.min(start, full[1] - zoomSpan));
+        viewportStartMillis = start;
+        viewportEndMillis = start + zoomSpan;
+        zoomed = true;
+        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        if (zoomChangedListener != null) zoomChangedListener.onZoomChanged(true);
+        invalidate();
+    }
+
+    private void panBy(float deltaX) {
+        long[] full = defaultAxis();
+        if (full == null || !zoomed) return;
+        long span = viewportEndMillis - viewportStartMillis;
+        float width = Math.max(1f, chartRight() - chartLeft());
+        long shift = Math.round(-deltaX * span / width);
+        long start = viewportStartMillis + shift;
+        start = Math.max(full[0], Math.min(start, full[1] - span));
+        viewportStartMillis = start;
+        viewportEndMillis = start + span;
+        invalidate();
+    }
+
+    private void updateScrub(float touchX, long[] axis) {
+        float left = chartLeft();
+        float right = chartRight();
+        double ratio = Math.max(0d, Math.min(1d,
+                (touchX - left) / Math.max(1d, right - left)));
         long time = axis[0] + Math.round(ratio * (axis[1] - axis[0]));
-        long first = active.get(0).observedAtMillis;
-        long last = active.get(active.size() - 1).observedAtMillis;
-        long clamped = Math.max(first, Math.min(last, time));
-        double percent = UsageStats.usedPercentAt(active, clamped);
-        if (percent < 0d) percent = active.get(active.size() - 1).usedPercent;
+        long first = samples.get(0).observedAtMillis;
+        long last = samples.get(samples.size() - 1).observedAtMillis;
+        long clamped = Math.max(Math.max(first, axis[0]), Math.min(Math.min(last, axis[1]), time));
+        double percent = UsageStats.usedPercentAt(samples, clamped);
+        if (percent < 0d) percent = samples.get(samples.size() - 1).usedPercent;
         boolean changed = !scrubbing || clamped != scrubTimeMillis;
         scrubbing = true;
         scrubTimeMillis = clamped;
         scrubPercent = percent;
-        // One gentle tick per 24th of the axis keeps scrubbing tactile without buzzing.
-        long bucket = (axis[1] - axis[0]) <= 0L ? 0L
-                : (clamped - axis[0]) / Math.max(1L, (axis[1] - axis[0]) / 24L);
+        long bucketSize = Math.max(1L, (axis[1] - axis[0]) / 24L);
+        long bucket = (clamped - axis[0]) / bucketSize;
         if (bucket != lastHapticBucket) {
             lastHapticBucket = bucket;
             performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
         }
         if (changed && scrubListener != null) {
-            scrubListener.onScrub(clamped, percent, historicalSelection());
+            scrubListener.onScrub(clamped, percent, false);
         }
         invalidate();
     }
@@ -190,10 +245,11 @@ public final class UsageBurnChartView extends View {
         super.onDraw(canvas);
         float density = getResources().getDisplayMetrics().density;
         boolean dark = Ui.isDark(getContext());
-        float left = 16f * density;
-        float right = getWidth() - 16f * density;
+        float left = chartLeft();
+        float right = chartRight();
         float top = 34f * density;
-        float bottom = getHeight() - 24f * density;
+        float bottom = getHeight() - 32f * density;
+
         paint.setStyle(Paint.Style.FILL);
         paint.setTypeface(boldTypeface);
         paint.setTextSize(14f * density);
@@ -205,132 +261,163 @@ public final class UsageBurnChartView extends View {
         paint.setColor(Ui.secondaryText(dark));
         String sampleLabel = samples.size() < 2 ? "Building history"
                 : samples.size() + " samples";
+        if (zoomed) sampleLabel += " · zoom";
         canvas.drawText(sampleLabel, right - paint.measureText(sampleLabel), 20f * density, paint);
 
-        paint.setStrokeWidth(1f * density);
-        paint.setColor(Color.argb(dark ? 52 : 38, 128, 128, 128));
-        canvas.drawLine(left, bottom, right, bottom, paint);
-        canvas.drawLine(left, top, right, top, paint);
-        if (window == null || observedAtMillis <= 0L) {
+        long[] full = defaultAxis();
+        long[] axis = visibleAxis();
+        if (window == null || full == null || axis == null) {
             drawEmpty(canvas, left, top, dark, density, "Waiting for usage data");
             return;
         }
-        long resetAt = window.effectiveResetAtMillis(observedAtMillis);
-        long duration = window.windowSeconds * 1000L;
-        long startAt = resetAt - duration;
-        if (resetAt <= startAt) {
-            drawEmpty(canvas, left, top, dark, density, "Reset window unavailable");
-            return;
-        }
 
-        // Sustainable budget: reaching 100% used exactly at reset.
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(1.5f * density);
-        paint.setPathEffect(budgetDash);
-        paint.setColor(Color.argb(dark ? 115 : 95, 128, 128, 128));
-        canvas.drawLine(left, bottom, right, top, paint);
-        paint.setPathEffect(null);
-
-        // Normalize completed windows to the same x-axis so historical burn shapes are
-        // comparable; the selected window is emphasized and drawn last.
-        for (int pass = 0; pass < 2; pass++) {
-            for (int index = 0; index < windows.size() - 1; index++) {
-                boolean selected = index == selectedWindowIndex;
-                if ((pass == 0) == selected) continue;
-                List<UsageSample> historical = windows.get(index);
-                if (historical.size() < 2) continue;
-                UsageSample reference = historical.get(historical.size() - 1);
-                long historicalStart = reference.resetAtMillis
-                        - reference.windowSeconds * 1000L;
-                path.reset();
-                for (int sampleIndex = 0; sampleIndex < historical.size(); sampleIndex++) {
-                    UsageSample sample = historical.get(sampleIndex);
-                    float historicalX = x(sample.observedAtMillis, historicalStart,
-                            reference.resetAtMillis, left, right);
-                    float historicalY = y(sample.usedPercent, top, bottom);
-                    if (sampleIndex == 0) path.moveTo(historicalX, historicalY);
-                    else path.lineTo(historicalX, historicalY);
-                }
-                paint.setStrokeWidth(selected ? 2.5f * density : 1.5f * density);
-                paint.setColor(selected ? Ui.desaturatedAccent(getContext(), dark)
-                        : Color.argb(dark ? 62 : 48, 128, 128, 128));
-                paint.setStrokeCap(Paint.Cap.ROUND);
-                paint.setStrokeJoin(Paint.Join.ROUND);
-                canvas.drawPath(path, paint);
-            }
-        }
-
-        if (!samples.isEmpty()) {
-            path.reset();
-            boolean started = false;
-            for (UsageSample sample : samples) {
-                float x = x(sample.observedAtMillis, startAt, resetAt, left, right);
-                float y = y(sample.usedPercent, top, bottom);
-                if (!started) {
-                    path.moveTo(x, y);
-                    started = true;
-                } else {
-                    path.lineTo(x, y);
-                }
-            }
-            boolean dimmed = historicalSelection();
-            int accent = Ui.accent(getContext(), dark);
-            paint.setColor(dimmed ? Color.argb(96, Color.red(accent), Color.green(accent),
-                    Color.blue(accent)) : accent);
-            paint.setStrokeWidth(3f * density);
-            paint.setStrokeCap(Paint.Cap.ROUND);
-            paint.setStrokeJoin(Paint.Join.ROUND);
-            canvas.drawPath(path, paint);
-        }
-
-        if (pace != null && pace.available && !samples.isEmpty() && !historicalSelection()) {
-            UsageSample latest = samples.get(samples.size() - 1);
-            float fromX = x(latest.observedAtMillis, startAt, resetAt, left, right);
-            float fromY = y(latest.usedPercent, top, bottom);
-            float toX = x(Math.min(resetAt, pace.estimatedExhaustionAtMillis),
-                    startAt, resetAt, left, right);
-            float toY = y(pace.estimatedExhaustionAtMillis <= resetAt ? 100 : latest.usedPercent,
-                    top, bottom);
-            paint.setColor(pace.accelerated ? Ui.warning(dark)
-                    : Ui.desaturatedAccent(getContext(), dark));
-            paint.setStrokeWidth(2f * density);
-            paint.setPathEffect(projectionDash);
-            canvas.drawLine(fromX, fromY, toX, toY, paint);
-            paint.setPathEffect(null);
-        }
+        drawMeasuredSeries(canvas, axis, left, right, top, bottom, density, dark);
+        drawTimeAxis(canvas, axis, left, right, bottom, density, dark);
 
         if (scrubbing && scrubPercent >= 0d) {
-            drawScrub(canvas, left, right, top, bottom, density, dark);
+            drawScrub(canvas, axis, left, right, top, bottom, density, dark);
         }
+    }
+
+    private void drawMeasuredSeries(Canvas canvas, long[] axis, float left, float right,
+            float top, float bottom, float density, boolean dark) {
+        if (samples.isEmpty()) {
+            drawEmpty(canvas, left, top, dark, density, "No measured samples yet");
+            return;
+        }
+        path.reset();
+        UsageSample before = null;
+        boolean started = false;
+        for (UsageSample sample : samples) {
+            if (sample.observedAtMillis < axis[0]) {
+                before = sample;
+                continue;
+            }
+            if (!started && before != null) {
+                path.moveTo(x(before.observedAtMillis, axis[0], axis[1], left, right),
+                        y(before.usedPercent, top, bottom));
+                started = true;
+            }
+            float sx = x(sample.observedAtMillis, axis[0], axis[1], left, right);
+            float sy = y(sample.usedPercent, top, bottom);
+            if (!started) {
+                path.moveTo(sx, sy);
+                started = true;
+            } else {
+                path.lineTo(sx, sy);
+            }
+            if (sample.observedAtMillis > axis[1]) break;
+        }
+        if (!started && before != null) {
+            path.moveTo(left, y(before.usedPercent, top, bottom));
+            started = true;
+        }
+        if (!started) return;
+
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setPathEffect(null);
+        paint.setStrokeWidth(3f * density);
+        paint.setStrokeCap(Paint.Cap.ROUND);
+        paint.setStrokeJoin(Paint.Join.ROUND);
+        paint.setColor(isWeekly() ? WEEKLY_ORANGE : Ui.accent(getContext(), dark));
+        canvas.drawPath(path, paint);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawTimeAxis(Canvas canvas, long[] axis, float left, float right, float bottom,
+            float density, boolean dark) {
+        long interval = tickInterval();
+        if (interval <= 0L) return;
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(1f * density);
+        paint.setColor(Color.argb(dark ? 120 : 90, 128, 128, 128));
+        canvas.drawLine(left, bottom + 2f * density, right, bottom + 2f * density, paint);
+
+        long anchor = defaultAxis()[1];
+        long stepsBack = Math.max(0L, (anchor - axis[0]) / interval);
+        long first = anchor - stepsBack * interval;
+        while (first < axis[0]) first += interval;
 
         paint.setStyle(Paint.Style.FILL);
         paint.setTypeface(regularTypeface);
-        paint.setTextSize(10f * density);
+        paint.setTextSize((zoomed && isWeekly() ? 8.5f : 9f) * density);
         paint.setColor(Ui.secondaryText(dark));
-        canvas.drawText("0%", left, getHeight() - 7f * density, paint);
-        String reset = "reset";
-        canvas.drawText(reset, right - paint.measureText(reset), getHeight() - 7f * density, paint);
+        SimpleDateFormat format = new SimpleDateFormat(tickPattern(), Locale.getDefault());
+        int guard = 0;
+        for (long tick = first; tick <= axis[1] && guard++ < 16; tick += interval) {
+            float tx = x(tick, axis[0], axis[1], left, right);
+            paint.setStrokeWidth(1f * density);
+            canvas.drawRect(tx, bottom + 1f * density, tx + 1f * density,
+                    bottom + 5f * density, paint);
+            String value = format.format(new Date(tick));
+            float width = paint.measureText(value);
+            float labelX = Math.max(left, Math.min(right - width, tx - width / 2f));
+            canvas.drawText(value, labelX, getHeight() - 5f * density, paint);
+        }
     }
 
-    private void drawScrub(Canvas canvas, float left, float right, float top, float bottom,
-            float density, boolean dark) {
-        long[] axis = activeAxis();
-        if (axis == null) return;
+    private long tickInterval() {
+        if (isWeekly()) return zoomed ? WEEKLY_ZOOM_TICK_MS : WEEKLY_DEFAULT_TICK_MS;
+        return zoomed ? FIVE_HOUR_ZOOM_TICK_MS : FIVE_HOUR_DEFAULT_TICK_MS;
+    }
+
+    private String tickPattern() {
+        boolean is24Hour = DateFormat.is24HourFormat(getContext());
+        if (isWeekly() && !zoomed) return "EEE d";
+        if (isWeekly()) return is24Hour ? "EEE HH:mm" : "EEE h a";
+        return is24Hour ? "HH:mm" : "h:mm";
+    }
+
+    private long[] defaultAxis() {
+        if (window == null || observedAtMillis <= 0L || window.windowSeconds <= 0L) return null;
+        long reset = window.effectiveResetAtMillis(observedAtMillis);
+        long right = reset > observedAtMillis ? reset : observedAtMillis;
+        long duration;
+        try {
+            duration = Math.multiplyExact(window.windowSeconds, 1000L);
+        } catch (ArithmeticException exception) {
+            return null;
+        }
+        if (duration <= 0L || right <= duration) return null;
+        return new long[]{right - duration, right};
+    }
+
+    private long[] visibleAxis() {
+        long[] full = defaultAxis();
+        if (full == null) return null;
+        if (!zoomed || viewportEndMillis <= viewportStartMillis) return full;
+        return new long[]{viewportStartMillis, viewportEndMillis};
+    }
+
+    private boolean isWeekly() {
+        return "Weekly".equalsIgnoreCase(label)
+                || (window != null && window.windowSeconds >= TimeUnit.DAYS.toSeconds(6));
+    }
+
+    private float chartLeft() {
+        return 16f * getResources().getDisplayMetrics().density;
+    }
+
+    private float chartRight() {
+        return getWidth() - 16f * getResources().getDisplayMetrics().density;
+    }
+
+    private void drawScrub(Canvas canvas, long[] axis, float left, float right, float top,
+            float bottom, float density, boolean dark) {
         float scrubX = x(scrubTimeMillis, axis[0], axis[1], left, right);
-        float scrubY = y((int) Math.round(scrubPercent), top, bottom);
-        int accent = historicalSelection() ? Ui.desaturatedAccent(getContext(), dark)
-                : Ui.accent(getContext(), dark);
+        float scrubY = y(scrubPercent, top, bottom);
+        int series = isWeekly() ? WEEKLY_ORANGE : Ui.accent(getContext(), dark);
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(1.5f * density);
-        paint.setColor(Color.argb(dark ? 130 : 110, Color.red(accent), Color.green(accent),
-                Color.blue(accent)));
+        paint.setColor(Color.argb(dark ? 150 : 125,
+                Color.red(series), Color.green(series), Color.blue(series)));
         canvas.drawLine(scrubX, top, scrubX, bottom, paint);
 
         paint.setStyle(Paint.Style.FILL);
         paint.setColor(Ui.cardColor(getContext(), dark));
         canvas.drawCircle(scrubX, scrubY, 6f * density, paint);
-        paint.setColor(accent);
+        paint.setColor(series);
         canvas.drawCircle(scrubX, scrubY, 4f * density, paint);
 
         String bubble = scrubTimeLabel() + " · " + Math.round(scrubPercent) + "%";
@@ -339,9 +426,11 @@ public final class UsageBurnChartView extends View {
         float textWidth = paint.measureText(bubble);
         float padding = 8f * density;
         float bubbleLeft = Math.max(left,
-                Math.min(right - textWidth - padding * 2f, scrubX - textWidth / 2f - padding));
+                Math.min(right - textWidth - padding * 2f,
+                        scrubX - textWidth / 2f - padding));
         float bubbleTop = top - 30f * density;
-        bubbleRect.set(bubbleLeft, bubbleTop, bubbleLeft + textWidth + padding * 2f,
+        bubbleRect.set(bubbleLeft, bubbleTop,
+                bubbleLeft + textWidth + padding * 2f,
                 bubbleTop + 22f * density);
         paint.setColor(Ui.controlSurface(getContext(), dark));
         canvas.drawRoundRect(bubbleRect, 11f * density, 11f * density, paint);
@@ -350,10 +439,8 @@ public final class UsageBurnChartView extends View {
     }
 
     private String scrubTimeLabel() {
-        boolean weekly = window != null
-                && window.windowSeconds > 24L * 60L * 60L;
         boolean is24Hour = DateFormat.is24HourFormat(getContext());
-        String pattern = weekly
+        String pattern = isWeekly()
                 ? (is24Hour ? "EEE HH:mm" : "EEE h:mm a")
                 : (is24Hour ? "HH:mm" : "h:mm a");
         return new SimpleDateFormat(pattern, Locale.getDefault())
@@ -370,11 +457,14 @@ public final class UsageBurnChartView extends View {
     }
 
     private static float x(long time, long start, long end, float left, float right) {
-        double ratio = Math.max(0d, Math.min(1d, (time - start) / (double) (end - start)));
+        if (end <= start) return left;
+        double ratio = Math.max(0d, Math.min(1d,
+                (time - start) / (double) (end - start)));
         return left + (float) ratio * (right - left);
     }
 
-    private static float y(int usedPercent, float top, float bottom) {
-        return bottom - Math.max(0, Math.min(100, usedPercent)) / 100f * (bottom - top);
+    private static float y(double usedPercent, float top, float bottom) {
+        return bottom - (float) (Math.max(0d, Math.min(100d, usedPercent)) / 100d)
+                * (bottom - top);
     }
 }

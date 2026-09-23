@@ -35,10 +35,17 @@ grep -q 'process.isVisibleActive(nowMillis)' "$SRC/CalendarProcessReader.java"
 grep -q 'process.remainingMillis(nowMillis)' "$SRC/ProcessNotificationManager.java"
 
 # Once an event has been observed, deleting it is an early completion rather than waiting for the
-# stale scheduled END. Provider failures remain fail-safe (not false completion).
+# stale scheduled END. Fresh direct-API absence is authoritative; stale/error states stay UNKNOWN.
 grep -q 'static boolean eventExists' "$SRC/CalendarProcessReader.java"
+grep -q 'GoogleCalendarProcessSource.hasFreshCache(context, now)' "$SRC/CalendarProcessReader.java"
+grep -q 'GoogleCalendarProcessSource.cachedEventExists' "$SRC/CalendarProcessReader.java"
+grep -q '"watchdog_presence_checked"' "$SRC/CalendarProcessReader.java"
+grep -q '"authoritative", true' "$SRC/CalendarProcessReader.java"
 grep -q 'CalendarContract.Events.CONTENT_URI' "$SRC/CalendarProcessReader.java"
+grep -q 'if (!hasFreshCache(context, nowMillis)) return true' "$SRC/GoogleCalendarProcessSource.java"
 grep -q '!CalendarProcessReader.eventExists(context, row.pendingEventId)' "$SRC/IdleProcessState.java"
+grep -q 'long finishedAt = watchedEventDeleted ? nowMillis : row.pendingEndMillis' "$SRC/IdleProcessState.java"
+grep -q 'row.pendingEndMillis = 0L' "$SRC/IdleProcessState.java"
 grep -q 'watchdog_deleted_early' "$SRC/IdleProcessState.java"
 
 # Every process-notification mode has a useful collapsed summary. Combined mode surfaces it inside

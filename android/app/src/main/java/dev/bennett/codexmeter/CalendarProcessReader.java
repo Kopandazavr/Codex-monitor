@@ -27,7 +27,15 @@ final class CalendarProcessReader {
      * metadata before BEGIN so deleting a known watchdog early can still complete that role.
      */
     static List<CalendarProcess> observed(Context context, long nowMillis) {
-        return query(context, nowMillis);
+        if (context == null) return new ArrayList<>();
+        ProcessNotificationScheduler.schedule(context);
+        if (GoogleCalendarAuthorization.isConnected(context)) {
+            GoogleCalendarProcessSource.refreshIfDue(context, null);
+            if (GoogleCalendarProcessSource.hasFreshCache(context, nowMillis)) {
+                return GoogleCalendarProcessSource.cached(context);
+            }
+        }
+        return queryProvider(context, nowMillis);
     }
 
     static List<CalendarProcess> active(Context context, long nowMillis) {
@@ -66,6 +74,11 @@ final class CalendarProcessReader {
      */
     static boolean eventExists(Context context, long eventId) {
         if (context == null || eventId <= 0L) return true;
+        long now = System.currentTimeMillis();
+        if (GoogleCalendarAuthorization.isConnected(context)
+                && GoogleCalendarProcessSource.hasFreshCache(context, now)) {
+            return GoogleCalendarProcessSource.cachedEventExists(context, eventId, now);
+        }
         if (context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
                 != PackageManager.PERMISSION_GRANTED) {
             return true;
@@ -82,14 +95,12 @@ final class CalendarProcessReader {
         }
     }
 
-    private static List<CalendarProcess> query(Context context, long nowMillis) {
+    private static List<CalendarProcess> queryProvider(Context context, long nowMillis) {
         List<CalendarProcess> processes = new ArrayList<>();
         if (context == null || context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
                 != PackageManager.PERMISSION_GRANTED) {
             return processes;
         }
-        ProcessNotificationScheduler.schedule(context);
-
         Uri.Builder builder = CalendarContract.Instances.CONTENT_URI.buildUpon();
         ContentUris.appendId(builder, Math.max(0L, nowMillis - LOOKBACK_MS));
         ContentUris.appendId(builder, nowMillis + LOOKAHEAD_MS);

@@ -40,7 +40,6 @@ import dev.bennett.codexmeter.wear.PhoneWearSync;
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
     private static final int MENU_SETTINGS = 8101;
-    private static final int MENU_REORDER = 8102;
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -108,10 +107,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, MENU_REORDER, 0, "Edit dashboard")
-                .setIcon(R.drawable.ic_oui_edit_outline)
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-        menu.add(Menu.NONE, MENU_SETTINGS, 1, "Settings")
+        menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
@@ -122,11 +118,6 @@ public final class MainActivity extends AppCompatActivity {
         if (item.getItemId() == MENU_SETTINGS) {
             DiagnosticLog.info(this, "user", "settings_opened");
             Ui.startSecondaryActivity(this, SettingsActivity.class);
-            return true;
-        }
-        if (item.getItemId() == MENU_REORDER) {
-            DiagnosticLog.info(this, "user", "dashboard_editor_opened");
-            Ui.startSecondaryActivity(this, DashboardReorderActivity.class);
             return true;
         }
         return super.onOptionsItemSelected(item);

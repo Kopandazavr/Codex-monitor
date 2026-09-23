@@ -30,6 +30,7 @@ import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 /** One-page first-run setup focused on the controls needed to make Codex Monitor useful quickly. */
 public final class OnboardingActivity extends AppCompatActivity {
     public static final String EXTRA_AUTH_RETURN = "oauth_return";
+    public static final String EXTRA_RESTART_ONBOARDING = "restart_onboarding";
     private static final int REQUEST_NOTIFICATIONS = 8601;
     private static final int STATUS_GREEN_LIGHT = 0xFF16843D;
     private static final int STATUS_GREEN_DARK = 0xFF6EDC8C;
@@ -81,7 +82,9 @@ public final class OnboardingActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
-        if (AppPreferences.isOnboardingComplete(this)) {
+        boolean restartRequested =
+                getIntent().getBooleanExtra(EXTRA_RESTART_ONBOARDING, false);
+        if (AppPreferences.isOnboardingComplete(this) && !restartRequested) {
             openMain();
             return;
         }

@@ -49,7 +49,7 @@ final class NotificationRepostGuard {
 
     private static void repostSafely(Context context, String reason) {
         try {
-            DualUsageNotificationManager.repostFromCache(context);
+            DualUsageNotificationManager.repostForProcessChange(context);
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "notification_surface", "guarded_repost_failed",
                     exception, "reason", reason);

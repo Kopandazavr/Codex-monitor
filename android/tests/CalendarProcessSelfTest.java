@@ -9,7 +9,8 @@ public final class CalendarProcessSelfTest {
         testMultilineMetadata();
         testFlattenedMetadata();
         testHtmlMetadata();
-        testRolePrimaryIdentity();
+        testCompactProjectIdentity();
+        testLegacyProjectFallbackIdentity();
         testAnotherCanonicalRole();
         testProjectFallbackWithoutRole();
         testUnsupportedMetadataFallsBackSoft();
@@ -63,16 +64,30 @@ public final class CalendarProcessSelfTest {
         require("implementation".equals(process.topic), "HTML topic");
     }
 
-    private static void testRolePrimaryIdentity() {
+    private static void testCompactProjectIdentity() {
         CalendarProcess process = CalendarProcess.fromEvent(
                 432L,
+                "GPT_WATCHDOG|urgent|Codex Monitor",
+                "codex_meter_watchdog=v1 project=Codex Monitor project_short=CM "
+                        + "role=Main Agent topic=implementation",
+                3_000L,
+                4_000L);
+        require(process != null, "compact project process parsed");
+        require("CM".equals(process.projectShort), "compact project metadata parsed");
+        require("CM — Main Agent".equals(process.displayLabel()),
+                "compact project precedes canonical role");
+    }
+
+    private static void testLegacyProjectFallbackIdentity() {
+        CalendarProcess process = CalendarProcess.fromEvent(
+                4321L,
                 "GPT_WATCHDOG|urgent|Data Matrix Scanner",
                 "codex_meter_watchdog=v1 project=Data Matrix Scanner role=Developer topic=build",
                 3_000L,
                 4_000L);
-        require(process != null, "developer process parsed");
-        require("Developer — Data Matrix Scanner".equals(process.displayLabel()),
-                "role is primary and project is secondary");
+        require(process != null, "legacy developer process parsed");
+        require("Data Matrix Scanner — Developer".equals(process.displayLabel()),
+                "legacy project falls back to full project identity");
     }
 
     private static void testAnotherCanonicalRole() {
@@ -84,7 +99,7 @@ public final class CalendarProcessSelfTest {
                 3_000L,
                 4_000L);
         require(process != null, "planning process parsed");
-        require("Planning / Review / Acceptance — Data Matrix Scanner".equals(
+        require("Data Matrix Scanner — Planning / Review / Acceptance".equals(
                 process.displayLabel()), "second role is not hardcoded");
     }
 

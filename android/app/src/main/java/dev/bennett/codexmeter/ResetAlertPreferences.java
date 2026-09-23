@@ -37,8 +37,8 @@ public final class ResetAlertPreferences {
     }
 
     public static String getStyle(Context context) {
-        String string = prefs(context).getString(KEY_STYLE, STYLE_OFF);
-        return (STYLE_SILENT.equals(string) || STYLE_NOTIFICATION.equals(string) || STYLE_ALARM.equals(string)) ? string : STYLE_OFF;
+        String stored = prefs(context).getString(KEY_STYLE, STYLE_OFF);
+        return STYLE_OFF.equals(stored) ? STYLE_OFF : STYLE_NOTIFICATION;
     }
 
     /** Distinguishes a real user choice (including explicit OFF) from the untouched default. */
@@ -60,9 +60,7 @@ public final class ResetAlertPreferences {
     }
 
     public static void save(Context context, String str, String str2, int i) {
-        if (!STYLE_SILENT.equals(str) && !STYLE_NOTIFICATION.equals(str) && !STYLE_ALARM.equals(str)) {
-            str = STYLE_OFF;
-        }
+        str = STYLE_OFF.equals(str) ? STYLE_OFF : STYLE_NOTIFICATION;
         if (!"five_hour".equals(str2) && !"weekly".equals(str2)) {
             str2 = "both";
         }

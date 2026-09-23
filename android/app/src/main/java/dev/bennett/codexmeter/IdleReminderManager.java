@@ -78,7 +78,7 @@ final class IdleReminderManager {
         long finished = intent.getLongExtra(EXTRA_FINISHED_AT, 0L);
         if (key == null || key.trim().isEmpty() || finished <= 0L) return;
         IdleProcessState.dismiss(context, key, finished);
-        DualUsageNotificationManager.repostDelayed(context, 120L);
+        DualUsageNotificationManager.repostForProcessChangeDelayed(context, 120L);
     }
 
     static void toggleFromIntent(Context context, Intent intent) {
@@ -88,7 +88,7 @@ final class IdleReminderManager {
         long now = System.currentTimeMillis();
         boolean enabled = IdleProcessState.toggleReminder(context, key, now);
         onReminderToggled(context, key, enabled, now);
-        DualUsageNotificationManager.repostDelayed(context, 120L);
+        DualUsageNotificationManager.repostForProcessChangeDelayed(context, 120L);
     }
 
     static void fireFromIntent(Context context, Intent intent) {
@@ -122,7 +122,7 @@ final class IdleReminderManager {
             // Restore the canonical live/process channel after the attention event; the ID stays
             // the same throughout, so no second long-lived reminder card appears.
             if (persistentSurfaceAlerted) {
-                DualUsageNotificationManager.repostDelayed(context, 5_000L);
+                DualUsageNotificationManager.repostForProcessChangeDelayed(context, 5_000L);
             }
         }
         long next = now + IdleProcessState.cadenceMillis(context);
@@ -166,7 +166,7 @@ final class IdleReminderManager {
             persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
                     context, idle, CHANNEL_ID, nowMillis);
             if (persistentSurfaceAlerted) {
-                DualUsageNotificationManager.repostDelayed(context, 5_000L);
+                DualUsageNotificationManager.repostForProcessChangeDelayed(context, 5_000L);
             }
         }
         DiagnosticLog.info(context, "idle_process", "completion_delivered",

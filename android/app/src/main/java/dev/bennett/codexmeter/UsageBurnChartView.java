@@ -5,7 +5,6 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
-import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.text.format.DateFormat;
 import android.util.AttributeSet;
@@ -31,19 +30,12 @@ public final class UsageBurnChartView extends View {
     // Same orange used by the Weekly dashboard fill.
     private static final int WEEKLY_ORANGE = 0xFFFF9800;
 
-    public interface OnScrubListener {
-        void onScrub(long timeMillis, double usedPercent, boolean historicalWindow);
-
-        void onScrubEnd();
-    }
-
     public interface OnZoomChangedListener {
         void onZoomChanged(boolean zoomed);
     }
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
-    private final RectF bubbleRect = new RectF();
     private final Typeface regularTypeface = Typeface.create("sec", Typeface.NORMAL);
     private final Typeface boldTypeface = Typeface.create("sec", Typeface.BOLD);
     private final int touchSlop;
@@ -52,20 +44,16 @@ public final class UsageBurnChartView extends View {
     private UsageWindow window;
     private List<UsageSample> samples = Collections.emptyList();
     private long observedAtMillis;
-    private boolean scrubEnabled;
     private boolean zoomEnabled;
     private boolean zoomed;
     private long viewportStartMillis;
     private long viewportEndMillis;
-    private OnScrubListener scrubListener;
     private OnZoomChangedListener zoomChangedListener;
-    private boolean scrubbing;
-    private long scrubTimeMillis;
-    private double scrubPercent = -1d;
-    private long lastHapticBucket = Long.MIN_VALUE;
     private float downX;
+    private float downY;
     private float lastX;
     private boolean moved;
+    private boolean horizontalPan;
 
     public UsageBurnChartView(Context context) {
         this(context, null);
@@ -87,17 +75,12 @@ public final class UsageBurnChartView extends View {
         zoomed = false;
         viewportStartMillis = 0L;
         viewportEndMillis = 0L;
-        scrubbing = false;
         String detail = samples.size() < 2 ? "Building measured history"
                 : samples.size() + " measured samples";
-        if (zoomEnabled) detail += ". Tap to zoom and drag to inspect";
+        if (zoomEnabled) detail += ". Tap to zoom; horizontal drag pans when zoomed";
         setContentDescription(this.label + " measured usage chart. " + detail + ".");
         if (wasZoomed && zoomChangedListener != null) zoomChangedListener.onZoomChanged(false);
         invalidate();
-    }
-
-    public void setScrubEnabled(boolean enabled) {
-        scrubEnabled = enabled;
     }
 
     public void setZoomEnabled(boolean enabled) {
@@ -114,16 +97,10 @@ public final class UsageBurnChartView extends View {
         zoomed = false;
         viewportStartMillis = 0L;
         viewportEndMillis = 0L;
-        scrubbing = false;
-        lastHapticBucket = Long.MIN_VALUE;
-        if (scrubListener != null) scrubListener.onScrubEnd();
+        horizontalPan = false;
         if (zoomChangedListener != null) zoomChangedListener.onZoomChanged(false);
         performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
         invalidate();
-    }
-
-    public void setOnScrubListener(OnScrubListener listener) {
-        scrubListener = listener;
     }
 
     public void setOnZoomChangedListener(OnZoomChangedListener listener) {
@@ -132,33 +109,34 @@ public final class UsageBurnChartView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (!scrubEnabled && !zoomEnabled) return super.onTouchEvent(event);
+        if (!zoomEnabled) return super.onTouchEvent(event);
         long[] axis = visibleAxis();
         if (axis == null || samples.isEmpty()) return super.onTouchEvent(event);
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
-                getParent().requestDisallowInterceptTouchEvent(true);
                 downX = event.getX();
+                downY = event.getY();
                 lastX = downX;
                 moved = false;
-                if (scrubEnabled) updateScrub(event.getX(), axis);
+                horizontalPan = false;
                 return true;
             case MotionEvent.ACTION_MOVE:
                 float x = event.getX();
-                if (Math.abs(x - downX) > touchSlop) moved = true;
-                if (zoomEnabled && zoomed && moved) {
-                    if (scrubbing) {
-                        scrubbing = false;
-                        if (scrubListener != null) scrubListener.onScrubEnd();
-                    }
-                    panBy(x - lastX);
-                    lastX = x;
-                } else if (scrubEnabled) {
-                    updateScrub(x, axis);
+                float dx = x - downX;
+                float dy = event.getY() - downY;
+                if (Math.abs(dx) > touchSlop || Math.abs(dy) > touchSlop) {
+                    moved = true;
                 }
+                if (zoomed && (horizontalPan
+                        || (Math.abs(dx) > touchSlop && Math.abs(dx) > Math.abs(dy)))) {
+                    horizontalPan = true;
+                    getParent().requestDisallowInterceptTouchEvent(true);
+                    panBy(x - lastX);
+                }
+                lastX = x;
                 return true;
             case MotionEvent.ACTION_UP:
-                if (zoomEnabled && !moved && !zoomed) {
+                if (!moved && !zoomed) {
                     zoomAt(event.getX());
                 }
                 finishTouch();
@@ -173,9 +151,7 @@ public final class UsageBurnChartView extends View {
 
     private void finishTouch() {
         getParent().requestDisallowInterceptTouchEvent(false);
-        scrubbing = false;
-        lastHapticBucket = Long.MIN_VALUE;
-        if (scrubListener != null) scrubListener.onScrubEnd();
+        horizontalPan = false;
         invalidate();
     }
 
@@ -213,33 +189,6 @@ public final class UsageBurnChartView extends View {
         invalidate();
     }
 
-    private void updateScrub(float touchX, long[] axis) {
-        float left = chartLeft();
-        float right = chartRight();
-        double ratio = Math.max(0d, Math.min(1d,
-                (touchX - left) / Math.max(1d, right - left)));
-        long time = axis[0] + Math.round(ratio * (axis[1] - axis[0]));
-        long first = samples.get(0).observedAtMillis;
-        long last = samples.get(samples.size() - 1).observedAtMillis;
-        long clamped = Math.max(Math.max(first, axis[0]), Math.min(Math.min(last, axis[1]), time));
-        double percent = UsageStats.usedPercentAt(samples, clamped);
-        if (percent < 0d) percent = samples.get(samples.size() - 1).usedPercent;
-        boolean changed = !scrubbing || clamped != scrubTimeMillis;
-        scrubbing = true;
-        scrubTimeMillis = clamped;
-        scrubPercent = percent;
-        long bucketSize = Math.max(1L, (axis[1] - axis[0]) / 24L);
-        long bucket = (clamped - axis[0]) / bucketSize;
-        if (bucket != lastHapticBucket) {
-            lastHapticBucket = bucket;
-            performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
-        }
-        if (changed && scrubListener != null) {
-            scrubListener.onScrub(clamped, percent, false);
-        }
-        invalidate();
-    }
-
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -273,10 +222,6 @@ public final class UsageBurnChartView extends View {
 
         drawMeasuredSeries(canvas, axis, left, right, top, bottom, density, dark);
         drawTimeAxis(canvas, axis, left, right, bottom, density, dark);
-
-        if (scrubbing && scrubPercent >= 0d) {
-            drawScrub(canvas, axis, left, right, top, bottom, density, dark);
-        }
     }
 
     private void drawMeasuredSeries(Canvas canvas, long[] axis, float left, float right,
@@ -400,51 +345,6 @@ public final class UsageBurnChartView extends View {
 
     private float chartRight() {
         return getWidth() - 16f * getResources().getDisplayMetrics().density;
-    }
-
-    private void drawScrub(Canvas canvas, long[] axis, float left, float right, float top,
-            float bottom, float density, boolean dark) {
-        float scrubX = x(scrubTimeMillis, axis[0], axis[1], left, right);
-        float scrubY = y(scrubPercent, top, bottom);
-        int series = isWeekly() ? WEEKLY_ORANGE : Ui.accent(getContext(), dark);
-
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(1.5f * density);
-        paint.setColor(Color.argb(dark ? 150 : 125,
-                Color.red(series), Color.green(series), Color.blue(series)));
-        canvas.drawLine(scrubX, top, scrubX, bottom, paint);
-
-        paint.setStyle(Paint.Style.FILL);
-        paint.setColor(Ui.cardColor(getContext(), dark));
-        canvas.drawCircle(scrubX, scrubY, 6f * density, paint);
-        paint.setColor(series);
-        canvas.drawCircle(scrubX, scrubY, 4f * density, paint);
-
-        String bubble = scrubTimeLabel() + " · " + Math.round(scrubPercent) + "%";
-        paint.setTypeface(regularTypeface);
-        paint.setTextSize(11f * density);
-        float textWidth = paint.measureText(bubble);
-        float padding = 8f * density;
-        float bubbleLeft = Math.max(left,
-                Math.min(right - textWidth - padding * 2f,
-                        scrubX - textWidth / 2f - padding));
-        float bubbleTop = top - 30f * density;
-        bubbleRect.set(bubbleLeft, bubbleTop,
-                bubbleLeft + textWidth + padding * 2f,
-                bubbleTop + 22f * density);
-        paint.setColor(Ui.controlSurface(getContext(), dark));
-        canvas.drawRoundRect(bubbleRect, 11f * density, 11f * density, paint);
-        paint.setColor(Ui.mainText(dark));
-        canvas.drawText(bubble, bubbleLeft + padding, bubbleTop + 15f * density, paint);
-    }
-
-    private String scrubTimeLabel() {
-        boolean is24Hour = DateFormat.is24HourFormat(getContext());
-        String pattern = isWeekly()
-                ? (is24Hour ? "EEE HH:mm" : "EEE h:mm a")
-                : (is24Hour ? "HH:mm" : "h:mm a");
-        return new SimpleDateFormat(pattern, Locale.getDefault())
-                .format(new Date(scrubTimeMillis));
     }
 
     private void drawEmpty(Canvas canvas, float left, float top, boolean dark, float density,

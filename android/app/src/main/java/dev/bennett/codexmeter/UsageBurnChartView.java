@@ -136,8 +136,12 @@ public final class UsageBurnChartView extends View {
                 lastX = x;
                 return true;
             case MotionEvent.ACTION_UP:
-                if (!moved && !zoomed) {
-                    zoomAt(event.getX());
+                if (!moved) {
+                    if (zoomed) {
+                        if (isChartInteractionX(event.getX())) zoomOut();
+                    } else if (isMeasuredInteractionX(event.getX())) {
+                        zoomAt(event.getX());
+                    }
                 }
                 finishTouch();
                 return true;
@@ -166,8 +170,11 @@ public final class UsageBurnChartView extends View {
         double ratio = Math.max(0d, Math.min(1d,
                 (touchX - left) / Math.max(1d, right - left)));
         long center = full[0] + Math.round(ratio * fullSpan);
+        long measuredEnd = measuredEndMillis();
+        if (measuredEnd <= full[0]) return;
         long start = center - zoomSpan / 2L;
-        start = Math.max(full[0], Math.min(start, full[1] - zoomSpan));
+        long maxStart = Math.max(full[0], measuredEnd - zoomSpan);
+        start = Math.max(full[0], Math.min(start, maxStart));
         viewportStartMillis = start;
         viewportEndMillis = start + zoomSpan;
         zoomed = true;
@@ -183,7 +190,9 @@ public final class UsageBurnChartView extends View {
         float width = Math.max(1f, chartRight() - chartLeft());
         long shift = Math.round(-deltaX * span / width);
         long start = viewportStartMillis + shift;
-        start = Math.max(full[0], Math.min(start, full[1] - span));
+        long measuredEnd = measuredEndMillis();
+        long maxStart = Math.max(full[0], measuredEnd - span);
+        start = Math.max(full[0], Math.min(start, maxStart));
         viewportStartMillis = start;
         viewportEndMillis = start + span;
         invalidate();
@@ -332,6 +341,31 @@ public final class UsageBurnChartView extends View {
         if (full == null) return null;
         if (!zoomed || viewportEndMillis <= viewportStartMillis) return full;
         return new long[]{viewportStartMillis, viewportEndMillis};
+    }
+
+    private long measuredEndMillis() {
+        long[] full = defaultAxis();
+        if (full == null || samples.isEmpty()) return Long.MIN_VALUE;
+        long latest = Long.MIN_VALUE;
+        for (UsageSample sample : samples) {
+            if (sample == null) continue;
+            latest = Math.max(latest, sample.observedAtMillis);
+        }
+        if (latest == Long.MIN_VALUE) return latest;
+        return Math.max(full[0], Math.min(latest, full[1]));
+    }
+
+    private boolean isChartInteractionX(float touchX) {
+        return touchX >= chartLeft() && touchX <= chartRight();
+    }
+
+    private boolean isMeasuredInteractionX(float touchX) {
+        if (!isChartInteractionX(touchX)) return false;
+        long[] full = defaultAxis();
+        long measuredEnd = measuredEndMillis();
+        if (full == null || measuredEnd <= full[0]) return false;
+        float measuredRight = x(measuredEnd, full[0], full[1], chartLeft(), chartRight());
+        return touchX <= measuredRight;
     }
 
     private boolean isWeekly() {

@@ -11,8 +11,8 @@ android {
         applicationId = "dev.kopandazavr.codexwatch"
         minSdk = 26
         targetSdk = 36
-        versionCode = 36
-        versionName = "2.10.0"
+        versionCode = 37
+        versionName = "2.11.0"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -34,6 +34,17 @@ android {
                 keyPassword = storePassword
             }
         }
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    val buildGitSha = providers.gradleProperty("gitSha").orNull
+        ?: providers.environmentVariable("GITHUB_SHA").orNull
+        ?: "unknown"
+    defaultConfig {
+        buildConfigField("String", "GIT_SHA", "\"" + buildGitSha.take(12) + "\"")
     }
 
     buildTypes {

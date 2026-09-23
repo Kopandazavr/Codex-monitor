@@ -26,6 +26,9 @@ grep -q 'CalendarProcessReader.recentlyFinished(observed, now)' "$SRC/DualUsageN
 grep -q 'synchronize(context, processes, finished, observed, now)' "$SRC/DualUsageNotificationManager.java"
 grep -q 'List<CalendarProcess> recentlyFinished, List<CalendarProcess> observed' "$SRC/IdleProcessState.java"
 grep -q 'rememberObserved(row, process)' "$SRC/IdleProcessState.java"
+grep -q 'row.projectShort = clean(process.projectShort)' "$SRC/IdleProcessState.java"
+grep -q 'json.put("project_short", projectShort)' "$SRC/IdleProcessState.java"
+grep -q 'json.optString("project_short", "")' "$SRC/IdleProcessState.java"
 
 # Canonical watchdog BEGIN is the 27-minute deadline, not the start of the work. Future observed
 # events are active from BEGIN-27m and progress/remaining time targets BEGIN during that interval.

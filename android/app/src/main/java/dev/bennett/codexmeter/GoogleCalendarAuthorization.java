@@ -11,6 +11,8 @@ import com.google.android.gms.auth.api.identity.AuthorizationRequest;
 import com.google.android.gms.auth.api.identity.AuthorizationResult;
 import com.google.android.gms.auth.api.identity.Identity;
 import com.google.android.gms.auth.api.identity.RevokeAccessRequest;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.common.api.Scope;
 import java.util.Collections;
 import java.util.List;
@@ -34,6 +36,33 @@ final class GoogleCalendarAuthorization {
 
     interface ActionCallback {
         void onFinished(boolean success, String message);
+    }
+
+    static final class AuthOutcome {
+        final boolean success;
+        final String message;
+
+        AuthOutcome(boolean success, String message) {
+            this.success = success;
+            this.message = message == null ? "" : message;
+        }
+    }
+
+    private static final class FailureInfo {
+        final int statusCode;
+        final String statusName;
+        final String kind;
+        final boolean recoverable;
+        final String errorClass;
+
+        FailureInfo(int statusCode, String statusName, String kind,
+                boolean recoverable, String errorClass) {
+            this.statusCode = statusCode;
+            this.statusName = statusName;
+            this.kind = kind;
+            this.recoverable = recoverable;
+            this.errorClass = errorClass;
+        }
     }
 
     private GoogleCalendarAuthorization() {
@@ -62,51 +91,94 @@ final class GoogleCalendarAuthorization {
 
     static void beginInteractive(Activity activity, int requestCode,
             ActionCallback callback) {
+        DiagnosticLog.info(activity, "calendar_api", "authorization_started",
+                "scope", "calendar.events.readonly");
         AuthorizationClient client = Identity.getAuthorizationClient(activity);
         client.authorize(request())
                 .addOnSuccessListener(result -> {
                     if (result.hasResolution()) {
                         PendingIntent pending = result.getPendingIntent();
                         if (pending == null) {
-                            markNeedsAction(activity, "Authorization requires user interaction.");
-                            callback.onFinished(false, "Google Calendar authorization is unavailable.");
+                            markNeedsAction(activity, "resolution_missing");
+                            DiagnosticLog.warn(activity, "calendar_api",
+                                    "authorization_resolution_missing",
+                                    "recoverable", false);
+                            callback.onFinished(false,
+                                    "Google Calendar authorization is unavailable.");
                             return;
                         }
                         try {
+                            DiagnosticLog.info(activity, "calendar_api",
+                                    "authorization_resolution_launched");
                             activity.startIntentSenderForResult(pending.getIntentSender(),
                                     requestCode, null, 0, 0, 0);
-                            callback.onFinished(false, "Choose a Google account and allow Calendar.");
-                        } catch (IntentSender.SendIntentException exception) {
-                            markNeedsAction(activity, exception.getClass().getSimpleName());
                             callback.onFinished(false,
-                                    "Could not open Google Calendar authorization.");
+                                    "Choose a Google account and allow Calendar.");
+                        } catch (IntentSender.SendIntentException exception) {
+                            AuthOutcome outcome = recordFailure(activity,
+                                    "resolution_launch", exception);
+                            callback.onFinished(false, outcome.message);
                         }
                     } else if (accept(activity, result)) {
                         callback.onFinished(true, "Google Calendar connected.");
                     } else {
-                        markNeedsAction(activity, "No Calendar access token returned.");
-                        callback.onFinished(false, "Google Calendar authorization did not complete.");
+                        markNeedsAction(activity, "token_missing");
+                        DiagnosticLog.warn(activity, "calendar_api",
+                                "authorization_token_missing",
+                                "recoverable", false);
+                        callback.onFinished(false,
+                                "Google Calendar authorization returned no access token.");
                     }
                 })
                 .addOnFailureListener(exception -> {
-                    markNeedsAction(activity, safeMessage(exception));
-                    DiagnosticLog.warn(activity, "calendar_api", "authorization_failed",
-                            "error", exception.getClass().getSimpleName());
-                    callback.onFinished(false, "Google Calendar authorization failed.");
+                    AuthOutcome outcome = recordFailure(activity, "authorize", exception);
+                    callback.onFinished(false, outcome.message);
                 });
     }
 
-    static boolean consumeInteractiveResult(Activity activity, Intent data) {
+    /**
+     * Consumes the resolution activity result and returns a classified user-facing outcome.
+     * Diagnostics intentionally record only status/result metadata, never tokens/account data.
+     */
+    static AuthOutcome consumeInteractiveResult(Activity activity, int resultCode, Intent data) {
+        DiagnosticLog.info(activity, "calendar_api", "authorization_activity_result",
+                "result_code", resultCode,
+                "data_present", data != null);
+        if (resultCode != Activity.RESULT_OK) {
+            markDisconnected(activity);
+            DiagnosticLog.info(activity, "calendar_api", "authorization_cancelled",
+                    "result_code", resultCode,
+                    "data_present", data != null);
+            return new AuthOutcome(false, "Google Calendar authorization was canceled.");
+        }
+        if (data == null) {
+            markNeedsAction(activity, "result_missing");
+            DiagnosticLog.warn(activity, "calendar_api", "authorization_result_missing",
+                    "result_code", resultCode,
+                    "recoverable", true);
+            return new AuthOutcome(false,
+                    "Google Calendar returned no authorization result. Try again.");
+        }
         try {
             AuthorizationResult result = Identity.getAuthorizationClient(activity)
                     .getAuthorizationResultFromIntent(data);
-            return accept(activity, result);
+            if (accept(activity, result)) {
+                return new AuthOutcome(true, "Google Calendar connected.");
+            }
+            markNeedsAction(activity, "token_missing");
+            DiagnosticLog.warn(activity, "calendar_api", "authorization_token_missing",
+                    "stage", "activity_result",
+                    "recoverable", false);
+            return new AuthOutcome(false,
+                    "Google Calendar authorization returned no access token.");
         } catch (Exception exception) {
-            markNeedsAction(activity, safeMessage(exception));
-            DiagnosticLog.warn(activity, "calendar_api", "authorization_result_failed",
-                    "error", exception.getClass().getSimpleName());
-            return false;
+            return recordFailure(activity, "activity_result", exception);
         }
+    }
+
+    /** Compatibility wrapper retained for bounded callers/tests. */
+    static boolean consumeInteractiveResult(Activity activity, Intent data) {
+        return consumeInteractiveResult(activity, Activity.RESULT_OK, data).success;
     }
 
     static void accessToken(Context context, TokenCallback callback) {
@@ -123,21 +195,25 @@ final class GoogleCalendarAuthorization {
         Identity.getAuthorizationClient(context).authorize(request())
                 .addOnSuccessListener(result -> {
                     if (result.hasResolution()) {
-                        markNeedsAction(context, "Google Calendar authorization requires interaction.");
+                        markNeedsAction(context, "resolution_required");
+                        DiagnosticLog.warn(context, "calendar_api",
+                                "token_resolution_required",
+                                "recoverable", true);
                         callback.onResult(null);
                         return;
                     }
                     if (!accept(context, result)) {
-                        markNeedsAction(context, "No Calendar access token returned.");
+                        markNeedsAction(context, "token_missing");
+                        DiagnosticLog.warn(context, "calendar_api",
+                                "token_refresh_missing",
+                                "recoverable", false);
                         callback.onResult(null);
                         return;
                     }
                     callback.onResult(cachedToken);
                 })
                 .addOnFailureListener(exception -> {
-                    markNeedsAction(context, safeMessage(exception));
-                    DiagnosticLog.warn(context, "calendar_api", "token_refresh_failed",
-                            "error", exception.getClass().getSimpleName());
+                    recordFailure(context, "token_refresh", exception);
                     callback.onResult(null);
                 });
     }
@@ -153,13 +229,18 @@ final class GoogleCalendarAuthorization {
         Identity.getAuthorizationClient(context).revokeAccess(revoke)
                 .addOnSuccessListener(unused -> {
                     clearState(context);
+                    DiagnosticLog.info(context, "calendar_api", "authorization_revoked");
                     callback.onFinished(true, "Google Calendar disconnected.");
                 })
                 .addOnFailureListener(exception -> {
-                    prefs(context).edit().putString(KEY_LAST_ERROR, safeMessage(exception)).apply();
-                    DiagnosticLog.warn(context, "calendar_api", "revoke_failed",
-                            "error", exception.getClass().getSimpleName());
-                    callback.onFinished(false, "Could not disconnect Google Calendar.");
+                    FailureInfo info = failureInfo(exception);
+                    prefs(context).edit()
+                            .putString(KEY_LAST_ERROR,
+                                    info.kind + ":" + info.statusName)
+                            .apply();
+                    logFailure(context, "revoke", info);
+                    callback.onFinished(false,
+                            userMessage(info, "Could not disconnect Google Calendar."));
                 });
     }
 
@@ -189,11 +270,105 @@ final class GoogleCalendarAuthorization {
         return true;
     }
 
+    private static AuthOutcome recordFailure(Context context, String stage, Exception exception) {
+        FailureInfo info = failureInfo(exception);
+        if ("cancelled".equals(info.kind)) {
+            markDisconnected(context);
+            DiagnosticLog.info(context, "calendar_api", "authorization_cancelled",
+                    "stage", stage,
+                    "error_class", info.errorClass,
+                    "status_code", info.statusCode,
+                    "status_name", info.statusName);
+            return new AuthOutcome(false, "Google Calendar authorization was canceled.");
+        }
+        markNeedsAction(context, info.kind + ":" + info.statusName);
+        logFailure(context, stage, info);
+        return new AuthOutcome(false,
+                userMessage(info, "Google Calendar authorization failed."));
+    }
+
+    private static void logFailure(Context context, String stage, FailureInfo info) {
+        DiagnosticLog.warn(context, "calendar_api", "authorization_failed",
+                "stage", stage,
+                "kind", info.kind,
+                "error_class", info.errorClass,
+                "status_code", info.statusCode,
+                "status_name", info.statusName,
+                "recoverable", info.recoverable);
+    }
+
+    private static FailureInfo failureInfo(Exception exception) {
+        int code = Integer.MIN_VALUE;
+        boolean hasResolution = false;
+        if (exception instanceof ApiException) {
+            ApiException api = (ApiException) exception;
+            code = api.getStatusCode();
+            hasResolution = api.getStatus() != null && api.getStatus().hasResolution();
+        }
+        String statusName = code == Integer.MIN_VALUE
+                ? "NO_API_STATUS" : CommonStatusCodes.getStatusCodeString(code);
+        String kind;
+        boolean recoverable;
+        if (code == CommonStatusCodes.DEVELOPER_ERROR) {
+            kind = "configuration";
+            recoverable = false;
+        } else if (code == CommonStatusCodes.CANCELED) {
+            kind = "cancelled";
+            recoverable = true;
+        } else if (hasResolution || code == CommonStatusCodes.RESOLUTION_REQUIRED
+                || code == CommonStatusCodes.SIGN_IN_REQUIRED) {
+            kind = "recoverable";
+            recoverable = true;
+        } else if (code == CommonStatusCodes.NETWORK_ERROR
+                || code == CommonStatusCodes.INTERNAL_ERROR
+                || code == CommonStatusCodes.INTERRUPTED
+                || code == CommonStatusCodes.TIMEOUT
+                || code == CommonStatusCodes.API_NOT_CONNECTED
+                || code == CommonStatusCodes.CONNECTION_SUSPENDED_DURING_CALL
+                || code == CommonStatusCodes.RECONNECTION_TIMED_OUT
+                || code == CommonStatusCodes.RECONNECTION_TIMED_OUT_DURING_UPDATE) {
+            kind = "transient";
+            recoverable = true;
+        } else {
+            kind = "unknown";
+            recoverable = false;
+        }
+        return new FailureInfo(code, statusName, kind, recoverable,
+                exception == null ? "Unknown" : exception.getClass().getSimpleName());
+    }
+
+    private static String userMessage(FailureInfo info, String fallback) {
+        if ("configuration".equals(info.kind)) {
+            return "Google Calendar OAuth configuration does not match this app build. "
+                    + "See Diagnostics for status 10.";
+        }
+        if ("recoverable".equals(info.kind) || "transient".equals(info.kind)) {
+            return "Google Calendar authorization hit a temporary Google services error. "
+                    + "Try again.";
+        }
+        if (info.statusCode != Integer.MIN_VALUE) {
+            return fallback + " Google status " + info.statusCode + ". See Diagnostics.";
+        }
+        return fallback + " See Diagnostics.";
+    }
+
     private static void markNeedsAction(Context context, String error) {
         if (context == null) return;
         prefs(context).edit()
+                .putBoolean(KEY_CONNECTED, false)
                 .putBoolean(KEY_NEEDS_ACTION, true)
                 .putString(KEY_LAST_ERROR, error == null ? "" : error)
+                .apply();
+        cachedToken = null;
+        cachedTokenAt = 0L;
+    }
+
+    private static void markDisconnected(Context context) {
+        if (context == null) return;
+        prefs(context).edit()
+                .putBoolean(KEY_CONNECTED, false)
+                .putBoolean(KEY_NEEDS_ACTION, false)
+                .remove(KEY_LAST_ERROR)
                 .apply();
         cachedToken = null;
         cachedTokenAt = 0L;
@@ -207,13 +382,5 @@ final class GoogleCalendarAuthorization {
 
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    }
-
-    private static String safeMessage(Exception exception) {
-        String value = exception == null ? null : exception.getMessage();
-        if (value == null || value.trim().isEmpty()) {
-            return exception == null ? "Unknown error" : exception.getClass().getSimpleName();
-        }
-        return value.length() > 180 ? value.substring(0, 180) : value;
     }
 }

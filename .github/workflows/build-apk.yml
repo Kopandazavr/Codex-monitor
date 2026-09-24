@@ -32,6 +32,19 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Upload source snapshot for identity migration
+        uses: actions/upload-artifact@v7
+        with:
+          name: codex-monitor-source-snapshot-${{ github.run_id }}
+          path: |
+            .
+            !.git/**
+            !android/.gradle/**
+            !android/**/build/**
+          hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Set up Java 21
         uses: actions/setup-java@v5
         with:

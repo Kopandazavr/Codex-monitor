@@ -1,0 +1,98 @@
+name: One-shot Codex Monitor iOS identity migration
+
+on:
+  push:
+    branches: [feature/data-matrix-process-notifications]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Migrate iOS current identity and remove this one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+
+          root = Path("ios")
+
+          # Current external identifiers first, before symbol/name replacement.
+          replacements = [
+              ("com.bukovinafilip.CodexMeter.Widgets", "dev.kopandazavr.codexmonitor.widgets"),
+              ("com.bukovinafilip.CodexMeterUITests", "dev.kopandazavr.codexmonitor.uitests"),
+              ("com.bukovinafilip.CodexMeterTests", "dev.kopandazavr.codexmonitor.tests"),
+              ("com.bukovinafilip.CodexMeter", "dev.kopandazavr.codexmonitor"),
+              ("Codex Meter", "Codex Monitor"),
+              ("Codex-Meter", "Codex-Monitor"),
+              ("codex-meter", "codex-monitor"),
+              ("CodexMeter", "CodexMonitor"),
+              ("codexMeter", "codexMonitor"),
+              ("codexmeter", "codexmonitor"),
+          ]
+
+          for path in list(root.rglob("*")):
+              if not path.is_file():
+                  continue
+              try:
+                  data = path.read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  continue
+              new = data
+              for old, repl in replacements:
+                  new = new.replace(old, repl)
+              if new != data:
+                  path.write_text(new, encoding="utf-8")
+
+          # Rename files/directories deepest-first so Xcode project references and paths align.
+          all_paths = sorted(root.rglob("*"), key=lambda p: len(p.parts), reverse=True)
+          for path in all_paths:
+              if "CodexMeter" not in path.name:
+                  continue
+              target = path.with_name(path.name.replace("CodexMeter", "CodexMonitor"))
+              path.rename(target)
+
+          ci = Path(".github/workflows/ios-ci.yml")
+          data = ci.read_text(encoding="utf-8")
+          data = data.replace("CodexMeter", "CodexMonitor").replace("Codex Meter", "Codex Monitor")
+          if "branches: [feature/data-matrix-process-notifications]" not in data:
+              data = data.replace(
+                  "on:\n",
+                  "on:\n  push:\n    branches: [feature/data-matrix-process-notifications]\n    paths:\n      - 'ios/**'\n      - '.github/workflows/ios-ci.yml'\n",
+                  1,
+              )
+          ci.write_text(data, encoding="utf-8")
+          PY
+
+          rm -f .github/workflows/codex-monitor-ios-identity-migration.yml
+
+          # Fail closed if any CURRENT iOS path/content still uses the legacy product identity.
+          if find ios -print | grep -E 'CodexMeter|Codex Meter|codexmeter|codex-meter'; then
+            echo "::error::Legacy Codex Meter identity remains in iOS paths" >&2
+            exit 1
+          fi
+          if grep -RIlE 'CodexMeter|Codex Meter|codexmeter|codex-meter|com\.bukovinafilip\.Codex' ios; then
+            echo "::error::Legacy Codex Meter identity remains in iOS content" >&2
+            exit 1
+          fi
+          grep -RFn 'dev.kopandazavr.codexmonitor' ios | head -20
+          grep -Fq 'xcodebuild -project CodexMonitor.xcodeproj -scheme CodexMonitor' .github/workflows/ios-ci.yml
+          grep -Fq 'swift test --package-path CodexMonitorCore' .github/workflows/ios-ci.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --stat
+          git commit -m "2.17: unify iOS Codex Monitor identity"
+          git push origin HEAD:feature/data-matrix-process-notifications

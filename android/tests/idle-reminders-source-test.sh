@@ -93,7 +93,7 @@ grep -q 'static PendingIntent toggleIntent(Context context, String key)' "$SRC/I
 # Persistent notification ownership is mode-stable: usage first, process surfaces second, and
 # reminder/usage attention re-alerts the owning ID instead of adding independent persistent cards.
 test -f "$SRC/NotificationSurfaceContract.java"
-grep -q 'GROUP_KEY = "codex_watch_persistent_v1"' "$SRC/NotificationSurfaceContract.java"
+grep -q 'GROUP_KEY = "codex_monitor_persistent_v1"' "$SRC/NotificationSurfaceContract.java"
 grep -q 'SORT_USAGE = "00_usage"' "$SRC/NotificationSurfaceContract.java"
 grep -q 'SORT_PROCESSES = "10_processes"' "$SRC/NotificationSurfaceContract.java"
 grep -q 'setGroup(NotificationSurfaceContract.GROUP_KEY)' "$SRC/DualUsageNotificationManager.java"

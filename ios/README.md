@@ -1,11 +1,11 @@
-# Codex Meter for iPhone and iPad
+# Codex Monitor for iPhone and iPad
 
 Native SwiftUI client for viewing the Codex allowance attached to a signed-in
 ChatGPT account. It shows adaptive standard and model-specific usage windows,
 Free-tier monthly limits, purchased usage credits, reset times, earned reset
 credits, local burn history, notifications, and WidgetKit widgets.
 
-This directory is the **iOS** package of the Codex Meter monorepo. The Android
+This directory is the **iOS** package of the Codex Monitor monorepo. The Android
 application lives under [`../android/`](../android/). Behavior is aligned with
 the Android app where platform APIs allow; it does not include Samsung One UI,
 Wear OS tiles/complications, Now Bar / Live Update monitors, or Android in-app
@@ -29,10 +29,10 @@ log export, and widgets that follow the weekly or monthly long window.
 From this `ios/` directory:
 
 ```sh
-swift test --package-path CodexMeterCore
-xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+swift test --package-path CodexMonitorCore
+xcodebuild -project CodexMonitor.xcodeproj -scheme CodexMonitor \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+xcodebuild -project CodexMonitor.xcodeproj -scheme CodexMonitor \
   -destination 'platform=iOS Simulator,name=iPhone 17e' \
   -parallel-testing-enabled NO test
 ```
@@ -44,11 +44,11 @@ contact OpenAI.
 
 | Path | Role |
 |------|------|
-| `CodexMeter/` | Main app target |
-| `CodexMeterWidgets/` | WidgetKit extension |
-| `CodexMeterCore/` | Shared models/parsers (local Swift package) |
-| `CodexMeterTests/` | Unit tests |
-| `CodexMeterUITests/` | UI tests |
+| `CodexMonitor/` | Main app target |
+| `CodexMonitorWidgets/` | WidgetKit extension |
+| `CodexMonitorCore/` | Shared models/parsers (local Swift package) |
+| `CodexMonitorTests/` | Unit tests |
+| `CodexMonitorUITests/` | UI tests |
 
 ## Data and stability
 

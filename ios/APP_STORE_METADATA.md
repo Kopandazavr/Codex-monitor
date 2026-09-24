@@ -2,10 +2,10 @@
 
 ## Name
 
-Codex Meter for iOS
+Codex Monitor for iOS
 
-The installed app display name remains **Codex Meter**. The exact App Store name
-“Codex Meter” was unavailable when the app record was created.
+The installed app display name remains **Codex Monitor**. The exact App Store name
+“Codex Monitor” was unavailable when the app record was created.
 
 ## Version
 
@@ -23,7 +23,7 @@ times, and credits from a native app and WidgetKit widgets.
 
 ## Description
 
-Codex Meter puts your Codex allowance where it is easy to check—on your iPhone,
+Codex Monitor puts your Codex allowance where it is easy to check—on your iPhone,
 iPad, and Home Screen.
 
 Sign in with your existing OpenAI account to see current five-hour, weekly, and
@@ -52,11 +52,11 @@ FEATURES
 
 PRIVATE BY DESIGN
 
-Codex Meter has no analytics, advertising, developer-operated account system,
+Codex Monitor has no analytics, advertising, developer-operated account system,
 or relay server. Credentials stay in Apple Keychain, and authenticated requests
 go directly from your device to OpenAI.
 
-Codex Meter is an independent, unofficial client and is not affiliated with or
+Codex Monitor is an independent, unofficial client and is not affiliated with or
 endorsed by OpenAI. ChatGPT and Codex are trademarks of their respective owners.
 
 ## Keywords

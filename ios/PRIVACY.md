@@ -1,14 +1,14 @@
-# Codex Meter Privacy Policy
+# Codex Monitor Privacy Policy
 
 Last updated: July 30, 2026
 
-Codex Meter is designed so the iOS developer does not collect user data. The
+Codex Monitor is designed so the iOS developer does not collect user data. The
 app has no analytics, advertising, tracking, developer-operated account system,
 or application relay server.
 
 ## Authentication and OpenAI services
 
-When the user chooses to sign in, Codex Meter uses OpenAI’s device
+When the user chooses to sign in, Codex Monitor uses OpenAI’s device
 authorization service. Authenticated requests travel directly between the
 device and OpenAI to load Codex allowance, reset times, reset-credit inventory,
 and to redeem a reset credit after confirmation.
@@ -33,7 +33,7 @@ IDs.
 
 ## Notifications and diagnostics
 
-Notifications are scheduled locally after permission is granted. Codex Meter
+Notifications are scheduled locally after permission is granted. Codex Monitor
 does not include a crash-reporting or telemetry SDK and does not transmit app
 interaction, advertising, or diagnostic data to the developer.
 
@@ -52,10 +52,10 @@ permission is optional.
 
 ## Children, changes, and contact
 
-Codex Meter is not directed to children and does not knowingly collect personal
+Codex Monitor is not directed to children and does not knowingly collect personal
 information from children. Material changes will be posted with a revised date.
 
 For privacy or support questions, contact
 [Filip Bukovina](https://github.com/FBukovina) through GitHub.
 
-Codex Meter is unofficial and is not affiliated with or endorsed by OpenAI.
+Codex Monitor is unofficial and is not affiliated with or endorsed by OpenAI.

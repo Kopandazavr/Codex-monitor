@@ -1,7 +1,7 @@
 # App Review Notes
 
-Codex Meter is a client for the user's existing ChatGPT/Codex account. It does
-not create a separate Codex Meter account, sell digital goods, or include
+Codex Monitor is a client for the user's existing ChatGPT/Codex account. It does
+not create a separate Codex Monitor account, sell digital goods, or include
 analytics or advertising.
 
 ## Review without credentials
@@ -9,7 +9,7 @@ analytics or advertising.
 1. Launch the app while signed out.
 2. Tap **Explore demo**.
 3. Pull to refresh the dashboard, inspect both usage windows, open Settings,
-   test the reset confirmation flow, and configure the Codex Meter widget.
+   test the reset confirmation flow, and configure the Codex Monitor widget.
 4. Tap **Leave Demo** in Settings to return to the signed-out screen.
 
 Demo mode is visible to all users and performs no network requests.

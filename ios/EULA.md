@@ -1,15 +1,15 @@
-# Codex Meter End User License Agreement
+# Codex Monitor End User License Agreement
 
 Last updated: July 20, 2026
 
-Codex Meter is licensed through Apple’s App Store under the
+Codex Monitor is licensed through Apple’s App Store under the
 [Apple Standard End User License Agreement](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/).
 That agreement governs the license to use the app. The notices below do not
 replace or modify Apple’s Standard EULA.
 
 ## App-specific notices
 
-- Codex Meter is an independent, unofficial client and is not affiliated with,
+- Codex Monitor is an independent, unofficial client and is not affiliated with,
   sponsored by, or endorsed by OpenAI.
 - The app connects directly to OpenAI services using the user’s authorization.
   OpenAI services remain subject to OpenAI’s terms and policies.

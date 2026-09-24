@@ -150,7 +150,13 @@ jobs:
             -keystore .local-signing/codex-monitor-local.p12 \
             -storetype PKCS12 \
             -storepass:env ANDROID_SIGNING_PASSWORD \
-            -alias codexmeter >/dev/null\n          "$JAVA_HOME/bin/keytool" -changealias \\\n            -keystore .local-signing/codex-monitor-local.p12 \\\n            -storetype PKCS12 \\\n            -storepass:env ANDROID_SIGNING_PASSWORD \\\n            -keypass:env ANDROID_SIGNING_PASSWORD \\\n            -alias codexmeter -destalias codexmonitor >/dev/null
+            -alias codexmeter >/dev/null
+          "$JAVA_HOME/bin/keytool" -changealias \
+            -keystore .local-signing/codex-monitor-local.p12 \
+            -storetype PKCS12 \
+            -storepass:env ANDROID_SIGNING_PASSWORD \
+            -keypass:env ANDROID_SIGNING_PASSWORD \
+            -alias codexmeter -destalias codexmonitor >/dev/null
 
       - name: Build and verify APK
         shell: bash

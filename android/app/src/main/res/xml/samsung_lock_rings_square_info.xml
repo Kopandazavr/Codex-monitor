@@ -5,7 +5,7 @@
     android:minHeight="56dp"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_lock_rings_square"
-    android:configure="dev.bennett.codexmeter.LockWidgetConfigActivity"
+    android:configure="dev.kopandazavr.codexmonitor.LockWidgetConfigActivity"
     android:minResizeWidth="56dp"
     android:minResizeHeight="56dp"
     android:widgetCategory="0x2000"

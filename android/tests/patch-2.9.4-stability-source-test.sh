@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP="$ROOT/app/src/main/java/dev/bennett/codexmeter/CodexMeterApplication.java"
-GUARD="$ROOT/app/src/main/java/dev/bennett/codexmeter/NotificationRepostGuard.java"
-RECEIVER="$ROOT/app/src/main/java/dev/bennett/codexmeter/NowBarActionReceiver.java"
-SETTINGS="$ROOT/app/src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
-EDITOR="$ROOT/app/src/main/java/dev/bennett/codexmeter/DashboardReorderActivity.java"
+APP="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CodexMonitorApplication.java"
+GUARD="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/NotificationRepostGuard.java"
+RECEIVER="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/NowBarActionReceiver.java"
+SETTINGS="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/SettingsActivity.java"
+EDITOR="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/DashboardReorderActivity.java"
 
 # Repeated Settings/subpage/editor transitions must not queue unguarded main-thread notification
 # rebuilds. The lifecycle path is collapsed to the last resumed activity and runtime rendering

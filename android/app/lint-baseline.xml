@@ -7,7 +7,7 @@
         errorLine1="        StringBuilder sbAppend = new StringBuilder(&quot;Codex &quot;).append(styleLabel(style).toLowerCase()).append(&quot;, &quot;);"
         errorLine2="                                                                                      ~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="366"
             column="87"/>
     </issue>
@@ -18,7 +18,7 @@
         errorLine1="        String value = label == null ? &quot;&quot; : label.toLowerCase();"
         errorLine2="                                                  ~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="285"
             column="51"/>
     </issue>
@@ -40,7 +40,7 @@
         errorLine1="            Toast.makeText(this, &quot;No lock-screen widget was selected.&quot;, 1).show();"
         errorLine2="                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/LockWidgetConfigActivity.java"
             line="32"
             column="73"/>
     </issue>
@@ -51,7 +51,7 @@
         errorLine1="        Toast.makeText(this, &quot;Lock-screen widget updated.&quot;, 0).show();"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/LockWidgetConfigActivity.java"
             line="91"
             column="61"/>
     </issue>
@@ -62,7 +62,7 @@
         errorLine1="                Toast.makeText(mainActivity, stringExtra2, 1).show();"
         errorLine2="                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="55"
             column="60"/>
     </issue>
@@ -73,7 +73,7 @@
         errorLine1="            Toast.makeText(this, str, 0).show();"
         errorLine2="                                      ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="403"
             column="39"/>
     </issue>
@@ -84,7 +84,7 @@
         errorLine1="            Toast.makeText(this, &quot;Could not start sign-in: &quot; + safeMessage(e), 1).show();"
         errorLine2="                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="406"
             column="80"/>
     </issue>
@@ -95,7 +95,7 @@
         errorLine1="                Toast.makeText(this, &quot;No browser is available to complete sign-in.&quot;, 1).show();"
         errorLine2="                                                                                     ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="416"
             column="86"/>
     </issue>
@@ -106,7 +106,7 @@
         errorLine1="                            Toast.makeText(MainActivity.this, &quot;Usage updated.&quot;, 0).show();"
         errorLine2="                                                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="434"
             column="81"/>
     </issue>
@@ -117,7 +117,7 @@
         errorLine1="                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), 1).show();"
         errorLine2="                                                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="444"
             column="92"/>
     </issue>
@@ -128,7 +128,7 @@
         errorLine1="            Toast.makeText(this, &quot;Choose a size and place the widget on your home screen.&quot;, 1).show();"
         errorLine2="                                                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="484"
             column="93"/>
     </issue>
@@ -139,7 +139,7 @@
         errorLine1="                            Toast.makeText(ResetCreditActivity.this, resetConsumeResultConsumeBestAvailable.userMessage(), 1).show();"
         errorLine2="                                                                                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetCreditActivity.java"
             line="146"
             column="124"/>
     </issue>
@@ -150,7 +150,7 @@
         errorLine1="                            Toast.makeText(ResetCreditActivity.this, ResetCreditActivity.safeMessage(e), 1).show();"
         errorLine2="                                                                                                         ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetCreditActivity.java"
             line="159"
             column="106"/>
     </issue>
@@ -161,7 +161,7 @@
         errorLine1="                        Toast.makeText(SettingsActivity.this, &quot;Precise alarm settings are unavailable on this device.&quot;, 1).show();"
         errorLine2="                                                                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SettingsActivity.java"
             line="113"
             column="121"/>
     </issue>
@@ -172,7 +172,7 @@
         errorLine1="        Toast.makeText(this, &quot;Settings saved.&quot;, 0).show();"
         errorLine2="                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SettingsActivity.java"
             line="308"
             column="49"/>
     </issue>
@@ -183,7 +183,7 @@
         errorLine1="            Toast.makeText(this, &quot;No widget was selected.&quot;, 1).show();"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetConfigActivity.java"
             line="48"
             column="61"/>
     </issue>
@@ -194,7 +194,7 @@
         errorLine1="        Toast.makeText(this, &quot;Widget updated.&quot;, 0).show();"
         errorLine2="                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetConfigActivity.java"
             line="210"
             column="49"/>
     </issue>
@@ -667,7 +667,7 @@
         errorLine1="            Toast.makeText(this, &quot;No lock-screen widget was selected.&quot;, 1).show();"
         errorLine2="                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/LockWidgetConfigActivity.java"
             line="32"
             column="73"/>
     </issue>
@@ -678,7 +678,7 @@
         errorLine1="        Toast.makeText(this, &quot;Lock-screen widget updated.&quot;, 0).show();"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/LockWidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/LockWidgetConfigActivity.java"
             line="91"
             column="61"/>
     </issue>
@@ -689,7 +689,7 @@
         errorLine1="                Toast.makeText(mainActivity, stringExtra2, 1).show();"
         errorLine2="                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="55"
             column="60"/>
     </issue>
@@ -697,10 +697,10 @@
     <issue
         id="WrongConstant"
         message="Must be one or more of: Context.RECEIVER_VISIBLE_TO_INSTANT_APPS, Context.RECEIVER_EXPORTED, Context.RECEIVER_NOT_EXPORTED"
-        errorLine1="                registerReceiver(this.authReceiver, intentFilter, &quot;dev.bennett.codexmeter.permission.INTERNAL&quot;, null, 4);"
+        errorLine1="                registerReceiver(this.authReceiver, intentFilter, &quot;dev.kopandazavr.codexmonitor.permission.INTERNAL&quot;, null, 4);"
         errorLine2="                                                                                                                      ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="120"
             column="119"/>
     </issue>
@@ -711,7 +711,7 @@
         errorLine1="            Toast.makeText(this, str, 0).show();"
         errorLine2="                                      ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="403"
             column="39"/>
     </issue>
@@ -722,7 +722,7 @@
         errorLine1="            Toast.makeText(this, &quot;Could not start sign-in: &quot; + safeMessage(e), 1).show();"
         errorLine2="                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="406"
             column="80"/>
     </issue>
@@ -733,7 +733,7 @@
         errorLine1="                Toast.makeText(this, &quot;No browser is available to complete sign-in.&quot;, 1).show();"
         errorLine2="                                                                                     ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="416"
             column="86"/>
     </issue>
@@ -744,7 +744,7 @@
         errorLine1="                            Toast.makeText(MainActivity.this, &quot;Usage updated.&quot;, 0).show();"
         errorLine2="                                                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="434"
             column="81"/>
     </issue>
@@ -755,7 +755,7 @@
         errorLine1="                            Toast.makeText(MainActivity.this, MainActivity.safeMessage(e), 1).show();"
         errorLine2="                                                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="444"
             column="92"/>
     </issue>
@@ -766,7 +766,7 @@
         errorLine1="            Toast.makeText(this, &quot;Choose a size and place the widget on your home screen.&quot;, 1).show();"
         errorLine2="                                                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="484"
             column="93"/>
     </issue>
@@ -777,7 +777,7 @@
         errorLine1="        if (jobSchedulerScheduler.schedule(jobInfo) == 1) {"
         errorLine2="                                                       ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/RefreshScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/RefreshScheduler.java"
             line="140"
             column="56"/>
     </issue>
@@ -788,7 +788,7 @@
         errorLine1="        return new JobInfo.Builder(i, new ComponentName(context, (Class&lt;?>) UsageRefreshJobService.class)).setRequiredNetworkType(1).setExtras(persistableBundle);"
         errorLine2="                                                                                                                                  ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/RefreshScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/RefreshScheduler.java"
             line="151"
             column="131"/>
     </issue>
@@ -799,7 +799,7 @@
         errorLine1="        return (JobScheduler) context.getSystemService(&quot;jobscheduler&quot;);"
         errorLine2="                                                       ~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/RefreshScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/RefreshScheduler.java"
             line="155"
             column="56"/>
     </issue>
@@ -810,7 +810,7 @@
         errorLine1="        if ((Build.VERSION.SDK_INT &lt; 33 || context.checkSelfPermission(&quot;android.permission.POST_NOTIFICATIONS&quot;) == 0) &amp;&amp; (notificationManager = (NotificationManager) context.getSystemService(ResetAlertPreferences.STYLE_NOTIFICATION)) != null) {"
         errorLine2="                                                                                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="46"
             column="192"/>
     </issue>
@@ -821,7 +821,7 @@
         errorLine1="        if ((Build.VERSION.SDK_INT &lt; 33 || context.checkSelfPermission(&quot;android.permission.POST_NOTIFICATIONS&quot;) == 0) &amp;&amp; (notificationManager = (NotificationManager) context.getSystemService(ResetAlertPreferences.STYLE_NOTIFICATION)) != null) {"
         errorLine2="                                                                                                                   ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="46"
             column="116"/>
     </issue>
@@ -832,7 +832,7 @@
         errorLine1="            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_oui_alarm).setContentTitle(&quot;Codex &quot; + str2 + &quot; usage reset&quot;).setContentText(&quot;Your &quot; + str2 + &quot; allowance should be available again. Refreshing usage now.&quot;).setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory(&quot;reminder&quot;).setVisibility(0).setShowWhen(true).build());"
         errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="50"
             column="519"/>
     </issue>
@@ -843,7 +843,7 @@
         errorLine1="            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_oui_alarm).setContentTitle(&quot;Codex &quot; + str2 + &quot; usage reset&quot;).setContentText(&quot;Your &quot; + str2 + &quot; allowance should be available again. Refreshing usage now.&quot;).setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory(&quot;reminder&quot;).setVisibility(0).setShowWhen(true).build());"
         errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                    ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="50"
             column="437"/>
     </issue>
@@ -854,7 +854,7 @@
         errorLine1="            notificationManager.notify(zEquals ? 74407 : 74405, new Notification.Builder(context, strCreateChannel).setSmallIcon(R.drawable.ic_oui_alarm).setContentTitle(&quot;Codex &quot; + str2 + &quot; usage reset&quot;).setContentText(&quot;Your &quot; + str2 + &quot; allowance should be available again. Refreshing usage now.&quot;).setContentIntent(PendingIntent.getActivity(context, zEquals ? 74307 : 74305, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592)).setAutoCancel(true).setCategory(&quot;reminder&quot;).setVisibility(0).setShowWhen(true).build());"
         errorLine2="                                                                                                                                                                                                                                                                                                                                                                                                                                                                ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="50"
             column="449"/>
     </issue>
@@ -865,7 +865,7 @@
         errorLine1="            NotificationChannel notificationChannel = new NotificationChannel(CHANNEL_SILENT, &quot;Codex reset reminders&quot;, 2);"
         errorLine2="                                                                                                                       ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="56"
             column="120"/>
     </issue>
@@ -876,7 +876,7 @@
         errorLine1="            NotificationChannel notificationChannel2 = new NotificationChannel(CHANNEL_ALARM, &quot;Codex reset alarms&quot;, 4);"
         errorLine2="                                                                                                                    ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="63"
             column="117"/>
     </issue>
@@ -887,7 +887,7 @@
         errorLine1="            notificationChannel2.setSound(RingtoneManager.getDefaultUri(4), new AudioAttributes.Builder().setUsage(4).setContentType(4).build());"
         errorLine2="                                                                                                                                     ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="64"
             column="134"/>
     </issue>
@@ -898,7 +898,7 @@
         errorLine1="            notificationChannel2.setSound(RingtoneManager.getDefaultUri(4), new AudioAttributes.Builder().setUsage(4).setContentType(4).build());"
         errorLine2="                                                                                                                   ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="64"
             column="116"/>
     </issue>
@@ -909,7 +909,7 @@
         errorLine1="        NotificationChannel notificationChannel3 = new NotificationChannel(CHANNEL_NOTIFY, &quot;Codex reset notifications&quot;, 3);"
         errorLine2="                                                                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="69"
             column="121"/>
     </issue>
@@ -920,7 +920,7 @@
         errorLine1="        notificationChannel3.setSound(RingtoneManager.getDefaultUri(2), new AudioAttributes.Builder().setUsage(5).setContentType(4).build());"
         errorLine2="                                                                                                                                 ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="70"
             column="130"/>
     </issue>
@@ -931,7 +931,7 @@
         errorLine1="        notificationChannel3.setSound(RingtoneManager.getDefaultUri(2), new AudioAttributes.Builder().setUsage(5).setContentType(4).build());"
         errorLine2="                                                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertReceiver.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertReceiver.java"
             line="70"
             column="112"/>
     </issue>
@@ -942,7 +942,7 @@
         errorLine1="        if (contextAppContext != null &amp;&amp; (alarmManager = (AlarmManager) contextAppContext.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {"
         errorLine2="                                                                                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertScheduler.java"
             line="40"
             column="108"/>
     </issue>
@@ -953,7 +953,7 @@
         errorLine1="        AlarmManager alarmManager = (AlarmManager) context.getSystemService(ResetAlertPreferences.STYLE_ALARM);"
         errorLine2="                                                                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertScheduler.java"
             line="50"
             column="77"/>
     </issue>
@@ -964,7 +964,7 @@
         errorLine1="            if ((i2 >= 100 || usageWindow.remainingPercent() &lt;= i2) &amp;&amp; (alarmManager = (AlarmManager) context.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {"
         errorLine2="                                                                                                                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertScheduler.java"
             line="57"
             column="128"/>
     </issue>
@@ -975,7 +975,7 @@
         errorLine1="                        alarmManager.setExactAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);"
         errorLine2="                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertScheduler.java"
             line="62"
             column="64"/>
     </issue>
@@ -986,7 +986,7 @@
         errorLine1="                        alarmManager.setAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);"
         errorLine2="                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertScheduler.java"
             line="64"
             column="59"/>
     </issue>
@@ -997,7 +997,7 @@
         errorLine1="                    alarmManager.setAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);"
         errorLine2="                                                      ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertScheduler.java"
             line="67"
             column="55"/>
     </issue>
@@ -1008,7 +1008,7 @@
         errorLine1="        return PendingIntent.getBroadcast(context, i, new Intent(context, (Class&lt;?>) ResetAlertReceiver.class).setAction(AppConstants.ACTION_RESET_ALERT).putExtra(EXTRA_METRIC, str).putExtra(EXTRA_RESET_AT, j), 201326592);"
         errorLine2="                                                                                                                                                                                                                   ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetAlertScheduler.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetAlertScheduler.java"
             line="74"
             column="212"/>
     </issue>
@@ -1019,7 +1019,7 @@
         errorLine1="                            Toast.makeText(ResetCreditActivity.this, resetConsumeResultConsumeBestAvailable.userMessage(), 1).show();"
         errorLine2="                                                                                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetCreditActivity.java"
             line="146"
             column="124"/>
     </issue>
@@ -1030,7 +1030,7 @@
         errorLine1="                            Toast.makeText(ResetCreditActivity.this, ResetCreditActivity.safeMessage(e), 1).show();"
         errorLine2="                                                                                                         ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetCreditActivity.java"
             line="159"
             column="106"/>
     </issue>
@@ -1041,7 +1041,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_bar_primary_group, 0);"
         errorLine2="                                                                       ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="160"
             column="72"/>
     </issue>
@@ -1052,7 +1052,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, 8);"
         errorLine2="                                                                         ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="161"
             column="74"/>
     </issue>
@@ -1063,7 +1063,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, 8);"
         errorLine2="                                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="165"
             column="75"/>
     </issue>
@@ -1074,7 +1074,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, zShowsFiveHour ? 0 : 8);"
         errorLine2="                                                                                    ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="170"
             column="85"/>
     </issue>
@@ -1085,7 +1085,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_group, zShowsFiveHour ? 0 : 8);"
         errorLine2="                                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="170"
             column="89"/>
     </issue>
@@ -1096,7 +1096,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, zShowsWeekly ? 0 : 8);"
         errorLine2="                                                                                    ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="171"
             column="85"/>
     </issue>
@@ -1107,7 +1107,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_group, zShowsWeekly ? 0 : 8);"
         errorLine2="                                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="171"
             column="89"/>
     </issue>
@@ -1118,7 +1118,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, zShowsFiveHour ? 0 : 8);"
         errorLine2="                                                                                       ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="172"
             column="88"/>
     </issue>
@@ -1129,7 +1129,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_primary_progress, zShowsFiveHour ? 0 : 8);"
         errorLine2="                                                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="172"
             column="92"/>
     </issue>
@@ -1140,7 +1140,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, zShowsWeekly ? 0 : 8);"
         errorLine2="                                                                                       ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="173"
             column="88"/>
     </issue>
@@ -1151,7 +1151,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.lock_bar_secondary_progress, zShowsWeekly ? 0 : 8);"
         errorLine2="                                                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="173"
             column="92"/>
     </issue>
@@ -1162,7 +1162,7 @@
         errorLine1="                remoteViews.setViewVisibility(R.id.lock_graphic_center_value, 8);"
         errorLine2="                                                                              ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="206"
             column="79"/>
     </issue>
@@ -1173,7 +1173,7 @@
         errorLine1="                remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, 8);"
         errorLine2="                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="208"
             column="80"/>
     </issue>
@@ -1184,7 +1184,7 @@
         errorLine1="                remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, 8);"
         errorLine2="                                                                                 ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="209"
             column="82"/>
     </issue>
@@ -1195,7 +1195,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, 0);"
         errorLine2="                                                                           ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="223"
             column="76"/>
     </issue>
@@ -1206,7 +1206,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, 8);"
         errorLine2="                                                                             ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="224"
             column="78"/>
     </issue>
@@ -1217,7 +1217,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, zShowsFiveHour ? 0 : 8);"
         errorLine2="                                                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="231"
             column="93"/>
     </issue>
@@ -1228,7 +1228,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_primary_group, zShowsFiveHour ? 0 : 8);"
         errorLine2="                                                                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="231"
             column="97"/>
     </issue>
@@ -1239,7 +1239,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, zShowsWeekly ? 0 : 8);"
         errorLine2="                                                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="232"
             column="93"/>
     </issue>
@@ -1250,7 +1250,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.lock_graphic_secondary_group, zShowsWeekly ? 0 : 8);"
         errorLine2="                                                                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="232"
             column="97"/>
     </issue>
@@ -1261,7 +1261,7 @@
         errorLine1="            remoteViews.setViewVisibility(i, 8);"
         errorLine2="                                             ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="308"
             column="46"/>
     </issue>
@@ -1272,7 +1272,7 @@
         errorLine1="        remoteViews.setViewVisibility(i, 0);"
         errorLine2="                                         ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="312"
             column="42"/>
     </issue>
@@ -1283,7 +1283,7 @@
         errorLine1="        Intent intentAddFlags = new Intent(context, (Class&lt;?>) (z2 ? ResetCreditActivity.class : MainActivity.class)).addFlags(335544320);"
         errorLine2="                                                                                                                               ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="327"
             column="128"/>
     </issue>
@@ -1294,7 +1294,7 @@
         errorLine1="        remoteViews.setOnClickPendingIntent(i, PendingIntent.getActivity(context, 82000 + i2 + (shape.ordinal() * 1000) + (style.ordinal() * 100) + (z2 ? 50000 : 0), intentAddFlags, 201326592));"
         errorLine2="                                                                                                                                                                                      ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockWidgetSupport.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockWidgetSupport.java"
             line="331"
             column="183"/>
     </issue>
@@ -1305,7 +1305,7 @@
         errorLine1="        keyGenerator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, 3).setBlockModes(&quot;GCM&quot;).setEncryptionPaddings(&quot;NoPadding&quot;).setRandomizedEncryptionRequired(true).build());"
         errorLine2="                                                                                      ~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SecureTokenStore.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SecureTokenStore.java"
             line="94"
             column="87"/>
     </issue>
@@ -1316,7 +1316,7 @@
         errorLine1="        keyGenerator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, 3).setBlockModes(&quot;GCM&quot;).setEncryptionPaddings(&quot;NoPadding&quot;).setRandomizedEncryptionRequired(true).build());"
         errorLine2="                                                                                                                   ~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SecureTokenStore.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SecureTokenStore.java"
             line="94"
             column="116"/>
     </issue>
@@ -1327,7 +1327,7 @@
         errorLine1="        keyGenerator.init(new KeyGenParameterSpec.Builder(KEY_ALIAS, 3).setBlockModes(&quot;GCM&quot;).setEncryptionPaddings(&quot;NoPadding&quot;).setRandomizedEncryptionRequired(true).build());"
         errorLine2="                                                                     ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SecureTokenStore.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SecureTokenStore.java"
             line="94"
             column="70"/>
     </issue>
@@ -1338,7 +1338,7 @@
         errorLine1="                        Toast.makeText(SettingsActivity.this, &quot;Precise alarm settings are unavailable on this device.&quot;, 1).show();"
         errorLine2="                                                                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SettingsActivity.java"
             line="113"
             column="121"/>
     </issue>
@@ -1349,7 +1349,7 @@
         errorLine1="        linearLayout.setOrientation(1);"
         errorLine2="                                    ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SettingsActivity.java"
             line="204"
             column="37"/>
     </issue>
@@ -1360,7 +1360,7 @@
         errorLine1="        if (!ResetAlertPreferences.STYLE_OFF.equals(str3) &amp;&amp; Build.VERSION.SDK_INT >= 33 &amp;&amp; checkSelfPermission(&quot;android.permission.POST_NOTIFICATIONS&quot;) != 0) {"
         errorLine2="                                                                                                                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SettingsActivity.java"
             line="302"
             column="157"/>
     </issue>
@@ -1371,7 +1371,7 @@
         errorLine1="        Toast.makeText(this, &quot;Settings saved.&quot;, 0).show();"
         errorLine2="                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SettingsActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SettingsActivity.java"
             line="308"
             column="49"/>
     </issue>
@@ -1382,7 +1382,7 @@
         errorLine1="        return Typeface.create(isOneUi(context) ? &quot;sec&quot; : &quot;sans-serif&quot;, 0);"
         errorLine2="                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="166"
             column="73"/>
     </issue>
@@ -1393,7 +1393,7 @@
         errorLine1="        return Typeface.create(isOneUi(context) ? &quot;sec&quot; : &quot;sans-serif-medium&quot;, 1);"
         errorLine2="                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="170"
             column="80"/>
     </issue>
@@ -1404,7 +1404,7 @@
         errorLine1="        linearLayout.setOrientation(1);"
         errorLine2="                                    ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="206"
             column="37"/>
     </issue>
@@ -1415,7 +1415,7 @@
         errorLine1="                insetsController.setSystemBarsAppearance(z ? 0 : 24, 24);"
         errorLine2="                                                                 ~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="400"
             column="66"/>
     </issue>
@@ -1426,7 +1426,7 @@
         errorLine1="                insetsController.setSystemBarsAppearance(z ? 0 : 24, 24);"
         errorLine2="                                                                     ~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="400"
             column="70"/>
     </issue>
@@ -1437,7 +1437,7 @@
         errorLine1="        linearLayout.setOrientation(0);"
         errorLine2="                                    ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="425"
             column="37"/>
     </issue>
@@ -1448,7 +1448,7 @@
         errorLine1="            Toast.makeText(this, &quot;No widget was selected.&quot;, 1).show();"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetConfigActivity.java"
             line="48"
             column="61"/>
     </issue>
@@ -1459,7 +1459,7 @@
         errorLine1="        Toast.makeText(this, &quot;Widget updated.&quot;, 0).show();"
         errorLine2="                                                ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetConfigActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetConfigActivity.java"
             line="210"
             column="49"/>
     </issue>
@@ -1470,7 +1470,7 @@
         errorLine1="        paint.setTypeface(Typeface.create(&quot;sec&quot;, 1));"
         errorLine2="                                                 ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetGraphics.java"
             line="61"
             column="50"/>
     </issue>
@@ -1481,7 +1481,7 @@
         errorLine1="        paint.setTypeface(Typeface.create(&quot;sans-serif&quot;, 1));"
         errorLine2="                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetGraphics.java"
             line="101"
             column="57"/>
     </issue>
@@ -1492,7 +1492,7 @@
         errorLine1="        paint.setTypeface(Typeface.create(&quot;sans-serif-medium&quot;, 0));"
         errorLine2="                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetGraphics.java"
             line="105"
             column="64"/>
     </issue>
@@ -1503,7 +1503,7 @@
         errorLine1="        setLayerType(1, null);"
         errorLine2="                     ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetPreviewView.java"
             line="24"
             column="22"/>
     </issue>
@@ -1514,7 +1514,7 @@
         errorLine1="        this.paint.setTypeface(Typeface.create(WidgetOptions.SURFACE_ONE_UI.equals(this.options.surfaceStyle) ? &quot;sec&quot; : &quot;sans-serif&quot;, z ? 1 : 0));"
         errorLine2="                                                                                                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetPreviewView.java"
             line="311"
             column="139"/>
     </issue>
@@ -1525,7 +1525,7 @@
         errorLine1="        this.paint.setTypeface(Typeface.create(WidgetOptions.SURFACE_ONE_UI.equals(this.options.surfaceStyle) ? &quot;sec&quot; : &quot;sans-serif&quot;, z ? 1 : 0));"
         errorLine2="                                                                                                                                              ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetPreviewView.java"
             line="311"
             column="143"/>
     </issue>
@@ -1536,7 +1536,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                   ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="177"
             column="84"/>
     </issue>
@@ -1547,7 +1547,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.widget_title, widgetOptions.showTitle ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                                      ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="177"
             column="103"/>
     </issue>
@@ -1558,7 +1558,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                                                 ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="180"
             column="114"/>
     </issue>
@@ -1569,7 +1569,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.plan_label, (!widgetOptions.showPlan || widgetState.plan.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                                                     ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="180"
             column="118"/>
     </issue>
@@ -1580,7 +1580,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                       ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="182"
             column="88"/>
     </issue>
@@ -1591,7 +1591,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.refresh_button, widgetOptions.showRefresh ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="182"
             column="107"/>
     </issue>
@@ -1602,7 +1602,7 @@
         errorLine1="        remoteViews.setOnClickPendingIntent(android.R.id.background, PendingIntent.getActivity(context, 74000 + i, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592));"
         errorLine2="                                                                                                                                                                               ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="187"
             column="176"/>
     </issue>
@@ -1613,7 +1613,7 @@
         errorLine1="        remoteViews.setOnClickPendingIntent(android.R.id.background, PendingIntent.getActivity(context, 74000 + i, new Intent(context, (Class&lt;?>) MainActivity.class).addFlags(335544320), 201326592));"
         errorLine2="                                                                                                                                                                                           ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="187"
             column="188"/>
     </issue>
@@ -1624,7 +1624,7 @@
         errorLine1="        remoteViews.setOnClickPendingIntent(R.id.refresh_button, PendingIntent.getBroadcast(context, 75000 + i, new Intent(context, (Class&lt;?>) WidgetRefreshReceiver.class).setAction(AppConstants.ACTION_REFRESH_WIDGET).putExtra(&quot;appWidgetId&quot;, i), 201326592));"
         errorLine2="                                                                                                                                                                                                                                                      ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="188"
             column="247"/>
     </issue>
@@ -1635,7 +1635,7 @@
         errorLine1="        remoteViews.setOnClickPendingIntent(R.id.reset_credit_button, PendingIntent.getActivity(context, 76000 + i, new Intent(context, (Class&lt;?>) ResetCreditActivity.class).addFlags(335544320), 201326592));"
         errorLine2="                                                                                                                                                                                       ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="189"
             column="184"/>
     </issue>
@@ -1646,7 +1646,7 @@
         errorLine1="        remoteViews.setOnClickPendingIntent(R.id.reset_credit_button, PendingIntent.getActivity(context, 76000 + i, new Intent(context, (Class&lt;?>) ResetCreditActivity.class).addFlags(335544320), 201326592));"
         errorLine2="                                                                                                                                                                                                   ~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="189"
             column="196"/>
     </issue>
@@ -1657,7 +1657,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, widgetState.primaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="218"
             column="96"/>
     </issue>
@@ -1668,7 +1668,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, widgetState.primaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                                   ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="218"
             column="100"/>
     </issue>
@@ -1679,7 +1679,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, widgetState.secondaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                                   ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="219"
             column="100"/>
     </issue>
@@ -1690,7 +1690,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, widgetState.secondaryReset.isEmpty() ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                                       ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="219"
             column="104"/>
     </issue>
@@ -1701,7 +1701,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, 8);"
         errorLine2="                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="249"
             column="59"/>
     </issue>
@@ -1712,7 +1712,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, 8);"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="250"
             column="61"/>
     </issue>
@@ -1723,7 +1723,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.updated_label, 8);"
         errorLine2="                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="251"
             column="59"/>
     </issue>
@@ -1734,7 +1734,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, str.isEmpty() ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="289"
             column="75"/>
     </issue>
@@ -1745,7 +1745,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, str.isEmpty() ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                              ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="289"
             column="79"/>
     </issue>
@@ -1756,7 +1756,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, 8);"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="290"
             column="61"/>
     </issue>
@@ -1767,7 +1767,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_label, 8);"
         errorLine2="                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="323"
             column="59"/>
     </issue>
@@ -1778,7 +1778,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_label, 8);"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="324"
             column="61"/>
     </issue>
@@ -1789,7 +1789,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_reset, 8);"
         errorLine2="                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="327"
             column="59"/>
     </issue>
@@ -1800,7 +1800,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_reset, 8);"
         errorLine2="                                                            ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="328"
             column="61"/>
     </issue>
@@ -1811,7 +1811,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.updated_label, (!widgetOptions.showUpdated || widgetState.updated.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                                                          ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="335"
             column="123"/>
     </issue>
@@ -1822,7 +1822,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.updated_label, (!widgetOptions.showUpdated || widgetState.updated.isEmpty()) ? 8 : GRAPHIC_STANDARD);"
         errorLine2="                                                                                                                              ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="335"
             column="127"/>
     </issue>
@@ -1833,7 +1833,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_section, widgetOptions.showsFiveHour() ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                            ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="339"
             column="93"/>
     </issue>
@@ -1844,7 +1844,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.primary_section, widgetOptions.showsFiveHour() ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="339"
             column="112"/>
     </issue>
@@ -1855,7 +1855,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_section, widgetOptions.showsWeekly() ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                            ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="340"
             column="93"/>
     </issue>
@@ -1866,7 +1866,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.secondary_section, widgetOptions.showsWeekly() ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                                               ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="340"
             column="112"/>
     </issue>
@@ -1877,7 +1877,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);"
         errorLine2="                                                                 ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="348"
             column="66"/>
     </issue>
@@ -1888,7 +1888,7 @@
         errorLine1="            remoteViews.setViewVisibility(R.id.reset_credit_row, 8);"
         errorLine2="                                                                 ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="358"
             column="66"/>
     </issue>
@@ -1899,7 +1899,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_row, GRAPHIC_STANDARD);"
         errorLine2="                                                             ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="361"
             column="62"/>
     </issue>
@@ -1910,7 +1910,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                   ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="362"
             column="68"/>
     </issue>
@@ -1921,7 +1921,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_info, z3 ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                      ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="362"
             column="87"/>
     </issue>
@@ -1932,7 +1932,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                     ~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="363"
             column="70"/>
     </issue>
@@ -1943,7 +1943,7 @@
         errorLine1="        remoteViews.setViewVisibility(R.id.reset_credit_button, z4 ? GRAPHIC_STANDARD : 8);"
         errorLine2="                                                                                        ~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetRenderer.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetRenderer.java"
             line="363"
             column="89"/>
     </issue>
@@ -1954,7 +1954,7 @@
         errorLine1="        View root = LayoutInflater.from(activity).inflate(R.layout.activity_oneui_dashboard, null, false);"
         errorLine2="                                                                                             ~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="65"
             column="94"/>
     </issue>
@@ -1976,7 +1976,7 @@
         errorLine1="        if (Build.VERSION.SDK_INT >= 31 &amp;&amp; (identifier = context.getResources().getIdentifier(str, &quot;color&quot;, &quot;android&quot;)) != 0) {"
         errorLine2="                                                                                ~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="454"
             column="81"/>
     </issue>
@@ -1987,7 +1987,7 @@
         errorLine1="        page.toolbar.setNavigationButtonIcon(getDrawable(R.drawable.ic_oui_settings));"
         errorLine2="                                             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/MainActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
             line="74"
             column="46"/>
     </issue>
@@ -1998,7 +1998,7 @@
         errorLine1="        Drawable fiveHourIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_time);"
         errorLine2="                                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockGraphics.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockGraphics.java"
             line="44"
             column="58"/>
     </issue>
@@ -2009,7 +2009,7 @@
         errorLine1="        Drawable weeklyIcon = context == null ? null : context.getDrawable(R.drawable.ic_oui_calendar_week);"
         errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/SamsungLockGraphics.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/SamsungLockGraphics.java"
             line="45"
             column="56"/>
     </issue>
@@ -2020,7 +2020,7 @@
         errorLine1="        row.setIcon(context.getDrawable(icon));"
         errorLine2="                    ~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="438"
             column="21"/>
     </issue>
@@ -2031,7 +2031,7 @@
         errorLine1="            Drawable icon = context.getDrawable(iconRes);"
         errorLine2="                            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetGraphics.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetGraphics.java"
             line="49"
             column="29"/>
     </issue>
@@ -2042,7 +2042,7 @@
         errorLine1="            button.setCompoundDrawableTintList(ColorStateList.valueOf(iOnAccent));"
         errorLine2="            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="247"
             column="13"/>
     </issue>
@@ -2053,7 +2053,7 @@
         errorLine1="        button.setCompoundDrawableTintList(ColorStateList.valueOf(mainText(z)));"
         errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/Ui.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/Ui.java"
             line="279"
             column="9"/>
     </issue>
@@ -2075,7 +2075,7 @@
         errorLine1="            this.paint.setPathEffect(new DashPathEffect(new float[]{5.0f * f, 5.0f * f}, 0.0f));"
         errorLine2="                                     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetPreviewView.java"
             line="65"
             column="38"/>
     </issue>
@@ -2086,7 +2086,7 @@
         errorLine1="            this.paint.setPathEffect(new DashPathEffect(new float[]{5.0f * f, 5.0f * f}, 0.0f));"
         errorLine2="                                                        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/WidgetPreviewView.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/WidgetPreviewView.java"
             line="65"
             column="57"/>
     </issue>
@@ -2669,7 +2669,7 @@
         errorLine1="            this.useButton.setText(&quot;Applying…&quot;);"
         errorLine2="                                   ~~~~~~~~~~~">
         <location
-            file="src/main/java/dev/bennett/codexmeter/ResetCreditActivity.java"
+            file="src/main/java/dev/kopandazavr/codexmonitor/ResetCreditActivity.java"
             line="135"
             column="36"/>
     </issue>

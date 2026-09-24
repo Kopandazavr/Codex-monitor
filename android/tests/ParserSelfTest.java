@@ -1,9 +1,9 @@
-package dev.bennett.codexmeter;
+package dev.kopandazavr.codexmonitor;
 
-import dev.bennett.codexmeter.wear.WearSettingsState;
-import dev.bennett.codexmeter.wear.WearSurfaceMode;
-import dev.bennett.codexmeter.wear.WearSyncStatus;
-import dev.bennett.codexmeter.wear.WearUsageState;
+import dev.kopandazavr.codexmonitor.wear.WearSettingsState;
+import dev.kopandazavr.codexmonitor.wear.WearSurfaceMode;
+import dev.kopandazavr.codexmonitor.wear.WearSyncStatus;
+import dev.kopandazavr.codexmonitor.wear.WearUsageState;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -453,7 +453,7 @@ public final class ParserSelfTest {
         WearSettingsState pace = new WearSettingsState(
                 NowBarDisplayMode.AUTO, NowBarPercentMode.AUTO, true,
                 NowBarAutoStart.METRIC_BOTH, 25, false, 30, 3000L,
-                WearSettingsState.SOURCE_PHONE, "dev.bennett.codexmeter",
+                WearSettingsState.SOURCE_PHONE, "dev.kopandazavr.codexmonitor",
                 true, UsagePace.SENSITIVE, true);
         WearSettingsState paceRoundTrip = WearSettingsState.fromJson(pace.toJson());
         check(pace.equals(paceRoundTrip), "Wear settings preserve pace and accelerated start");
@@ -1619,9 +1619,9 @@ public final class ParserSelfTest {
 
     private static void testOAuthBrowserPage() {
         String success = OAuthBrowserPage.render(
-                "Connected <securely> & ready.", true, "codexmeter://auth/complete");
+                "Connected <securely> & ready.", true, "codexmonitor://auth/complete");
         check(success.contains("You’re connected"), "browser success title");
-        check(success.contains("Codex Meter</a>"), "browser app return action");
+        check(success.contains("Codex Monitor</a>"), "browser app return action");
         check(success.contains("prefers-color-scheme:dark"), "browser One UI light and dark themes");
         check(success.contains("border-radius:28px"), "browser One UI rounded card");
         check(success.contains("Connected &lt;securely&gt; &amp; ready."),
@@ -1629,9 +1629,9 @@ public final class ParserSelfTest {
         check(success.contains("setTimeout"), "successful browser page automatically returns");
 
         String failure = OAuthBrowserPage.render(
-                "Denied", false, "codexmeter://auth/complete");
+                "Denied", false, "codexmonitor://auth/complete");
         check(failure.contains("Let’s try that again"), "browser failure title");
-        check(failure.contains("Back to Codex Meter"), "browser failure return action");
+        check(failure.contains("Back to Codex Monitor"), "browser failure return action");
         check(!failure.contains("setTimeout"), "failure page waits for user");
 
         String escapedScript = OAuthBrowserPage.javascriptString("x'\\\n\u2028");
@@ -1652,10 +1652,10 @@ public final class ParserSelfTest {
     }
 
     private static void testGitHubReleases() throws Exception {
-        check("https://github.com/BenItBuhner/Codex-Meter".equals( // pragma: allowlist secret
+        check("https://github.com/BenItBuhner/Codex-Monitor".equals( // pragma: allowlist secret
                         GitHubReleaseSource.REPOSITORY_URL),
                 "canonical release repository");
-        check("https://api.github.com/repos/BenItBuhner/Codex-Meter/releases?per_page=30" // pragma: allowlist secret
+        check("https://api.github.com/repos/BenItBuhner/Codex-Monitor/releases?per_page=30" // pragma: allowlist secret
                         .equals(GitHubReleaseSource.RELEASES_API_URL),
                 "canonical release API endpoint");
         String json = "["
@@ -1752,11 +1752,11 @@ public final class ParserSelfTest {
         String normalized = tag.startsWith("v") ? tag.substring(1) : tag;
         StringBuilder assets = new StringBuilder();
         if (apk) {
-            assets.append("{\"name\":\"CodexMeter-").append(normalized)
+            assets.append("{\"name\":\"CodexMonitor-").append(normalized)
                     .append(".apk\",\"size\":123,\"browser_download_url\":")
                     .append("\"").append(GitHubReleaseSource.REPOSITORY_URL)
                     .append("/releases/download/")
-                    .append(tag).append("/CodexMeter-").append(normalized).append(".apk\"}");
+                    .append(tag).append("/CodexMonitor-").append(normalized).append(".apk\"}");
         }
         if (checksum) {
             if (assets.length() > 0) assets.append(',');
@@ -1766,7 +1766,7 @@ public final class ParserSelfTest {
                     .append("/releases/download/")
                     .append(tag).append("/SHA256SUMS.txt\"}");
         }
-        return "{\"tag_name\":\"" + tag + "\",\"name\":\"Codex Meter " + normalized
+        return "{\"tag_name\":\"" + tag + "\",\"name\":\"Codex Monitor " + normalized
                 + "\",\"body\":\"Changes\",\"published_at\":\"2026-07-13T00:00:00Z\","
                 + "\"html_url\":\"" + GitHubReleaseSource.REPOSITORY_URL + "/releases/tag/"
                 + tag + "\",\"draft\":" + draft + ",\"prerelease\":" + prerelease
@@ -1775,18 +1775,18 @@ public final class ParserSelfTest {
 
     private static void testReleaseChecksums() {
         String digest = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
-        String checksums = digest + "  CodexMeter-2.2.0.apk\n"
+        String checksums = digest + "  CodexMonitor-2.2.0.apk\n"
                 + "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
                 + "  other.apk\n";
         check(digest.equals(ReleaseIntegrity.expectedSha256(
-                        checksums, "CodexMeter-2.2.0.apk")),
+                        checksums, "CodexMonitor-2.2.0.apk")),
                 "matching APK checksum selected");
         check(ReleaseIntegrity.expectedSha256(checksums, "../other.apk").isEmpty(),
                 "unsafe checksum filename rejected");
         check(ReleaseIntegrity.expectedSha256("not-a-checksum", "app.apk").isEmpty(),
                 "malformed checksum rejected");
         check(ReleaseIntegrity.expectedSha256(checksums + digest
-                        + "  CodexMeter-2.2.0.apk\n", "CodexMeter-2.2.0.apk").isEmpty(),
+                        + "  CodexMonitor-2.2.0.apk\n", "CodexMonitor-2.2.0.apk").isEmpty(),
                 "duplicate APK checksum rejected");
     }
 
@@ -1796,7 +1796,7 @@ public final class ParserSelfTest {
                 + "- Restored in-app update discovery (#24).\n\n"
                 + "### Development\n\n"
                 + "- Centralized production GitHub release URLs (#24).\n\n"
-                + "**Full Changelog**: https://github.com/example/Codex-Meter/compare/v2.2.0...v2.3.0 "
+                + "**Full Changelog**: https://github.com/example/Codex-Monitor/compare/v2.2.0...v2.3.0 "
                 + "<!-- pragma: allowlist secret -->");
         check(html.contains("<p><b>Fixed</b></p>"), "markdown heading rendered");
         check(html.contains("<ul>"), "markdown list opened");
@@ -1806,7 +1806,7 @@ public final class ParserSelfTest {
                 "second markdown bullet rendered");
         check(html.contains("<p><b>Development</b></p>"), "second markdown heading rendered");
         check(html.contains("<b>Full Changelog</b>"), "markdown bold rendered");
-        check(html.contains("<a href=\"https://github.com/example/Codex-Meter/compare/v2.2.0...v2.3.0\">"),
+        check(html.contains("<a href=\"https://github.com/example/Codex-Monitor/compare/v2.2.0...v2.3.0\">"),
                 "markdown autolink rendered");
         check(!html.contains("pragma"), "html comments stripped from release notes");
         check(!html.contains("###"), "raw heading markers removed");
@@ -1822,7 +1822,7 @@ public final class ParserSelfTest {
         check(!ReleaseNotesMarkdown.toHtml("[bad](javascript:alert(1))").contains("<a "),
                 "unsafe markdown links are not anchored");
 
-        String redactedNotes = "**Full Changelog**: https://github.com/[REDACTED]/Codex-Meter"
+        String redactedNotes = "**Full Changelog**: https://github.com/[REDACTED]/Codex-Monitor"
                 + "/compare/v2.6.9...v2.6.10";
         String repaired = ReleaseNotesMarkdown.toHtml(redactedNotes);
         String expectedHref = GitHubReleaseSource.REPOSITORY_URL

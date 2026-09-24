@@ -3,7 +3,7 @@
     android:description="@string/lock_widget_dials_wide_description"
     android:updatePeriodMillis="1800000"
     android:initialLayout="@layout/widget_lock_dials_wide"
-    android:configure="dev.bennett.codexmeter.LockWidgetConfigActivity"
+    android:configure="dev.kopandazavr.codexmonitor.LockWidgetConfigActivity"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="0x2000"
     android:widgetFeatures="reconfigurable"

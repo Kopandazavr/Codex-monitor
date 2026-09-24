@@ -30,12 +30,12 @@
             android:required="false" />
 
         <activity
-            android:name="dev.bennett.codexmeter.WearSettingsActivity"
+            android:name="dev.kopandazavr.codexmonitor.WearSettingsActivity"
             android:exported="false"
             android:taskAffinity="" />
 
         <activity
-            android:name="dev.bennett.codexmeter.WearMainActivity"
+            android:name="dev.kopandazavr.codexmonitor.WearMainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity="">
@@ -46,7 +46,7 @@
         </activity>
 
         <service
-            android:name="dev.bennett.codexmeter.WearDataLayerService"
+            android:name="dev.kopandazavr.codexmonitor.WearDataLayerService"
             android:exported="true">
             <intent-filter>
                 <action
@@ -70,7 +70,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.UsageOverviewTileService"
+            android:name="dev.kopandazavr.codexmonitor.UsageOverviewTileService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/tile_usage_overview"
@@ -103,7 +103,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.FiveHourTileService"
+            android:name="dev.kopandazavr.codexmonitor.FiveHourTileService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/tile_five_hour"
@@ -135,7 +135,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.WeeklyTileService"
+            android:name="dev.kopandazavr.codexmonitor.WeeklyTileService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/tile_weekly"
@@ -167,7 +167,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.ResetCountdownTileService"
+            android:name="dev.kopandazavr.codexmonitor.ResetCountdownTileService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/tile_reset"
@@ -199,7 +199,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.MonitorStatusTileService"
+            android:name="dev.kopandazavr.codexmonitor.MonitorStatusTileService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/tile_monitor"
@@ -231,7 +231,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.FiveHourComplicationService"
+            android:name="dev.kopandazavr.codexmonitor.FiveHourComplicationService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/complication_five_hour"
@@ -248,7 +248,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.WeeklyComplicationService"
+            android:name="dev.kopandazavr.codexmonitor.WeeklyComplicationService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/complication_weekly"
@@ -265,7 +265,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.DualUsageComplicationService"
+            android:name="dev.kopandazavr.codexmonitor.DualUsageComplicationService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/complication_dual_usage"
@@ -282,7 +282,7 @@
         </service>
 
         <service
-            android:name="dev.bennett.codexmeter.NextResetComplicationService"
+            android:name="dev.kopandazavr.codexmonitor.NextResetComplicationService"
             android:exported="true"
             android:icon="@drawable/ic_notification"
             android:label="@string/complication_next_reset"
@@ -299,11 +299,11 @@
         </service>
 
         <receiver
-            android:name="dev.bennett.codexmeter.WearMonitorActionReceiver"
+            android:name="dev.kopandazavr.codexmonitor.WearMonitorActionReceiver"
             android:exported="false" />
 
         <receiver
-            android:name="dev.bennett.codexmeter.WearBootReceiver"
+            android:name="dev.kopandazavr.codexmonitor.WearBootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

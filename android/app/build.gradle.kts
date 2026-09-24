@@ -3,16 +3,16 @@ plugins {
 }
 
 android {
-    // Internal Java namespace is intentionally retained for this bounded migration.
-    namespace = "dev.bennett.codexmeter"
+    // Canonical Codex Monitor package/namespace identity.
+    namespace = "dev.kopandazavr.codexmonitor"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "dev.kopandazavr.codexwatch"
+        applicationId = "dev.kopandazavr.codexmonitor"
         minSdk = 26
         targetSdk = 36
-        versionCode = 42
-        versionName = "2.16.0"
+        versionCode = 43
+        versionName = "2.17.0"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }
@@ -24,13 +24,13 @@ android {
     signingConfigs {
         create("localRelease") {
             val signingDir = rootProject.file(".local-signing")
-            val keyStore = signingDir.resolve("codex-meter-local.p12")
+            val keyStore = signingDir.resolve("codex-monitor-local.p12")
             val passwordFile = signingDir.resolve("password")
             if (keyStore.isFile && passwordFile.isFile) {
                 storeFile = keyStore
                 storeType = "PKCS12"
                 storePassword = passwordFile.readText().trim()
-                keyAlias = "codexmeter"
+                keyAlias = "codexmonitor"
                 keyPassword = storePassword
             }
         }
@@ -86,7 +86,7 @@ configurations.configureEach {
 dependencies {
     implementation(project(":shared"))
     implementation("com.google.android.gms:play-services-wearable:19.0.0")
-    implementation("com.google.android.gms:play-services-auth:21.4.0")
+    implementation("com.google.android.gms:play-services-auth:22.0.0")
     implementation("io.github.tribalfs:oneui-design:0.9.14+oneui8")
     implementation("io.github.oneuiproject:icons:1.1.0")
 }

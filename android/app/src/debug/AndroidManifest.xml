@@ -5,7 +5,7 @@
         android:usesCleartextTraffic="true"
         tools:replace="android:usesCleartextTraffic">
         <activity
-            android:name="dev.bennett.codexmeter.UsagePaceDemoActivity"
+            android:name="dev.kopandazavr.codexmonitor.UsagePaceDemoActivity"
             android:exported="true"
             android:theme="@style/AppTheme" />
     </application>

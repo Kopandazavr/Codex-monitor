@@ -3,8 +3,8 @@ plugins {
 }
 
 android {
-    // Internal Java namespace is intentionally retained for this bounded migration.
-    namespace = "dev.bennett.codexmeter"
+    // Canonical Codex Monitor package/namespace identity.
+    namespace = "dev.kopandazavr.codexmonitor"
     compileSdk {
         version = release(37) {
             minorApiLevel = 0
@@ -12,23 +12,23 @@ android {
     }
 
     defaultConfig {
-        applicationId = "dev.kopandazavr.codexwatch"
+        applicationId = "dev.kopandazavr.codexmonitor"
         minSdk = 30
         targetSdk = 36
-        versionCode = 42
-        versionName = "2.16.0"
+        versionCode = 43
+        versionName = "2.17.0"
     }
 
     signingConfigs {
         create("localRelease") {
             val signingDir = rootProject.file(".local-signing")
-            val keyStore = signingDir.resolve("codex-meter-local.p12")
+            val keyStore = signingDir.resolve("codex-monitor-local.p12")
             val passwordFile = signingDir.resolve("password")
             if (keyStore.isFile && passwordFile.isFile) {
                 storeFile = keyStore
                 storeType = "PKCS12"
                 storePassword = passwordFile.readText().trim()
-                keyAlias = "codexmeter"
+                keyAlias = "codexmonitor"
                 keyPassword = storePassword
             }
         }

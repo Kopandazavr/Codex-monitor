@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$ROOT/app/src/main/java/dev/bennett/codexmeter"
-SHARED="$ROOT/shared/src/main/java/dev/bennett/codexmeter"
+SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
+SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res/xml"
 MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
 
@@ -10,7 +10,7 @@ MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
 test -f "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'UsageApi.refreshAndCacheScheduled(app, forceSubscription, trigger)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'ForegroundUsageRefresh.request(context, "foreground_main");' "$SRC/RefreshEngagement.java"
-grep -Fq 'ForegroundUsageRefresh.request(this, "foreground_transition");' "$SRC/CodexMeterApplication.java"
+grep -Fq 'ForegroundUsageRefresh.request(this, "foreground_transition");' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'ForegroundUsageRefresh.isInFlight()' "$SRC/RefreshScheduler.java"
 grep -Fq '"immediate_refresh_coalesced"' "$SRC/RefreshScheduler.java"
 
@@ -18,8 +18,8 @@ grep -Fq '"immediate_refresh_coalesced"' "$SRC/RefreshScheduler.java"
 grep -Fq 'ACTIVE_POLL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'request(app, "foreground_periodic", false)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'RefreshScheduler.suspendPeriodic(app)' "$SRC/ForegroundUsageRefresh.java"
-grep -Fq 'ForegroundUsageRefresh.startActivePolling(this);' "$SRC/CodexMeterApplication.java"
-grep -Fq 'ForegroundUsageRefresh.stopActivePolling(this);' "$SRC/CodexMeterApplication.java"
+grep -Fq 'ForegroundUsageRefresh.startActivePolling(this);' "$SRC/CodexMonitorApplication.java"
+grep -Fq 'ForegroundUsageRefresh.stopActivePolling(this);' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'DIAGNOSTIC_FIVE_SECOND_REPAINT = false' "$SRC/ProcessNotificationScheduler.java"
 grep -Fq 'TimeUnit.MINUTES.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
 ! grep -Fq '"diagnostic_5s_repaint"' "$SRC/NowBarActionReceiver.java"
@@ -48,7 +48,7 @@ grep -Fq 'export_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'clear_diagnostic_logs' "$RES/preferences_settings_diagnostics.xml"
 
 # Personal-use Settings cleanup: removed sections and implementation are physically absent.
-! grep -Fq 'about_codex_meter' "$RES/preferences_settings.xml"
+! grep -Fq 'about_codex_monitor' "$RES/preferences_settings.xml"
 ! grep -Fq 'settings_updates' "$RES/preferences_settings.xml"
 ! grep -Fq 'settings_transfer' "$RES/preferences_settings.xml"
 ! grep -Fq 'settings_privacy' "$RES/preferences_settings.xml"
@@ -74,8 +74,8 @@ done
 ! grep -Fq 'UPDATE_API_URL' "$ROOT/app/build.gradle.kts"
 
 # Settings navigation uses runtime/class-based routing, never the obsolete applicationId.
-! grep -R -F 'android:targetPackage="dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
-! grep -R -F 'android:data="package:dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
+! grep -R -F 'android:targetPackage="dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
+! grep -R -F 'android:data="package:dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
 ! grep -Fq 'DashboardReorderActivity.class' "$SRC/SettingsActivity.java"
 grep -Fq 'Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);' "$SRC/SettingsActivity.java"
 grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/SettingsActivity.java"
@@ -103,15 +103,15 @@ grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.j
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 
 # Current 2.16 code-bearing candidate identity.
-grep -Fq 'versionCode = 42' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.16.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionCode = 42' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'versionName = "2.16.0"' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 42' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.16.0"' "$SRC/AppConstants.java"
+grep -Fq 'versionCode = 43' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.17.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionCode = 43' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'versionName = "2.17.0"' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'VERSION_CODE = 43' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = "2.17.0"' "$SRC/AppConstants.java"
 
 grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java"
 grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'GoogleCalendarAuthorizationActivity' "$MANIFEST"
 grep -Fq 'DiagonalStripeDrawable' "$SRC/IdleReminderOverlayService.java"
-echo 'Codex Monitor 2.16.0 scoped source contract PASS'
+echo 'Codex Monitor 2.17.0 scoped source contract PASS'

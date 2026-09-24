@@ -1,0 +1,142 @@
+package dev.kopandazavr.codexmonitor;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/* JADX INFO: loaded from: classes.dex */
+public final class ResetAlertPreferences {
+    private static final String KEY_METRIC = "metric";
+    private static final String KEY_RESET_CREDIT_EXPIRY = "reset_credit_expiry";
+    private static final String KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES =
+            "reset_credit_expiry_lead_times";
+    private static final String KEY_RESET_CREDIT_INCREASES = "reset_credit_increases";
+    private static final String KEY_STYLE = "style";
+    private static final String KEY_THRESHOLD = "threshold";
+    private static final String KEY_UNEXPECTED_REFILLS = "unexpected_refills";
+    public static final String METRIC_BOTH = "both";
+    public static final String METRIC_FIVE_HOUR = "five_hour";
+    public static final String METRIC_WEEKLY = "weekly";
+    private static final String PREFS = "codex_monitor_reset_alerts_v1";
+    public static final String STYLE_ALARM = "alarm";
+    public static final String STYLE_NOTIFICATION = "notification";
+    public static final String STYLE_OFF = "off";
+    public static final String STYLE_SILENT = "silent";
+    public static final long DEFAULT_RESET_CREDIT_EXPIRY_LEAD_TIME_MS =
+            24L * 60L * 60L * 1000L;
+
+    private ResetAlertPreferences() {
+    }
+
+    private static SharedPreferences prefs(Context context) {
+        return context.getSharedPreferences(PREFS, 0);
+    }
+
+    public static String getStyle(Context context) {
+        String stored = prefs(context).getString(KEY_STYLE, STYLE_OFF);
+        return STYLE_OFF.equals(stored) ? STYLE_OFF : STYLE_NOTIFICATION;
+    }
+
+    /** Distinguishes a real user choice (including explicit OFF) from the untouched default. */
+    public static boolean hasExplicitStyle(Context context) {
+        return prefs(context).contains(KEY_STYLE);
+    }
+
+    public static String getMetric(Context context) {
+        String string = prefs(context).getString(KEY_METRIC, "both");
+        return ("five_hour".equals(string) || "weekly".equals(string)) ? string : "both";
+    }
+
+    public static int getThreshold(Context context) {
+        int i = prefs(context).getInt(KEY_THRESHOLD, 25);
+        if (isValidThreshold(i)) {
+            return i;
+        }
+        return 25;
+    }
+
+    public static void save(Context context, String str, String str2, int i) {
+        str = STYLE_OFF.equals(str) ? STYLE_OFF : STYLE_NOTIFICATION;
+        if (!"five_hour".equals(str2) && !"weekly".equals(str2)) {
+            str2 = "both";
+        }
+        if (!isValidThreshold(i)) {
+            i = 25;
+        }
+        prefs(context).edit().putString(KEY_STYLE, str).putString(KEY_METRIC, str2).putInt(KEY_THRESHOLD, i).apply();
+    }
+
+    public static boolean enabled(Context context) {
+        return !STYLE_OFF.equals(getStyle(context));
+    }
+
+    public static boolean unexpectedRefillsEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_UNEXPECTED_REFILLS, true);
+    }
+
+    public static void setUnexpectedRefillsEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_UNEXPECTED_REFILLS, enabled).apply();
+    }
+
+    public static boolean resetCreditIncreasesEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_RESET_CREDIT_INCREASES, true);
+    }
+
+    public static void setResetCreditIncreasesEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_RESET_CREDIT_INCREASES, enabled).apply();
+    }
+
+    public static boolean resetCreditExpiryEnabled(Context context) {
+        return prefs(context).getBoolean(KEY_RESET_CREDIT_EXPIRY, true);
+    }
+
+    public static void setResetCreditExpiryEnabled(Context context, boolean enabled) {
+        prefs(context).edit().putBoolean(KEY_RESET_CREDIT_EXPIRY, enabled).apply();
+    }
+
+    public static List<Long> getResetCreditExpiryLeadTimes(Context context) {
+        SharedPreferences preferences = prefs(context);
+        if (!preferences.contains(KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES)) {
+            return Collections.singletonList(DEFAULT_RESET_CREDIT_EXPIRY_LEAD_TIME_MS);
+        }
+        Set<String> stored = preferences.getStringSet(KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES,
+                Collections.emptySet());
+        List<Long> values = new ArrayList<>();
+        if (stored != null) {
+            for (String value : stored) {
+                try {
+                    long parsed = Long.parseLong(value);
+                    if (validExpiryLeadTime(parsed)) values.add(parsed);
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        Collections.sort(values);
+        return values;
+    }
+
+    public static void setResetCreditExpiryLeadTimes(Context context, List<Long> leadTimes) {
+        Set<String> stored = new HashSet<>();
+        if (leadTimes != null) {
+            for (Long leadTime : leadTimes) {
+                if (leadTime != null && validExpiryLeadTime(leadTime)) {
+                    stored.add(String.valueOf(leadTime));
+                }
+            }
+        }
+        prefs(context).edit().putStringSet(KEY_RESET_CREDIT_EXPIRY_LEAD_TIMES, stored).apply();
+    }
+
+    private static boolean validExpiryLeadTime(long value) {
+        return value >= ResetCreditExpiryReminder.MIN_LEAD_TIME_MS
+                && value <= ResetCreditExpiryReminder.MAX_LEAD_TIME_MS;
+    }
+
+    private static boolean isValidThreshold(int i) {
+        return i == 10 || i == 25 || i == 50 || i == 75 || i == 100;
+    }
+}

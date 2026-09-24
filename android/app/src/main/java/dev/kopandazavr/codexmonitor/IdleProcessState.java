@@ -1,0 +1,343 @@
+package dev.kopandazavr.codexmonitor;
+
+import android.content.Context;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+/** Durable per-role lifecycle state derived from calendar-backed watchdog processes. */
+final class IdleProcessState {
+    private static final String PREFS = "codex_idle_process_state_v1";
+    private static final String KEY_ROWS = "rows_json";
+    private static final String SETTINGS_PREFS = "codex_monitor_settings_v1";
+    private static final String KEY_CADENCE_UI = "idle_reminder_cadence_ui";
+    static final int DEFAULT_CADENCE_MINUTES = 5;
+
+    private IdleProcessState() {
+    }
+
+    static final class IdleRole {
+        final String key;
+        final String project;
+        final String projectShort;
+        final String role;
+        final String topic;
+        final long lastStartedMillis;
+        final long lastFinishedMillis;
+        final long eventId;
+        final boolean reminderEnabled;
+        final long nextReminderAtMillis;
+
+        IdleRole(String key, String project, String projectShort, String role, String topic,
+                long lastStartedMillis, long lastFinishedMillis, long eventId,
+                boolean reminderEnabled, long nextReminderAtMillis) {
+            this.key = clean(key);
+            this.project = clean(project);
+            this.projectShort = clean(projectShort);
+            this.role = clean(role);
+            this.topic = clean(topic);
+            this.lastStartedMillis = lastStartedMillis;
+            this.lastFinishedMillis = lastFinishedMillis;
+            this.eventId = eventId;
+            this.reminderEnabled = reminderEnabled;
+            this.nextReminderAtMillis = nextReminderAtMillis;
+        }
+
+        String displayLabel() {
+            return CalendarProcess.displayIdentity(role, project, projectShort, topic);
+        }
+    }
+
+    static List<IdleRole> synchronize(Context context, List<CalendarProcess> active,
+            List<CalendarProcess> recentlyFinished, long nowMillis) {
+        return synchronize(context, active, recentlyFinished,
+                mergeObserved(active, recentlyFinished), nowMillis);
+    }
+
+    /**
+     * Synchronizes durable role state with every locally observed watchdog, not only active ones.
+     * Recording future watchdog metadata here is what preserves role/topic continuity when a known
+     * event is deleted before BEGIN and therefore never appears in the active list.
+     */
+    static List<IdleRole> synchronize(Context context, List<CalendarProcess> active,
+            List<CalendarProcess> recentlyFinished, List<CalendarProcess> observed,
+            long nowMillis) {
+        if (context == null) return Collections.emptyList();
+        Map<String, MutableRole> rows = load(context);
+        Set<String> activeKeys = new HashSet<>();
+
+        if (observed != null) {
+            for (CalendarProcess process : observed) {
+                MutableRole row = rows.computeIfAbsent(roleKey(process), MutableRole::new);
+                rememberObserved(row, process);
+            }
+        }
+
+        if (active != null) {
+            for (CalendarProcess process : active) {
+                String key = roleKey(process);
+                activeKeys.add(key);
+                MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
+                rememberObserved(row, process);
+            }
+        }
+        if (recentlyFinished != null) {
+            for (CalendarProcess process : recentlyFinished) {
+                if (process.endMillis > nowMillis) continue;
+                String key = roleKey(process);
+                MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
+                promoteFinished(row, process.project, process.projectShort,
+                        process.role, process.topic, process.eventId,
+                        process.workStartMillis(), process.endMillis, context);
+            }
+        }
+        for (MutableRole row : rows.values()) {
+            if (activeKeys.contains(row.key) || row.pendingEndMillis <= 0L) continue;
+            boolean scheduledEndReached = row.pendingEndMillis <= nowMillis;
+            boolean watchedEventDeleted = !scheduledEndReached && row.pendingEventId > 0L
+                    && !CalendarProcessReader.eventExists(
+                    context, row.pendingEventId, row.pendingDirectSource);
+            if (!scheduledEndReached && !watchedEventDeleted) continue;
+
+            long finishedAt = watchedEventDeleted ? nowMillis : row.pendingEndMillis;
+            promoteFinished(row, row.project, row.projectShort, row.role, row.topic,
+                    row.pendingEventId, row.pendingStartMillis, finishedAt, context);
+            if (watchedEventDeleted) {
+                DiagnosticLog.info(context, "idle_process", "watchdog_deleted_early",
+                        "event_id", row.pendingEventId,
+                        "role", row.role,
+                        "scheduled_end", row.pendingEndMillis,
+                        "finished_at", finishedAt);
+            }
+            row.pendingStartMillis = 0L;
+            row.pendingEndMillis = 0L;
+            row.pendingEventId = 0L;
+            row.pendingDirectSource = false;
+        }
+        save(context, rows);
+        List<IdleRole> visible = new ArrayList<>();
+        for (MutableRole row : rows.values()) {
+            if (activeKeys.contains(row.key) || row.lastFinishedMillis <= 0L
+                    || row.dismissedThroughMillis >= row.lastFinishedMillis) continue;
+            visible.add(row.freeze());
+        }
+        visible.sort(Comparator.comparingLong((IdleRole row) -> row.lastFinishedMillis).reversed());
+        return visible;
+    }
+
+    static IdleRole find(Context context, String key) {
+        MutableRole row = load(context).get(clean(key));
+        return row == null || row.lastFinishedMillis <= 0L ? null : row.freeze();
+    }
+
+    static boolean isReminderEnabled(Context context, String key) {
+        MutableRole row = load(context).get(clean(key));
+        return row != null && row.reminderEnabled;
+    }
+
+    static void dismiss(Context context, String key, long finishedMillis) {
+        Map<String, MutableRole> rows = load(context);
+        MutableRole row = rows.get(clean(key));
+        if (row == null) return;
+        row.dismissedThroughMillis = Math.max(row.dismissedThroughMillis, finishedMillis);
+        save(context, rows);
+    }
+
+    static boolean toggleReminder(Context context, String key, long nowMillis) {
+        Map<String, MutableRole> rows = load(context);
+        MutableRole row = rows.get(clean(key));
+        if (row == null) return false;
+        row.reminderEnabled = !row.reminderEnabled;
+        row.nextReminderAtMillis = row.reminderEnabled ? nowMillis + cadenceMillis(context) : 0L;
+        save(context, rows);
+        return row.reminderEnabled;
+    }
+
+    static void setNextReminderAt(Context context, String key, long whenMillis) {
+        Map<String, MutableRole> rows = load(context);
+        MutableRole row = rows.get(clean(key));
+        if (row == null) return;
+        row.nextReminderAtMillis = Math.max(0L, whenMillis);
+        save(context, rows);
+    }
+
+    static int cadenceMinutes(Context context) {
+        String value = context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_CADENCE_UI, String.valueOf(DEFAULT_CADENCE_MINUTES));
+        return "10".equals(value) ? 10 : DEFAULT_CADENCE_MINUTES;
+    }
+
+    static void setCadenceMinutes(Context context, int minutes, long nowMillis) {
+        int normalized = minutes == 10 ? 10 : DEFAULT_CADENCE_MINUTES;
+        context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+                .edit().putString(KEY_CADENCE_UI, String.valueOf(normalized)).apply();
+        Map<String, MutableRole> rows = load(context);
+        long next = nowMillis + normalized * 60_000L;
+        for (MutableRole row : rows.values()) {
+            if (row.reminderEnabled && row.lastFinishedMillis > 0L) row.nextReminderAtMillis = next;
+        }
+        save(context, rows);
+    }
+
+    static long cadenceMillis(Context context) {
+        return cadenceMinutes(context) * 60_000L;
+    }
+
+    static String roleKey(CalendarProcess process) {
+        String role = clean(process == null ? null : process.role);
+        if (CalendarProcess.hasCanonicalRole(role)) return "role:" + role;
+        String project = clean(process == null ? null : process.project);
+        if (!project.isEmpty()) return "project:" + project;
+        return "process:" + (process == null ? 0L : process.eventId);
+    }
+
+    static boolean isRoleActive(List<CalendarProcess> active, String key) {
+        if (active == null) return false;
+        for (CalendarProcess process : active) {
+            if (clean(key).equals(roleKey(process))) return true;
+        }
+        return false;
+    }
+
+    private static void rememberObserved(MutableRole row, CalendarProcess process) {
+        if (row == null || process == null) return;
+        if (process.endMillis < row.pendingEndMillis) return;
+        row.pendingStartMillis = process.workStartMillis();
+        row.pendingEndMillis = process.endMillis;
+        row.pendingEventId = process.eventId;
+        row.pendingDirectSource = process.directSource;
+        row.project = clean(process.project);
+        row.projectShort = clean(process.projectShort);
+        row.role = clean(process.role);
+        row.topic = clean(process.topic);
+    }
+
+    private static List<CalendarProcess> mergeObserved(List<CalendarProcess> active,
+            List<CalendarProcess> recentlyFinished) {
+        List<CalendarProcess> merged = new ArrayList<>();
+        if (active != null) merged.addAll(active);
+        if (recentlyFinished != null) merged.addAll(recentlyFinished);
+        return merged;
+    }
+
+    private static void promoteFinished(MutableRole row, String project, String projectShort,
+            String role, String topic, long eventId, long startedMillis, long finishedMillis,
+            Context context) {
+        if (finishedMillis <= row.lastFinishedMillis) return;
+        row.project = clean(project);
+        row.projectShort = clean(projectShort);
+        row.role = clean(role);
+        row.topic = clean(topic);
+        row.eventId = eventId;
+        row.lastStartedMillis = Math.max(0L, Math.min(startedMillis, finishedMillis));
+        row.lastFinishedMillis = finishedMillis;
+        row.nextReminderAtMillis = row.reminderEnabled
+                ? finishedMillis + cadenceMillis(context) : 0L;
+    }
+
+    private static Map<String, MutableRole> load(Context context) {
+        Map<String, MutableRole> rows = new HashMap<>();
+        if (context == null) return rows;
+        String raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ROWS, "[]");
+        try {
+            JSONArray array = new JSONArray(raw == null ? "[]" : raw);
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject json = array.optJSONObject(i);
+                if (json == null) continue;
+                MutableRole row = MutableRole.fromJson(json);
+                if (!row.key.isEmpty()) rows.put(row.key, row);
+            }
+        } catch (JSONException exception) {
+            DiagnosticLog.warn(context, "idle_process", "state_parse_failed",
+                    "error", exception.getClass().getSimpleName());
+        }
+        return rows;
+    }
+
+    private static void save(Context context, Map<String, MutableRole> rows) {
+        if (context == null) return;
+        JSONArray array = new JSONArray();
+        for (MutableRole row : rows.values()) array.put(row.toJson());
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString(KEY_ROWS, array.toString()).apply();
+    }
+
+    private static String clean(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static final class MutableRole {
+        final String key;
+        String project = "";
+        String projectShort = "";
+        String role = "";
+        String topic = "";
+        long lastStartedMillis;
+        long lastFinishedMillis;
+        long eventId;
+        long dismissedThroughMillis;
+        boolean reminderEnabled;
+        long nextReminderAtMillis;
+        long pendingStartMillis;
+        long pendingEndMillis;
+        long pendingEventId;
+        boolean pendingDirectSource;
+
+        MutableRole(String key) { this.key = clean(key); }
+
+        IdleRole freeze() {
+            return new IdleRole(key, project, projectShort, role, topic, lastStartedMillis,
+                    lastFinishedMillis, eventId, reminderEnabled, nextReminderAtMillis);
+        }
+
+        JSONObject toJson() {
+            JSONObject json = new JSONObject();
+            try {
+                json.put("key", key);
+                json.put("project", project);
+                json.put("project_short", projectShort);
+                json.put("role", role);
+                json.put("topic", topic);
+                json.put("last_started", lastStartedMillis);
+                json.put("last_finished", lastFinishedMillis);
+                json.put("event_id", eventId);
+                json.put("dismissed_through", dismissedThroughMillis);
+                json.put("reminder", reminderEnabled);
+                json.put("next_reminder", nextReminderAtMillis);
+                json.put("pending_start", pendingStartMillis);
+                json.put("pending_end", pendingEndMillis);
+                json.put("pending_event", pendingEventId);
+                json.put("pending_direct", pendingDirectSource);
+            } catch (JSONException ignored) {
+            }
+            return json;
+        }
+
+        static MutableRole fromJson(JSONObject json) {
+            MutableRole row = new MutableRole(json.optString("key", ""));
+            row.project = clean(json.optString("project", ""));
+            row.projectShort = clean(json.optString("project_short", ""));
+            row.role = clean(json.optString("role", ""));
+            row.topic = clean(json.optString("topic", ""));
+            row.lastStartedMillis = json.optLong("last_started", 0L);
+            row.lastFinishedMillis = json.optLong("last_finished", 0L);
+            row.eventId = json.optLong("event_id", 0L);
+            row.dismissedThroughMillis = json.optLong("dismissed_through", 0L);
+            row.reminderEnabled = json.optBoolean("reminder", false);
+            row.nextReminderAtMillis = json.optLong("next_reminder", 0L);
+            row.pendingStartMillis = json.optLong("pending_start", 0L);
+            row.pendingEndMillis = json.optLong("pending_end", 0L);
+            row.pendingEventId = json.optLong("pending_event", 0L);
+            row.pendingDirectSource = json.optBoolean("pending_direct", false);
+            return row;
+        }
+    }
+}

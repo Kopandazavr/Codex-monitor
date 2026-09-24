@@ -6,8 +6,8 @@ VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/buil
 [[ -n "$VERSION_NAME" ]] || { echo "Unable to read versionName from app/build.gradle.kts" >&2; exit 2; }
 DIST="$ROOT/dist"
 SIGNING_DIR="$ROOT/.local-signing"
-# Keep the established private test/release signing lineage; filenames/alias are internal.
-KEYSTORE="$SIGNING_DIR/codex-meter-local.p12"
+# Canonical local Codex Monitor signing identity; persistent test builds are re-signed from Drive.
+KEYSTORE="$SIGNING_DIR/codex-monitor-local.p12"
 PASS_FILE="$SIGNING_DIR/password"
 
 if [[ -z "${JAVA_HOME:-}" && -d "/Applications/Android Studio.app/Contents/jbr/Contents/Home" ]]; then
@@ -25,8 +25,8 @@ if [[ ! -f "$KEYSTORE" ]]; then
   "$JAVA_HOME/bin/keytool" -genkeypair \
     -storetype PKCS12 \
     -keystore "$KEYSTORE" -storepass "$STORE_PASS" -keypass "$STORE_PASS" \
-    -alias codexmeter -keyalg RSA -keysize 3072 -validity 10000 \
-    -dname "CN=Codex Watch Local Build, OU=Personal Android App, O=Local Build" \
+    -alias codexmonitor -keyalg RSA -keysize 3072 -validity 10000 \
+    -dname "CN=Codex Monitor Local Build, OU=Personal Android App, O=Local Build" \
     >/dev/null 2>&1
 fi
 

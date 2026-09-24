@@ -1,4 +1,4 @@
-package dev.bennett.codexmeter;
+package dev.kopandazavr.codexmonitor;
 
 /** Focused regression coverage for watchdog metadata, canonical display identity and work timing. */
 public final class CalendarProcessSelfTest {
@@ -23,7 +23,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 42L,
                 "GPT_WATCHDOG|urgent|Codex Monitor",
-                "codex_meter_watchdog=v1\n"
+                "codex_monitor_watchdog=v1\n"
                         + "project=Codex Monitor\n"
                         + "role=Developer\n"
                         + "topic=phone acceptance cleanup",
@@ -39,7 +39,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 43L,
                 "GPT_WATCHDOG|urgent|Codex Monitor",
-                "codex_meter_watchdog=v1 project=Codex Monitor "
+                "codex_monitor_watchdog=v1 project=Codex Monitor "
                         + "role=Planning / Review / Acceptance "
                         + "topic=bounded scope planning",
                 3_000L,
@@ -54,7 +54,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 431L,
                 "GPT_WATCHDOG|urgent|Data Matrix Scanner",
-                "<div>codex_meter_watchdog=v1<br>project=Data Matrix Scanner<br/>"
+                "<div>codex_monitor_watchdog=v1<br>project=Data Matrix Scanner<br/>"
                         + "role=<b>Developer</b><br />topic=implementation</div>",
                 3_000L,
                 4_000L);
@@ -68,7 +68,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 432L,
                 "GPT_WATCHDOG|urgent|Codex Monitor",
-                "codex_meter_watchdog=v1 project=Codex Monitor project_short=CM "
+                "codex_monitor_watchdog=v1 project=Codex Monitor project_short=CM "
                         + "role=Main Agent topic=implementation",
                 3_000L,
                 4_000L);
@@ -82,7 +82,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 4321L,
                 "GPT_WATCHDOG|urgent|Data Matrix Scanner",
-                "codex_meter_watchdog=v1 project=Data Matrix Scanner role=Developer topic=build",
+                "codex_monitor_watchdog=v1 project=Data Matrix Scanner role=Developer topic=build",
                 3_000L,
                 4_000L);
         require(process != null, "legacy developer process parsed");
@@ -94,7 +94,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 433L,
                 "GPT_WATCHDOG|urgent|Data Matrix Scanner",
-                "codex_meter_watchdog=v1 project=Data Matrix Scanner "
+                "codex_monitor_watchdog=v1 project=Data Matrix Scanner "
                         + "role=Planning / Review / Acceptance topic=planning",
                 3_000L,
                 4_000L);
@@ -119,7 +119,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 44L,
                 "GPT_WATCHDOG|urgent|Title fallback",
-                "codex_meter_watchdog=v2 project=Wrong role=Wrong topic=Wrong",
+                "codex_monitor_watchdog=v2 project=Wrong role=Wrong topic=Wrong",
                 5_000L,
                 6_000L);
         require(process != null, "unsupported metadata still yields title-only watchdog");
@@ -132,13 +132,13 @@ public final class CalendarProcessSelfTest {
         CalendarProcess provider = CalendarProcess.fromEvent(
                 451L,
                 "GPT_WATCHDOG|urgent|Codex Monitor",
-                "codex_meter_watchdog=v1 project=Codex Monitor role=Developer",
+                "codex_monitor_watchdog=v1 project=Codex Monitor role=Developer",
                 10_000L,
                 20_000L);
         CalendarProcess direct = CalendarProcess.fromDirectEvent(
                 452L,
                 "GPT_WATCHDOG|urgent|Codex Monitor",
-                "codex_meter_watchdog=v1 project=Codex Monitor role=Developer",
+                "codex_monitor_watchdog=v1 project=Codex Monitor role=Developer",
                 10_000L,
                 20_000L);
         require(provider != null && !provider.directSource,
@@ -153,7 +153,7 @@ public final class CalendarProcessSelfTest {
         CalendarProcess process = CalendarProcess.fromEvent(
                 45L,
                 "GPT_WATCHDOG|urgent|Codex Monitor",
-                "codex_meter_watchdog=v1 project=Codex Monitor role=Developer topic=implementation",
+                "codex_monitor_watchdog=v1 project=Codex Monitor role=Developer topic=implementation",
                 begin,
                 end);
         require(process != null, "timed process parsed");

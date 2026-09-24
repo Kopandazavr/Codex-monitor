@@ -43,55 +43,55 @@ awk '
 ' "$ROOT/tests/ParserSelfTest.java" > "$FILTERED_TEST"
 
 javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageWindow.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageCredits.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageLimit.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/HistorySections.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WidgetMeters.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSnapshot.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageSample.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/PlanPricing.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageStats.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/AdaptiveRefreshPolicy.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarAutoStart.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarDisplayMode.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarPercentMode.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/NowBarCopy.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncPaths.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSyncStatus.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSettingsState.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearUsageState.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearMonitorState.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/wear/WearSurfaceMode.java" \
-  "$ROOT/shared/src/main/java/dev/bennett/codexmeter/WearGlanceFormat.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/UsageParser.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/CelebrationDetector.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/RateLimitResetCredit.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditsSnapshot.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/ResetCreditExpiryReminder.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/Pkce.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/JwtClaims.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/WidgetOptions.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OnboardingFlow.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/OAuthBrowserPage.java" \
-  "$ROOT/app/src/main/java/dev/bennett/codexmeter/DiagnosticSanitizer.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageWindow.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageCredits.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageLimit.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/DashboardSections.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/HistorySections.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/WidgetMeters.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageSnapshot.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageSample.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageHistory.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsagePace.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/PlanPricing.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageStats.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/AdaptiveRefreshPolicy.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarAutoStart.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarDisplayMode.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarPercentMode.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarCopy.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSyncPaths.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSyncStatus.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSettingsState.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearUsageState.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearMonitorState.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSurfaceMode.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/WearGlanceFormat.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageParser.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CelebrationDetector.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RateLimitResetCredit.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/ResetCreditsSnapshot.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/ResetCreditExpiryReminder.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/Pkce.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/JwtClaims.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/WidgetOptions.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OnboardingFlow.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OAuthBrowserPage.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/DiagnosticSanitizer.java" \
   "$FILTERED_TEST"
-java -ea -cp "$OUT:$JSON_JAR" dev.bennett.codexmeter.ParserSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
 [[ -n "$APP_VERSION_NAME" && -n "$APP_VERSION_CODE" ]]
-grep -q "VERSION_NAME = \"$APP_VERSION_NAME\"" "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
-grep -q "VERSION_CODE = $APP_VERSION_CODE" "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q "VERSION_NAME = \"$APP_VERSION_NAME\"" "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
+grep -q "VERSION_CODE = $APP_VERSION_CODE" "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
 grep -q "versionName = \"$APP_VERSION_NAME\"" "$ROOT/wear/build.gradle.kts"
 grep -q "versionCode = $APP_VERSION_CODE" "$ROOT/wear/build.gradle.kts"
-grep -q 'return ORIGINATOR + "/" + VERSION_NAME' "$ROOT/app/src/main/java/dev/bennett/codexmeter/AppConstants.java"
+grep -q 'return ORIGINATOR + "/" + VERSION_NAME' "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
 
 MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
-SRC="$ROOT/app/src/main/java/dev/bennett/codexmeter"
+SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res/xml"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 
@@ -101,7 +101,7 @@ grep -q 'DashboardSections.resolveOrder' "$SRC/MainActivity.java"
 grep -q 'snapshot.usageCredits.shouldDisplay()' "$SRC/MainActivity.java"
 grep -q 'shouldShowResetCreditsCard' "$SRC/MainActivity.java"
 grep -q 'ItemTouchHelper' "$SRC/DashboardReorderActivity.java"
-grep -q 'USAGE_HISTORY = "usage_history"' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/DashboardSections.java"
+grep -q 'USAGE_HISTORY = "usage_history"' "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/DashboardSections.java"
 ! grep -q 'setScrubEnabled' "$SRC/UsageBurnChartView.java"
 ! grep -q 'OnScrubListener' "$SRC/UsageBurnChartView.java"
 ! grep -q 'drawScrub' "$SRC/UsageBurnChartView.java"
@@ -110,6 +110,7 @@ grep -q 'WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1)' "$SRC/UsageBurnChartView.ja
 grep -q 'FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(5)' "$SRC/UsageBurnChartView.java"
 grep -q 'reset > 0L ? reset : System.currentTimeMillis()' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageBurnChartView.java"
+grep -q 'return isWeekly() ? 100d - used : used;' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageWaveView.java"
 grep -q 'currentWindowSamples()' "$SRC/UsageBurnChartView.java"
 ! grep -q 'recentWindows' "$SRC/UsageBurnChartView.java"
@@ -128,8 +129,8 @@ grep -q 'requestDisallowInterceptTouchEvent(false)' "$SRC/UsageBurnChartView.jav
 grep -q '"chart_tap_duplicate_suppressed"' "$SRC/UsageBurnChartView.java"
 grep -q '"chart_tap_outside_domain"' "$SRC/UsageBurnChartView.java"
 grep -q '"chart_tap_toggle"' "$SRC/UsageBurnChartView.java"
-grep -q 'MONTHLY = "monthly"' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsageHistory.java"
-grep -q 'WINDOW_MONTHLY' "$ROOT/shared/src/main/java/dev/bennett/codexmeter/UsagePace.java"
+grep -q 'MONTHLY = "monthly"' "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageHistory.java"
+grep -q 'WINDOW_MONTHLY' "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsagePace.java"
 
 # 2.14 bounded phone follow-ups and notification-stability contracts.
 grep -q 'isMeasuredInteractionX' "$SRC/UsageBurnChartView.java"
@@ -213,8 +214,8 @@ done
 ! grep -Fq 'UPDATE_API_URL' "$ROOT/app/build.gradle.kts"
 
 # Navigation never hard-codes the obsolete pre-migration applicationId in Settings resources.
-! grep -R -F 'android:targetPackage="dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
-! grep -R -F 'android:data="package:dev.bennett.codexmeter"' "$RES/preferences_settings"*.xml
+! grep -R -F 'android:targetPackage="dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
+! grep -R -F 'android:data="package:dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
 ! grep -Fq 'DashboardReorderActivity.class' "$SRC/SettingsActivity.java"
 grep -Fq 'Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);' "$SRC/SettingsActivity.java"
 grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/SettingsActivity.java"
@@ -223,7 +224,7 @@ grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/Setti
 grep -q 'android.permission.ACCESS_NETWORK_STATE' "$MANIFEST"
 grep -q 'android.permission.POST_NOTIFICATIONS' "$MANIFEST"
 grep -q 'android.permission.SCHEDULE_EXACT_ALARM' "$MANIFEST"
-grep -q 'android:scheme="codexmeter"' "$MANIFEST"
+grep -q 'android:scheme="codexmonitor"' "$MANIFEST"
 grep -q 'NowBarActionReceiver' "$MANIFEST"
 grep -q 'WidgetRepairJobService' "$MANIFEST"
 grep -Fq 'branches: [main, alpha]' "$WORKFLOW"

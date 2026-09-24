@@ -2,6 +2,6 @@
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     tools:ignore="MonochromeLauncherIcon">
-    <background android:drawable="@drawable/codex_meter_adaptive_bg" />
-    <foreground android:drawable="@drawable/codex_meter_adaptive_fg" />
+    <background android:drawable="@drawable/codex_monitor_adaptive_bg" />
+    <foreground android:drawable="@drawable/codex_monitor_adaptive_fg" />
 </adaptive-icon>

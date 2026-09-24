@@ -6,5 +6,5 @@
         android:top="11dp"
         android:right="11dp"
         android:bottom="11dp"
-        android:drawable="@drawable/codex_watch_focus_fg"/>
+        android:drawable="@drawable/codex_monitor_focus_fg"/>
 </layer-list>

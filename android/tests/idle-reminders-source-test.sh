@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$ROOT/app/src/main/java/dev/bennett/codexmeter"
+SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 
 # Finished watchdogs become durable per-role idle state instead of disappearing.
 grep -q 'recentlyFinished' "$SRC/CalendarProcessReader.java"
@@ -105,10 +105,10 @@ grep -q 'realertUsageSurface' "$SRC/ResetNotificationManager.java"
 
 # Install/update first reconciliation removes stale app-owned SystemUI surfaces, then the existing
 # state-driven restore/repost path reconstructs only current usage/process/idle surfaces.
-grep -q 'lastUpdateTime' "$SRC/CodexMeterApplication.java"
-grep -q 'manager.cancelAll()' "$SRC/CodexMeterApplication.java"
-grep -q 'IdleReminderManager.restore(this)' "$SRC/CodexMeterApplication.java"
-grep -q 'DualUsageNotificationManager.repostDelayed(this, 350L)' "$SRC/CodexMeterApplication.java"
+grep -q 'lastUpdateTime' "$SRC/CodexMonitorApplication.java"
+grep -q 'manager.cancelAll()' "$SRC/CodexMonitorApplication.java"
+grep -q 'IdleReminderManager.restore(this)' "$SRC/CodexMonitorApplication.java"
+grep -q 'DualUsageNotificationManager.repostDelayed(this, 350L)' "$SRC/CodexMonitorApplication.java"
 
 # Cadence stays intentionally bounded to the approved 5/10 minute choices.
 grep -q 'idle_reminder_cadence_entries' "$ROOT/app/src/main/res/values/settings_arrays.xml"
@@ -152,21 +152,21 @@ grep -q 'ensureNotificationFeatureDefault' "$SRC/OnboardingActivity.java"
 test -f "$SRC/HomeVersionLabel.java"
 grep -q 'Ui.versionName(activity)' "$SRC/HomeVersionLabel.java"
 grep -q 'RelativeSizeSpan' "$SRC/HomeVersionLabel.java"
-grep -q 'HomeVersionLabel.apply(activity)' "$SRC/CodexMeterApplication.java"
-grep -q 'normalizeAutomaticDefaults' "$SRC/CodexMeterApplication.java"
+grep -q 'HomeVersionLabel.apply(activity)' "$SRC/CodexMonitorApplication.java"
+grep -q 'normalizeAutomaticDefaults' "$SRC/CodexMonitorApplication.java"
 ! grep -q 'dashboard_reorder_root' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 grep -q 'android:key="settings_diagnostics"' "$ROOT/app/src/main/res/xml/preferences_settings.xml"
 
 # Selected Focus launcher/adaptive assets keep the original artwork but now place it behind an
 # explicit 11dp (~10%) safe inset on each side so Samsung launcher masking cannot clip the arcs.
-test -f "$ROOT/app/src/main/res/drawable/codex_watch_focus_bg.xml"
-test -f "$ROOT/app/src/main/res/drawable/codex_watch_focus_fg.xml"
+test -f "$ROOT/app/src/main/res/drawable/codex_monitor_focus_bg.xml"
+test -f "$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg.xml"
 test -f "$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg_safe.xml"
 test -f "$ROOT/app/src/main/res/drawable/codex_monitor_monochrome_safe.xml"
-grep -q 'strokeColor="#FFD400"' "$ROOT/app/src/main/res/drawable/codex_watch_focus_fg.xml"
-grep -q 'strokeColor="#12B6FF"' "$ROOT/app/src/main/res/drawable/codex_watch_focus_fg.xml"
+grep -q 'strokeColor="#FFD400"' "$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg.xml"
+grep -q 'strokeColor="#12B6FF"' "$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg.xml"
 grep -q 'android:left="11dp"' "$ROOT/app/src/main/res/drawable/codex_monitor_focus_fg_safe.xml"
-grep -q '@drawable/codex_watch_focus_bg' "$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
+grep -q '@drawable/codex_monitor_focus_bg' "$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
 grep -q '@drawable/codex_monitor_focus_fg_safe' "$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
 grep -q '@drawable/codex_monitor_focus_fg_safe' "$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
 grep -q '@drawable/codex_monitor_monochrome_safe' "$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
@@ -183,6 +183,15 @@ rm -rf "$META_OUT" && mkdir -p "$META_OUT"
 javac -encoding UTF-8 -d "$META_OUT" \
   "$SRC/CalendarProcess.java" \
   "$ROOT/tests/CalendarProcessSelfTest.java"
-java -ea -cp "$META_OUT" dev.bennett.codexmeter.CalendarProcessSelfTest
+java -ea -cp "$META_OUT" dev.kopandazavr.codexmonitor.CalendarProcessSelfTest
 
+
+# Android 15+/targetSdk 36 completion overlay starts through an exact-alarm receiver exemption,
+# not directly from the background completion synchronizer.
+grep -q 'ACTION_COMPLETION_OVERLAY' "$SRC/IdleReminderManager.java"
+grep -q 'setExactAndAllowWhileIdle' "$SRC/IdleReminderManager.java"
+grep -q 'completion_overlay_alarm_scheduled' "$SRC/IdleReminderManager.java"
+grep -q 'completionOverlayFromIntent' "$SRC/NowBarActionReceiver.java"
+grep -q 'overlay_window_added' "$SRC/IdleReminderOverlayService.java"
+! grep -q 'boolean overlayShown = IdleReminderOverlayService.show(context, idle);' "$SRC/IdleReminderManager.java"
 echo 'Idle reminder + phone follow-up source regression contract passed.'

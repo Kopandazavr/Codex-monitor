@@ -22,7 +22,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Codex-Meter"
+rootProject.name = "Codex-Monitor"
 include(":app")
 include(":shared")
 include(":wear")

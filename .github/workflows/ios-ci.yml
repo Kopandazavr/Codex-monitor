@@ -1,6 +1,11 @@
 name: iOS CI
 
 on:
+  push:
+    branches: [feature/data-matrix-process-notifications]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
   pull_request:
     branches: [main, alpha]
     paths:
@@ -17,7 +22,7 @@ concurrency:
 
 jobs:
   core-tests:
-    name: CodexMeterCore package tests
+    name: CodexMonitorCore package tests
     runs-on: macos-26
     timeout-minutes: 20
     defaults:
@@ -31,11 +36,11 @@ jobs:
         shell: bash
         run: swift --version
 
-      - name: Run CodexMeterCore tests
+      - name: Run CodexMonitorCore tests
         shell: bash
         run: |
           set -euo pipefail
-          swift test --package-path CodexMeterCore
+          swift test --package-path CodexMonitorCore
 
   app-build-and-test:
     name: App build and simulator tests
@@ -76,13 +81,13 @@ jobs:
         run: |
           set -euo pipefail
           if command -v xcbeautify >/dev/null 2>&1; then
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            xcodebuild -project CodexMonitor.xcodeproj -scheme CodexMonitor \
               -destination 'generic/platform=iOS Simulator' \
               -derivedDataPath DerivedData \
               CODE_SIGNING_ALLOWED=NO build \
               | xcbeautify --renderer github-actions
           else
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            xcodebuild -project CodexMonitor.xcodeproj -scheme CodexMonitor \
               -destination 'generic/platform=iOS Simulator' \
               -derivedDataPath DerivedData \
               CODE_SIGNING_ALLOWED=NO build
@@ -98,7 +103,7 @@ jobs:
           # UI tests; deterministic failures still fail after 3 iterations, and
           # pass-on-retry results stay visible in the xcresult bundle.
           if command -v xcbeautify >/dev/null 2>&1; then
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            xcodebuild -project CodexMonitor.xcodeproj -scheme CodexMonitor \
               -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \
@@ -106,7 +111,7 @@ jobs:
               -retry-tests-on-failure -test-iterations 3 test \
               | xcbeautify --renderer github-actions
           else
-            xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
+            xcodebuild -project CodexMonitor.xcodeproj -scheme CodexMonitor \
               -destination "platform=iOS Simulator,name=$DEVICE_NAME" \
               -derivedDataPath DerivedData \
               -resultBundlePath TestResults.xcresult \

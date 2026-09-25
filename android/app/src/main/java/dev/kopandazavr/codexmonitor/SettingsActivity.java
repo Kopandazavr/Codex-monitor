@@ -6,7 +6,6 @@ import android.app.NotificationManager;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -263,6 +262,10 @@ public final class SettingsActivity extends AppCompatActivity {
             if (build != null) {
                 build.setSummary(BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE
                         + ") · " + BuildConfig.GIT_SHA);
+            }
+            Preference monitorHealth = findPreference("diagnostic_monitor_health");
+            if (monitorHealth != null) {
+                monitorHealth.setSummary(MonitorHealthDiagnostics.summary(requireContext()));
             }
             Preference export = findPreference("export_diagnostic_logs");
             if (export != null) export.setEnabled(stats.hasLogs());
@@ -632,46 +635,12 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindNowBar() {
-            // 2.19: display/focus selection is internal-only and always automatic.
             NowBarPreferences.setDisplayMode(requireContext(), NowBarDisplayMode.AUTO);
             NowBarPreferences.setPercentMode(requireContext(), NowBarPercentMode.AUTO);
-
-            Preference preview = findPreference("now_bar_preview");
-            if (preview != null) {
-                preview.setVisible((requireContext().getApplicationInfo().flags
-                        & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
-                preview.setOnPreferenceClickListener(preference -> {
-                    if (!ensureNotificationPermission()) return true;
-                    boolean started = NowBarManager.startPreview(requireContext());
-                    Toast.makeText(requireContext(), started
-                            ? "Sample Live Update started for 20 minutes."
-                            : "Allow notifications first.",
-                            started ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
-                    updateNowBarSummary();
-                    return true;
-                });
-            }
 
             nowBarPermissionPreference = findPreference("now_bar_permission");
             if (nowBarPermissionPreference != null) {
                 nowBarPermissionPreference.setOnPreferenceClickListener(preference -> {
-                    if (!NowBarManager.canPostNotifications(requireContext())) {
-                        startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE,
-                                        requireContext().getPackageName()));
-                        return true;
-                    }
-                    if (Build.VERSION.SDK_INT >= 36) {
-                        Intent promotion =
-                                new Intent(Settings.ACTION_APP_NOTIFICATION_PROMOTION_SETTINGS)
-                                        .putExtra(Settings.EXTRA_APP_PACKAGE,
-                                                requireContext().getPackageName());
-                        try {
-                            startActivity(promotion);
-                            return true;
-                        } catch (RuntimeException ignored) {
-                        }
-                    }
                     startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE,
                                     requireContext().getPackageName()));
@@ -679,44 +648,23 @@ public final class SettingsActivity extends AppCompatActivity {
                 });
             }
 
-            Preference setupHelp = findPreference("now_bar_setup_help");
-            if (setupHelp != null) {
-                setupHelp.setOnPreferenceClickListener(preference -> {
-                    showSamsungNowBarHelp();
+            Preference processMode = findPreference(ProcessNotificationMode.PREFERENCE_KEY);
+            if (processMode != null) {
+                processMode.setOnPreferenceChangeListener((preference, value) -> {
+                    String previous = ProcessNotificationMode.current(requireContext());
+                    String next = ProcessNotificationMode.normalize(String.valueOf(value));
+                    if (previous.equals(next)) return true;
+                    ProcessNotificationManager.clearAll(requireContext());
+                    ProcessNotificationMode.set(requireContext(), next);
+                    boolean reposted = DualUsageNotificationManager.repostFromCache(
+                            requireContext());
+                    DiagnosticLog.info(requireContext(), "notification",
+                            "process_notification_mode_changed",
+                            "from", previous, "to", next, "reposted", reposted);
                     return true;
                 });
             }
             updateNowBarSummary();
-        }
-
-        private void showSamsungNowBarHelp() {
-            new AlertDialog.Builder(requireContext())
-                    .setTitle("Samsung Now Bar setup")
-                    .setMessage("For Android Live Updates:\n"
-                            + "1. Open Settings > About phone/tablet > Software information.\n"
-                            + "2. Tap Build number seven times and confirm your screen lock.\n"
-                            + "3. Return to Settings > Developer options.\n"
-                            + "4. Turn on Live notifications for all apps.\n"
-                            + "5. Make sure Settings > Lock screen and AOD > Now bar is enabled.\n\n"
-                            + "If “Live notifications for all apps” is missing, Codex Monitor "
-                            + "uses its automatic Samsung-compatible fallback. Samsung changes "
-                            + "third-party access by model, region, and firmware build even when "
-                            + "Android and One UI versions match.\n\n"
-                            + "If both modes remain ordinary notifications, that firmware or "
-                            + "device does not expose a third-party Now Bar surface. Codex Monitor "
-                            + "cannot override Samsung’s system allowlist.")
-                    .setNeutralButton("Developer options", (dialog, which) -> {
-                        try {
-                            startActivity(new Intent(
-                                    Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS));
-                        } catch (RuntimeException exception) {
-                            Toast.makeText(requireContext(),
-                                    "Developer options are not available on this firmware.",
-                                    Toast.LENGTH_LONG).show();
-                        }
-                    })
-                    .setPositiveButton("Done", null)
-                    .show();
         }
 
         private void saveNowBarAutoStart(boolean enabled, String metric, int threshold) {
@@ -750,45 +698,9 @@ public final class SettingsActivity extends AppCompatActivity {
                     UsagePacePreferences.areWarningsEnabled(requireContext()));
         }
 
-        private boolean ensureNotificationPermission() {
-            if (Build.VERSION.SDK_INT >= 33
-                    && requireContext().checkSelfPermission(
-                    "android.permission.POST_NOTIFICATIONS")
-                    != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(
-                        new String[]{"android.permission.POST_NOTIFICATIONS"}, 8602);
-                Toast.makeText(requireContext(),
-                        "Allow notifications, then start the monitor again.",
-                        Toast.LENGTH_LONG).show();
-                return false;
-            }
-            if (NowBarManager.canPostNotifications(requireContext())) return true;
-            Toast.makeText(requireContext(),
-                    "Enable app notifications, then start the monitor again.",
-                    Toast.LENGTH_LONG).show();
-            return false;
-        }
-
         private void updateNowBarSummary() {
             if (nowBarPermissionPreference == null || getContext() == null) return;
-            boolean active = NowBarManager.isActive(requireContext());
-            String summary;
-            if (!NowBarManager.canPostNotifications(requireContext())) {
-                summary = "Notifications disabled · tap to enable";
-            } else if (Build.VERSION.SDK_INT < 36) {
-                summary = active
-                        ? "Live monitoring active · presentation depends on your device"
-                        : "Ready · monitoring starts automatically when usage is available";
-            } else if (!NowBarManager.canPostPromotedNotifications(requireContext())) {
-                summary = "Notifications allowed · tap for Android live-notification access";
-            } else if (active && NowBarManager.isPromoted(requireContext())) {
-                summary = "Live notification active";
-            } else if (active) {
-                summary = "Monitoring active · Android is using standard presentation";
-            } else {
-                summary = "Ready · monitoring starts automatically when usage is available";
-            }
-            nowBarPermissionPreference.setSummary(summary);
+            nowBarPermissionPreference.setSummary("System notification settings");
         }
 
         private void setNotificationsEnabled(boolean enabled) {

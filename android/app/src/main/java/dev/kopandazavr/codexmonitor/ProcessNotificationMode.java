@@ -22,6 +22,12 @@ final class ProcessNotificationMode {
         return normalize(preferences.getString(PREFERENCE_KEY, COMBINED));
     }
 
+    static void set(Context context, String value) {
+        if (context == null) return;
+        context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
+                .edit().putString(PREFERENCE_KEY, normalize(value)).apply();
+    }
+
     static String normalize(String value) {
         if (PER_PROCESS.equals(value)) return PER_PROCESS;
         if (GROUPED.equals(value)) return GROUPED;

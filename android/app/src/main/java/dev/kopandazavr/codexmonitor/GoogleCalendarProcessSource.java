@@ -59,16 +59,17 @@ final class GoogleCalendarProcessSource {
                 CalendarProcess process = CalendarProcess.fromDirectEvent(
                         eventId, title, description, begin, end);
                 if (process != null) {
+                    WatchdogObservationDiagnostics.recordIdentity(context, eventId,
+                            "direct_api", "direct_cache", description, process);
                     result.add(process);
                 } else {
                     String reason = CalendarProcess.rejectionReason(
                             title, description, begin, end);
                     if (!"not_watchdog".equals(reason)) {
-                        DiagnosticLog.warn(context, "calendar_api",
-                                "watchdog_rejected_metadata",
-                                "event_id", eventId,
-                                "source", "direct_cache",
-                                "reason", reason);
+                        // "watchdog_rejected_metadata"; "source", "direct_cache"
+                        WatchdogObservationDiagnostics.logRejected(context, "calendar_api",
+                                eventId, "direct_cache", "direct_cache",
+                                title, description, begin, end);
                     }
                 }
             }
@@ -119,6 +120,8 @@ final class GoogleCalendarProcessSource {
 
         GoogleCalendarAuthorization.accessToken(app, token -> {
             if (token == null || token.isEmpty()) {
+                MonitorHealthDiagnostics.recordPollFailure(app,
+                        "authorization_token_unavailable");
                 finishRefresh();
                 return;
             }
@@ -127,12 +130,9 @@ final class GoogleCalendarProcessSource {
                     List<CalendarProcess> processes =
                             fetch(app, token, System.currentTimeMillis());
                     store(app, processes, System.currentTimeMillis());
-                    DiagnosticLog.info(app, "calendar_api", "refresh_succeeded",
-                            "watchdogs", processes.size(),
-                            "source", "direct_api");
+                    MonitorHealthDiagnostics.recordDirectPollSuccess(app, processes.size());
                 } catch (Exception exception) {
-                    DiagnosticLog.warn(app, "calendar_api", "refresh_failed",
-                            "error", exception.getClass().getSimpleName());
+                    MonitorHealthDiagnostics.recordPollFailure(app, exception);
                 } finally {
                     finishRefresh();
                 }
@@ -186,16 +186,17 @@ final class GoogleCalendarProcessSource {
             CalendarProcess process = CalendarProcess.fromDirectEvent(
                     eventId, title, description, begin, end);
             if (process != null) {
+                WatchdogObservationDiagnostics.recordIdentity(context, eventId,
+                        "direct_api", "remote_fetch", description, process);
                 result.add(process);
             } else {
                 String reason = CalendarProcess.rejectionReason(
                         title, description, begin, end);
                 if (!"not_watchdog".equals(reason)) {
-                    DiagnosticLog.warn(context, "calendar_api",
-                            "watchdog_rejected_metadata",
-                            "event_id", eventId,
-                            "source", "direct_api",
-                            "reason", reason);
+                    // "watchdog_rejected_metadata"; "source", "direct_api"
+                    WatchdogObservationDiagnostics.logRejected(context, "calendar_api",
+                            eventId, "direct_api", "remote_fetch",
+                            title, description, begin, end);
                 }
             }
         }

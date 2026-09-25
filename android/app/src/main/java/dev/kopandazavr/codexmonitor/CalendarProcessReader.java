@@ -32,9 +32,11 @@ final class CalendarProcessReader {
         if (GoogleCalendarAuthorization.isConnected(context)) {
             GoogleCalendarProcessSource.refreshIfDue(context, null);
             if (GoogleCalendarProcessSource.hasFreshCache(context, nowMillis)) {
+                MonitorHealthDiagnostics.recordObservationSource(context, "direct_api");
                 return GoogleCalendarProcessSource.cached(context);
             }
         }
+        MonitorHealthDiagnostics.recordObservationSource(context, "calendar_provider_fallback");
         return queryProvider(context, nowMillis);
     }
 
@@ -147,20 +149,24 @@ final class CalendarProcessReader {
                 CalendarProcess process = CalendarProcess.fromEvent(
                         eventId, title, description, begin, end);
                 if (process != null) {
+                    WatchdogObservationDiagnostics.recordIdentity(context, eventId,
+                            "calendar_provider", "provider_fallback",
+                            description, process);
                     processes.add(process);
                     continue;
                 }
                 String reason = CalendarProcess.rejectionReason(
                         title, description, begin, end);
                 if (!"not_watchdog".equals(reason)) {
-                    DiagnosticLog.warn(context, "calendar_process",
-                            "watchdog_rejected_metadata",
-                            "event_id", eventId,
-                            "source", "calendar_provider",
-                            "reason", reason);
+                    // "watchdog_rejected_metadata"; "source", "calendar_provider"
+                    WatchdogObservationDiagnostics.logRejected(context, "calendar_process",
+                            eventId, "calendar_provider", "provider_fallback",
+                            title, description, begin, end);
                 }
             }
         } catch (RuntimeException exception) {
+            MonitorHealthDiagnostics.recordPollFailure(context,
+                    "calendar_provider_read_" + exception.getClass().getSimpleName());
             DiagnosticLog.warn(context, "calendar_process", "read_failed",
                     "error", exception.getClass().getSimpleName());
             processes.clear();

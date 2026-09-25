@@ -83,7 +83,7 @@ final class CalendarProcess {
         return hasCanonicalValue(project);
     }
 
-    private static boolean hasSupportedMarker(String description) {
+    static boolean hasSupportedMarker(String description) {
         if (description == null || description.trim().isEmpty()) return false;
         Matcher matcher = METADATA_PAIR.matcher(normalizeMetadata(description));
         while (matcher.find()) {
@@ -95,6 +95,23 @@ final class CalendarProcess {
             }
         }
         return false;
+    }
+
+    static String metadataValueForDiagnostics(String description, String requestedKey) {
+        String target = clean(requestedKey).toLowerCase(Locale.ROOT);
+        if (target.isEmpty() || description == null || description.trim().isEmpty()) return "";
+        Matcher matcher = METADATA_PAIR.matcher(normalizeMetadata(description));
+        while (matcher.find()) {
+            String key = clean(matcher.group(1)).toLowerCase(Locale.ROOT);
+            if (target.equals(key)) return clean(matcher.group(2));
+        }
+        return "";
+    }
+
+    static String markerValueForDiagnostics(String description) {
+        String value = metadataValueForDiagnostics(description, "codex_monitor_watchdog");
+        return value.isEmpty()
+                ? metadataValueForDiagnostics(description, "codex_meter_watchdog") : value;
     }
 
     static Map<String, String> parseMetadata(String description) {

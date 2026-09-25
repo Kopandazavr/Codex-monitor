@@ -16,6 +16,12 @@
             app:iconSpaceReserved="false"
             app:selectable="false" />
         <Preference
+            android:key="diagnostic_monitor_health"
+            android:summary="Calendar monitor state"
+            android:title="Monitor health"
+            app:iconSpaceReserved="false"
+            app:selectable="false" />
+        <Preference
             android:key="export_diagnostic_logs"
             android:summary="Save a structured JSON Lines file"
             android:title="Export logs"

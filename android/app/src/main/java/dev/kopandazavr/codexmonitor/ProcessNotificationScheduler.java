@@ -101,19 +101,9 @@ final class ProcessNotificationScheduler {
         }
 
         final long started = SystemClock.elapsedRealtime();
-        final String correlationId = "calendar-poll-" + System.currentTimeMillis();
-        DiagnosticLog.info(app, "calendar_process", "calendar_poll_requested",
-                "correlation_id", correlationId,
-                "interval_ms", POLL_INTERVAL_MS,
-                "calendar_api_connected", GoogleCalendarAuthorization.isConnected(app));
         GoogleCalendarProcessSource.forceRefresh(app, () -> {
             long elapsed = Math.max(0L, SystemClock.elapsedRealtime() - started);
-            boolean posted = DualUsageNotificationManager.repostForProcessChange(app);
-            DiagnosticLog.info(app, "calendar_process", "calendar_poll_completed",
-                    "correlation_id", correlationId,
-                    "elapsed_ms", elapsed,
-                    "posted", posted,
-                    "remote_usage_fetch", false);
+            DualUsageNotificationManager.repostForProcessChange(app);
             synchronized (LOOP_LOCK) {
                 if (!loopRunning || loopContext == null || !NowBarManager.isActive(app)) {
                     loopRunning = false;
@@ -197,8 +187,6 @@ final class ProcessNotificationScheduler {
             // Recovery only: never spend exact-alarm access on the ten-second Calendar cadence.
             alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     triggerAt, pendingIntent(context));
-            DiagnosticLog.info(context, "calendar_process", "calendar_poll_recovery_scheduled",
-                    "delay_ms", RECOVERY_INTERVAL_MS);
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(context, "calendar_process", "refresh_schedule_failed",
                     "error", exception.getClass().getSimpleName());

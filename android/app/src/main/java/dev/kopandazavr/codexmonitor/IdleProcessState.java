@@ -17,8 +17,6 @@ import org.json.JSONObject;
 final class IdleProcessState {
     private static final String PREFS = "codex_idle_process_state_v1";
     private static final String KEY_ROWS = "rows_json";
-    private static final String SETTINGS_PREFS = "codex_monitor_settings_v1";
-    private static final String KEY_CADENCE_UI = "idle_reminder_cadence_ui";
     static final int DEFAULT_CADENCE_MINUTES = 5;
 
     private IdleProcessState() {
@@ -174,17 +172,12 @@ final class IdleProcessState {
     }
 
     static int cadenceMinutes(Context context) {
-        String value = context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
-                .getString(KEY_CADENCE_UI, String.valueOf(DEFAULT_CADENCE_MINUTES));
-        return "10".equals(value) ? 10 : DEFAULT_CADENCE_MINUTES;
+        return DEFAULT_CADENCE_MINUTES;
     }
 
-    static void setCadenceMinutes(Context context, int minutes, long nowMillis) {
-        int normalized = minutes == 10 ? 10 : DEFAULT_CADENCE_MINUTES;
-        context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
-                .edit().putString(KEY_CADENCE_UI, String.valueOf(normalized)).apply();
+    static void setCadenceMinutes(Context context, int ignoredMinutes, long nowMillis) {
         Map<String, MutableRole> rows = load(context);
-        long next = nowMillis + normalized * 60_000L;
+        long next = nowMillis + DEFAULT_CADENCE_MINUTES * 60_000L;
         for (MutableRole row : rows.values()) {
             if (row.reminderEnabled && row.lastFinishedMillis > 0L) row.nextReminderAtMillis = next;
         }
@@ -192,7 +185,7 @@ final class IdleProcessState {
     }
 
     static long cadenceMillis(Context context) {
-        return cadenceMinutes(context) * 60_000L;
+        return DEFAULT_CADENCE_MINUTES * 60_000L;
     }
 
     static String roleKey(CalendarProcess process) {

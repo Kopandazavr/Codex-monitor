@@ -48,15 +48,6 @@ final class DualUsageNotificationManager {
                     state.processMode, state.now);
             // Keep local timer presentation independent from the remote refresh scheduler.
             ProcessNotificationScheduler.schedule(context);
-            DiagnosticLog.info(context, "notification", "persistent_surface_posted",
-                    "surface", "usage",
-                    "notification_id", NOTIFICATION_ID,
-                    "mode", state.processMode,
-                    "fingerprint", semanticFingerprint(state),
-                    "five_hour", state.fiveHour != null,
-                    "long_window", state.longWindow != null,
-                    "process_count", state.processes.size(),
-                    "idle_count", state.idleRoles.size());
             return true;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "dual_notification_post_failed", exception);
@@ -126,11 +117,6 @@ final class DualUsageNotificationManager {
         ProcessNotificationManager.sync(context, state.processes, state.idleRoles,
                 state.processMode, state.now);
         ProcessNotificationScheduler.schedule(context);
-        DiagnosticLog.info(context, "notification", "persistent_surface_posted",
-                "surface", "processes_only",
-                "mode", state.processMode,
-                "process_count", state.processes.size(),
-                "idle_count", state.idleRoles.size());
         return true;
     }
 
@@ -178,6 +164,7 @@ final class DualUsageNotificationManager {
         List<IdleProcessState.IdleRole> idleRoles =
                 IdleProcessState.synchronize(context, processes, finished, observed, now);
         IdleReminderManager.sync(context, processes, idleRoles, now);
+        MonitorHealthDiagnostics.recordCounts(context, processes.size(), idleRoles.size());
 
         try {
             SubscriptionStore.seedFromJwt(context, SecureTokenStore.load(context), now);

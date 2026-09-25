@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
-
     <PreferenceCategory android:title="Live monitor">
         <Preference
             android:key="now_bar_permission"
-            android:summary="Android notification access and live-notification settings"
-            android:title="Live notification settings"
+            android:summary="System notification settings"
+            android:title="Notifications"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
-
     <PreferenceCategory android:title="Long-running processes">
         <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
             android:defaultValue="combined"
@@ -18,26 +16,5 @@
             app:entries="@array/process_notification_mode_entries"
             app:entryValues="@array/process_notification_mode_values"
             app:viewType="noImage" />
-        <ListPreference
-            android:defaultValue="5"
-            android:entries="@array/idle_reminder_cadence_entries"
-            android:entryValues="@array/idle_reminder_cadence_values"
-            android:key="idle_reminder_cadence_ui"
-            android:summary="How often an enabled idle role reminds you"
-            android:title="Idle reminder cadence"
-            app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Troubleshooting">
-        <Preference
-            android:key="now_bar_setup_help"
-            android:summary="Samsung firmware and developer-option guidance"
-            android:title="Samsung setup help"
-            app:iconSpaceReserved="false" />
-        <Preference
-            android:key="now_bar_preview"
-            android:summary="Show a 20-minute sample activity for device testing"
-            android:title="Start sample preview"
-            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 </PreferenceScreen>

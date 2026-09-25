@@ -126,7 +126,7 @@ public final class IdleReminderOverlayService extends Service {
 
         overlayRoot = new FrameLayout(this);
         overlayRoot.setBackground(new DiagonalStripeDrawable(
-                0xE61B1B1F, 0xE62D2D33, dp(26)));
+                0xE61B1B1F, 0xE6222226, dp(26)));
         overlayRoot.setClickable(true);
         overlayRoot.setOnClickListener(view -> dismissAll());
 
@@ -434,21 +434,30 @@ public final class IdleReminderOverlayService extends Service {
             base.setColor(baseColor);
             stripe.setColor(stripeColor);
             this.stripeWidth = stripeWidth;
-            stripe.setStrokeWidth(stripeWidth);
-            stripe.setStrokeCap(Paint.Cap.SQUARE);
         }
 
         @Override
         public void draw(Canvas canvas) {
             Rect bounds = getBounds();
             canvas.drawRect(bounds, base);
-            int overscan = bounds.width() + bounds.height() + stripeWidth * 2;
-            // Equal visual dark/light bands at a 45-degree diagonal.
-            int spacing = Math.max(2, Math.round(stripeWidth * 2.828427f));
-            for (int x = -overscan; x < bounds.width() + overscan; x += spacing) {
-                canvas.drawLine(x, bounds.bottom + overscan,
-                        x + bounds.height() + overscan * 2, bounds.top - overscan, stripe);
+            if (bounds.isEmpty() || stripeWidth <= 0) return;
+
+            // Rotate a full oversized stripe plane around the overlay center. Drawing equal-width
+            // rectangles with a 2x period guarantees equal dark/light bands over every corner of
+            // the real bounds; unlike the old endpoint/overscan math this cannot miss the top.
+            float centerX = bounds.exactCenterX();
+            float centerY = bounds.exactCenterY();
+            float extent = (float) Math.hypot(bounds.width(), bounds.height());
+            float period = stripeWidth * 2.0f;
+            int save = canvas.save();
+            canvas.rotate(-45.0f, centerX, centerY);
+            float top = centerY - extent;
+            float bottom = centerY + extent;
+            for (float x = centerX - extent - period;
+                    x <= centerX + extent + period; x += period) {
+                canvas.drawRect(x, top, x + stripeWidth, bottom, stripe);
             }
+            canvas.restoreToCount(save);
         }
 
         @Override

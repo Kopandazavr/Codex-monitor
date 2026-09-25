@@ -77,9 +77,9 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private static String normalizePage(String page) {
-        if (PAGE_NOTIFICATIONS.equals(page)
-                || PAGE_NOW_BAR.equals(page)
-                || PAGE_DIAGNOSTICS.equals(page)) {
+        // 2.19 retires the standalone alert-notifications page. Legacy internal intents that
+        // still name it fall back to the Settings root rather than reviving removed controls.
+        if (PAGE_NOW_BAR.equals(page) || PAGE_DIAGNOSTICS.equals(page)) {
             return page;
         }
         return PAGE_ROOT;

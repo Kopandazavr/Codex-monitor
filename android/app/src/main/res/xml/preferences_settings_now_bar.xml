@@ -3,29 +3,11 @@
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
     <PreferenceCategory android:title="Live monitor">
-        <SwitchPreferenceCompat
-            android:key="now_bar_monitor_ui"
-            android:summary="Show remaining Codex allowance until the next usage reset"
-            android:title="Live monitor" />
         <Preference
             android:key="now_bar_permission"
-            android:title="Live notification access"
+            android:summary="Android notification access and live-notification settings"
+            android:title="Live notification settings"
             app:iconSpaceReserved="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Display">
-        <ListPreference
-            android:entries="@array/now_bar_display_mode_entries"
-            android:entryValues="@array/now_bar_display_mode_values"
-            android:key="now_bar_display_mode_ui"
-            android:title="Live display mode"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/now_bar_percent_mode_entries"
-            android:entryValues="@array/now_bar_percent_mode_values"
-            android:key="now_bar_percent_mode_ui"
-            android:title="Percentage shown"
-            app:useSimpleSummaryProvider="true" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Long-running processes">
@@ -44,29 +26,6 @@
             android:summary="How often an enabled idle role reminds you"
             android:title="Idle reminder cadence"
             app:useSimpleSummaryProvider="true" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Automatic start">
-        <SwitchPreferenceCompat
-            android:key="now_bar_auto_start_ui"
-            android:summary="Start the monitor when remaining allowance is low"
-            android:title="Start when allowance is low" />
-        <ListPreference
-            android:entries="@array/settings_metric_entries"
-            android:entryValues="@array/settings_metric_values"
-            android:key="now_bar_metric_ui"
-            android:title="Monitor"
-            app:useSimpleSummaryProvider="true" />
-        <ListPreference
-            android:entries="@array/settings_threshold_entries"
-            android:entryValues="@array/settings_threshold_values"
-            android:key="now_bar_threshold_ui"
-            android:title="Start when remaining reaches"
-            app:useSimpleSummaryProvider="true" />
-        <SwitchPreferenceCompat
-            android:key="now_bar_accelerated_ui"
-            android:summary="Start while usage is projected to run out early"
-            android:title="Start for accelerated usage" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Troubleshooting">

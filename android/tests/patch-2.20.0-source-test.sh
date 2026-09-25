@@ -4,11 +4,11 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res"
 
-# PHONE release identity.
-grep -Fq 'versionCode = 46' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.20.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 46' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.20.0"' "$SRC/AppConstants.java"
+# PHONE release identity stays synchronized; exact current version is owned by the newest patch.
+APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
+APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+grep -Fq "VERSION_CODE = $APP_VERSION_CODE" "$SRC/AppConstants.java"
+grep -Fq "VERSION_NAME = \"$APP_VERSION_NAME\"" "$SRC/AppConstants.java"
 
 # Strict watchdog metadata: marker + project + role required; no project-only fallback state.
 grep -Fq 'missing_or_invalid_marker' "$SRC/CalendarProcess.java"

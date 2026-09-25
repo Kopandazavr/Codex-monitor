@@ -34,8 +34,8 @@ grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
 # Current supported phone candidate identity.
-grep -Fq 'versionName = "2.20.0"' "$APP_GRADLE"
-grep -Fq 'versionCode = 46' "$APP_GRADLE"
+grep -Fq 'versionName = "2.21.0"' "$APP_GRADLE"
+grep -Fq 'versionCode = 47' "$APP_GRADLE"
 grep -Fq 'rootProject.name = "Codex-Monitor"' "$ROOT/settings.gradle.kts"
 grep -Fq 'play-services-auth:22.0.0' "$APP_GRADLE"
 grep -Fq 'codex-monitor-local.p12' "$APP_GRADLE"

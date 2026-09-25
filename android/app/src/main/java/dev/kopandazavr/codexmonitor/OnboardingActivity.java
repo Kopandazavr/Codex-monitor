@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -44,7 +45,11 @@ public final class OnboardingActivity extends AppCompatActivity {
     private boolean receiverRegistered;
     private boolean oauthRequested;
     private boolean settingsEntry;
-    private boolean startMonitorAfterNotificationPermission;
+    private static final int RECOMMENDED_NONE = 0;
+    private static final int RECOMMENDED_BATTERY = 1;
+    private static final int RECOMMENDED_NEVER_SLEEPING = 2;
+
+    private int pendingRecommendedConfirmation = RECOMMENDED_NONE;
     private String authMessage = "";
     private String lastLaunchedAuthUrl = "";
 
@@ -119,6 +124,11 @@ public final class OnboardingActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (this.content != null) render();
+        if (this.pendingRecommendedConfirmation != RECOMMENDED_NONE) {
+            int pending = this.pendingRecommendedConfirmation;
+            this.pendingRecommendedConfirmation = RECOMMENDED_NONE;
+            showRecommendedConfirmation(pending);
+        }
     }
 
     @Override
@@ -168,14 +178,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         boolean granted = grantResults.length > 0
                 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-        if (requestCode == REQUEST_NOTIFICATIONS) {
-            if (granted) ensureNotificationFeatureDefault();
-            if (granted && this.startMonitorAfterNotificationPermission) {
-                this.startMonitorAfterNotificationPermission = false;
-                enableLiveMonitor();
-                return;
-            }
-            this.startMonitorAfterNotificationPermission = false;
+        if (requestCode == REQUEST_NOTIFICATIONS && granted) {
+            ensureNotificationFeatureDefault();
+            NowBarManager.ensureAlwaysOn(this);
         }
         render();
     }
@@ -185,21 +190,35 @@ public final class OnboardingActivity extends AppCompatActivity {
         ensureNotificationFeatureDefault();
         this.content.removeAllViews();
 
+        int readinessStatus = SetupReadiness.overallStatus(this);
         TextView readiness = Ui.text(this, SetupReadiness.requiredSummary(this),
-                14.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams readinessParams = new LinearLayout.LayoutParams(-1, -2);
-        readinessParams.setMargins(Ui.dp(this, 8), 0, Ui.dp(this, 8), Ui.dp(this, 4));
+                14.0f, readinessForeground(readinessStatus));
+        readiness.setGravity(Gravity.CENTER);
+        readiness.setPadding(Ui.dp(this, 12), Ui.dp(this, 5),
+                Ui.dp(this, 12), Ui.dp(this, 5));
+        GradientDrawable readinessPill = new GradientDrawable();
+        readinessPill.setCornerRadius(Ui.dp(this, 16));
+        readinessPill.setColor(readinessBackground(readinessStatus));
+        readiness.setBackground(readinessPill);
+        LinearLayout.LayoutParams readinessParams =
+                new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, -2);
+        readinessParams.setMargins(Ui.dp(this, 8), 0, Ui.dp(this, 8), Ui.dp(this, 7));
         this.content.addView(readiness, readinessParams);
 
         addSectionHeader("Required");
-        RoundedLinearLayout required = Ui.seslRowCard(this, this.dark);
-        addAccountRow(required);
 
+        RoundedLinearLayout account = Ui.seslRowCard(this, this.dark);
+        addAccountRow(account, false);
+        LinearLayout.LayoutParams accountParams = sectionCardParams();
+        accountParams.setMargins(0, 0, 0, Ui.dp(this, 6));
+        this.content.addView(account, accountParams);
+
+        RoundedLinearLayout required = Ui.seslRowCard(this, this.dark);
         String notificationState = notificationSummary();
         CardItemView notifications = Ui.actionRow(this, "Notifications", notificationState,
-                R.drawable.ic_oui_notification, view -> requestNotificationAccess(false));
+                R.drawable.ic_oui_notification, view -> requestNotificationAccess());
         setMatchingTextColor(notifications, notificationState,
-                SetupReadiness.notificationsAllowed(this) ? statusGreen() : STATUS_YELLOW);
+                SetupReadiness.notificationsAllowed(this) ? statusGreen() : statusRed());
         addSetupRow(required, notifications, true);
 
         boolean calendarConnected = GoogleCalendarAuthorization.isConnected(this);
@@ -207,7 +226,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         CardItemView calendar = Ui.actionRow(this, "Google Calendar", calendarState,
                 R.drawable.ic_oui_calendar_week, view -> requestCalendarAccess());
         setMatchingTextColor(calendar, calendarState,
-                calendarConnected ? statusGreen() : STATUS_YELLOW);
+                calendarConnected ? statusGreen() : statusRed());
         addSetupRow(required, calendar, true);
 
         boolean overlayAllowed = IdleReminderOverlayService.canDraw(this);
@@ -215,7 +234,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         CardItemView overlay = Ui.actionRow(this, "Completion overlay", overlayState,
                 R.drawable.ic_oui_notification, view -> requestOverlayAccess());
         setMatchingTextColor(overlay, overlayState,
-                overlayAllowed ? statusGreen() : STATUS_YELLOW);
+                overlayAllowed ? statusGreen() : statusRed());
         addSetupRow(required, overlay, true);
 
         boolean exactAlarmAllowed = SetupReadiness.exactAlarmAllowed(this);
@@ -223,20 +242,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         CardItemView alarms = Ui.actionRow(this, "Alarms & reminders", alarmState,
                 R.drawable.ic_oui_alarm, view -> requestExactAlarmAccess());
         setMatchingTextColor(alarms, alarmState,
-                exactAlarmAllowed ? statusGreen() : STATUS_YELLOW);
+                exactAlarmAllowed ? statusGreen() : statusRed());
         addSetupRow(required, alarms, false);
         this.content.addView(required, sectionCardParams());
-
-        String monitorState = monitorSummary();
-        RoundedLinearLayout monitorCard = Ui.seslRowCard(this, this.dark);
-        CardItemView monitor = Ui.actionRow(this, "Live monitor", monitorState,
-                R.drawable.ic_oui_time, view -> enableLiveMonitor());
-        setMatchingTextColor(monitor, monitorState,
-                NowBarManager.isActive(this) ? statusGreen() : STATUS_YELLOW);
-        addSetupRow(monitorCard, monitor, false);
-        LinearLayout.LayoutParams monitorParams = sectionCardParams();
-        monitorParams.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 2));
-        this.content.addView(monitorCard, monitorParams);
 
         addSectionHeader("Optional");
         RoundedLinearLayout optional = Ui.seslRowCard(this, this.dark);
@@ -245,9 +253,31 @@ public final class OnboardingActivity extends AppCompatActivity {
         CardItemView localCalendar = Ui.actionRow(this, "Local Calendar fallback", localState,
                 R.drawable.ic_oui_calendar_week, view -> requestLocalCalendarAccess());
         setMatchingTextColor(localCalendar, localState,
-                localAllowed ? statusGreen() : STATUS_YELLOW);
+                localAllowed ? statusGreen() : Ui.secondaryText(this.dark));
         addSetupRow(optional, localCalendar, false);
         this.content.addView(optional, sectionCardParams());
+
+        addSectionHeader("Recommended");
+        RoundedLinearLayout recommended = Ui.seslRowCard(this, this.dark);
+        boolean batteryDone = SetupReadiness.batteryUnrestrictedAcknowledged(this);
+        String batteryState = batteryDone ? "Reviewed · Unrestricted"
+                : "Tap to set Battery usage → Unrestricted";
+        CardItemView battery = Ui.actionRow(this, "Battery usage", batteryState,
+                R.drawable.ic_oui_time, view -> requestBatteryUnrestricted());
+        setMatchingTextColor(battery, batteryState,
+                batteryDone ? statusGreen() : STATUS_YELLOW);
+        addSetupRow(recommended, battery, true);
+
+        boolean neverSleepingDone = SetupReadiness.neverSleepingAcknowledged(this);
+        String neverSleepingState = neverSleepingDone ? "Reviewed · Never sleeping"
+                : "Tap to add to Never sleeping apps";
+        CardItemView neverSleeping = Ui.actionRow(this, "Samsung background limits",
+                neverSleepingState, R.drawable.ic_oui_time,
+                view -> requestNeverSleepingApps());
+        setMatchingTextColor(neverSleeping, neverSleepingState,
+                neverSleepingDone ? statusGreen() : STATUS_YELLOW);
+        addSetupRow(recommended, neverSleeping, false);
+        this.content.addView(recommended, sectionCardParams());
 
         if (this.doneButton != null) this.doneButton.setEnabled(true);
     }
@@ -289,7 +319,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         setup.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
     }
 
-    private void addAccountRow(RoundedLinearLayout setup) {
+    private void addAccountRow(RoundedLinearLayout setup, boolean dividerAfter) {
         boolean signedIn = SecureTokenStore.isSignedIn(this);
         LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         row.setPadding(Ui.dp(this, 14), 0, Ui.dp(this, 10), 0);
@@ -315,11 +345,13 @@ public final class OnboardingActivity extends AppCompatActivity {
         row.addView(action, new LinearLayout.LayoutParams(-2, Ui.dp(this, 38)));
         setup.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
 
-        View divider = new View(this);
-        divider.setBackgroundColor(Ui.divider(this.dark));
-        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
-        dividerParams.setMargins(Ui.dp(this, 14), 0, 0, 0);
-        setup.addView(divider, dividerParams);
+        if (dividerAfter) {
+            View divider = new View(this);
+            divider.setBackgroundColor(Ui.divider(this.dark));
+            LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
+            dividerParams.setMargins(Ui.dp(this, 14), 0, 0, 0);
+            setup.addView(divider, dividerParams);
+        }
     }
 
     private void addSectionHeader(String title) {
@@ -342,6 +374,24 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private int statusRed() {
         return this.dark ? STATUS_RED_DARK : STATUS_RED_LIGHT;
+    }
+
+    private int readinessForeground(int status) {
+        if (status == SetupReadiness.STATUS_REQUIRED_MISSING) return statusRed();
+        if (status == SetupReadiness.STATUS_RECOMMENDED_MISSING) {
+            return this.dark ? 0xFFFFD54F : 0xFF9A6A00;
+        }
+        return statusGreen();
+    }
+
+    private int readinessBackground(int status) {
+        if (status == SetupReadiness.STATUS_REQUIRED_MISSING) {
+            return this.dark ? 0x443D1010 : 0x22D32F2F;
+        }
+        if (status == SetupReadiness.STATUS_RECOMMENDED_MISSING) {
+            return this.dark ? 0x443D3210 : 0x22FFC107;
+        }
+        return this.dark ? 0x4420442A : 0x2216843D;
     }
 
     private void setMatchingTextColor(View view, String text, int color) {
@@ -396,14 +446,6 @@ public final class OnboardingActivity extends AppCompatActivity {
         return GoogleCalendarAuthorization.statusSummary(this);
     }
 
-    private String monitorSummary() {
-        if (NowBarManager.isActive(this)) return "Active";
-        if (QuickSetupPreferences.shouldStartMonitor(this)) {
-            return "Waiting for the first usage refresh";
-        }
-        return "Tap to keep limits and processes live";
-    }
-
     private void startSignIn() {
         if (SecureTokenStore.isSignedIn(this)) {
             Toast.makeText(this, "ChatGPT is already connected.", Toast.LENGTH_SHORT).show();
@@ -427,16 +469,14 @@ public final class OnboardingActivity extends AppCompatActivity {
         }
     }
 
-    private void requestNotificationAccess(boolean forMonitor) {
+    private void requestNotificationAccess() {
         if (SetupReadiness.notificationsAllowed(this)) {
             ensureNotificationFeatureDefault();
-            if (forMonitor) enableLiveMonitor();
-            else Toast.makeText(this, "Notifications are already allowed.",
+            Toast.makeText(this, "Notifications are already allowed.",
                     Toast.LENGTH_SHORT).show();
             return;
         }
         if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission()) {
-            this.startMonitorAfterNotificationPermission = forMonitor;
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
                     REQUEST_NOTIFICATIONS);
             return;
@@ -451,9 +491,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void ensureNotificationFeatureDefault() {
-        if (!hasNotificationPermission() || ResetAlertPreferences.hasExplicitStyle(this)) return;
-        ResetAlertPreferences.save(this, ResetAlertPreferences.STYLE_NOTIFICATION,
-                ResetAlertPreferences.getMetric(this), ResetAlertPreferences.getThreshold(this));
+        if (!hasNotificationPermission()) return;
         ResetNotificationManager.ensureChannel(this);
     }
 
@@ -519,34 +557,60 @@ public final class OnboardingActivity extends AppCompatActivity {
                 .show();
     }
 
-    private void enableLiveMonitor() {
-        if (NowBarManager.isActive(this)) {
-            Toast.makeText(this, "Live monitor is already active.", Toast.LENGTH_SHORT).show();
-            return;
-        }
-        if (!SecureTokenStore.isSignedIn(this)) {
-            Toast.makeText(this, "Connect ChatGPT first.", Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (!hasNotificationPermission()) {
-            requestNotificationAccess(true);
-            return;
-        }
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(this);
-        if (snapshot != null && (snapshot.fiveHour != null || snapshot.longWindow() != null)
-                && NowBarManager.start(this)) {
-            QuickSetupPreferences.clearMonitorStart(this);
-            DualUsageNotificationManager.repostDelayed(this, 150L);
-            Toast.makeText(this, "Live monitor enabled.", Toast.LENGTH_SHORT).show();
-            render();
-            return;
-        }
-        QuickSetupPreferences.requestMonitorStart(this);
-        RefreshScheduler.scheduleImmediate(this);
+    private void requestBatteryUnrestricted() {
+        this.pendingRecommendedConfirmation = RECOMMENDED_BATTERY;
         Toast.makeText(this,
-                "Loading your usage once; the live monitor will start automatically.",
+                "Open Battery, then choose Unrestricted for Codex Monitor.",
                 Toast.LENGTH_LONG).show();
-        render();
+        try {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getPackageName())));
+        } catch (RuntimeException exception) {
+            this.pendingRecommendedConfirmation = RECOMMENDED_NONE;
+            Toast.makeText(this, "Could not open app battery settings.",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void requestNeverSleepingApps() {
+        this.pendingRecommendedConfirmation = RECOMMENDED_NEVER_SLEEPING;
+        Intent samsung = new Intent(
+                "com.samsung.android.sm.ACTION_OPEN_CHECKABLE_LISTACTIVITY")
+                .setPackage("com.samsung.android.lool")
+                .putExtra("activity_type", 2);
+        try {
+            startActivity(samsung);
+        } catch (RuntimeException exception) {
+            try {
+                startActivity(new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS));
+            } catch (RuntimeException fallback) {
+                this.pendingRecommendedConfirmation = RECOMMENDED_NONE;
+                Toast.makeText(this, "Could not open Samsung background limits.",
+                        Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    private void showRecommendedConfirmation(int item) {
+        final boolean battery = item == RECOMMENDED_BATTERY;
+        String title = battery ? "Battery usage checked?" : "Never sleeping apps checked?";
+        String message = battery
+                ? "Is Codex Monitor set to Unrestricted battery usage?"
+                : "Did you add Codex Monitor to Never sleeping apps?";
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setNegativeButton("Not yet", (dialog, which) -> {
+                    if (battery) SetupReadiness.setBatteryUnrestrictedAcknowledged(this, false);
+                    else SetupReadiness.setNeverSleepingAcknowledged(this, false);
+                    render();
+                })
+                .setPositiveButton("Yes, done", (dialog, which) -> {
+                    if (battery) SetupReadiness.setBatteryUnrestrictedAcknowledged(this, true);
+                    else SetupReadiness.setNeverSleepingAcknowledged(this, true);
+                    render();
+                })
+                .show();
     }
 
     private boolean hasNotificationPermission() {
@@ -571,6 +635,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void completeAndOpenMain() {
         cancelPendingSignIn();
         ensureNotificationFeatureDefault();
+        NowBarManager.ensureAlwaysOn(this);
         if (this.settingsEntry) {
             finish();
             return;

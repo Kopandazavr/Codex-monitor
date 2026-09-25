@@ -5,19 +5,21 @@
     <dev.kopandazavr.codexmonitor.PermissionsConnectionsPreference
         android:key="permissions_connections"
         android:icon="@drawable/ic_permissions_checklist"
-        android:summary="0 of 5 ready"
+        android:summary="0 of 6 ready"
         android:title="Permissions &amp; connections"
         app:iconSpaceReserved="true" />
 
     <Preference
         android:key="settings_now_bar"
+        android:icon="@drawable/ic_settings_live_monitor"
         android:title="Live monitoring &amp; process notifications"
-        app:iconSpaceReserved="false" />
+        app:iconSpaceReserved="true" />
 
     <Preference
         android:key="settings_diagnostics"
+        android:icon="@drawable/ic_settings_diagnostics"
         android:title="Diagnostics"
-        app:iconSpaceReserved="false" />
+        app:iconSpaceReserved="true" />
 
     <dev.oneuiproject.oneui.preference.InsetPreferenceCategory app:height="28dp" />
 </PreferenceScreen>

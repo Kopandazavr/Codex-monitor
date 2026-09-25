@@ -2,16 +2,12 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <Preference
+    <dev.kopandazavr.codexmonitor.PermissionsConnectionsPreference
         android:key="permissions_connections"
+        android:icon="@drawable/ic_permissions_checklist"
         android:summary="0 of 5 ready"
         android:title="Permissions &amp; connections"
-        app:iconSpaceReserved="false" />
-
-    <Preference
-        android:key="settings_notifications"
-        android:title="Notifications"
-        app:iconSpaceReserved="false" />
+        app:iconSpaceReserved="true" />
 
     <Preference
         android:key="settings_now_bar"

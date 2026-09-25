@@ -15,15 +15,15 @@ grep -Fq 'ForegroundUsageRefresh.isInFlight()' "$SRC/RefreshScheduler.java"
 grep -Fq '"immediate_refresh_coalesced"' "$SRC/RefreshScheduler.java"
 
 # Visible-app usage freshness remains one-minute remote usage polling. Calendar process freshness
-# is a separate non-overlapping one-second direct loop; its AlarmManager path is recovery only.
+# is a separate non-overlapping ten-second direct loop; its AlarmManager path is recovery only.
 grep -Fq 'ACTIVE_POLL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'request(app, "foreground_periodic", false)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'RefreshScheduler.suspendPeriodic(app)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'ForegroundUsageRefresh.startActivePolling(this);' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'ForegroundUsageRefresh.stopActivePolling(this);' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'DIAGNOSTIC_FIVE_SECOND_REPAINT = false' "$SRC/ProcessNotificationScheduler.java"
-grep -Fq 'POLL_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
-grep -Fq 'RECOVERY_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'POLL_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10)' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'RECOVERY_INTERVAL_MS = TimeUnit.SECONDS.toMillis(30)' "$SRC/ProcessNotificationScheduler.java"
 grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/ProcessNotificationScheduler.java"
 grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/NowBarActionReceiver.java"
 grep -Fq '"remote_usage_fetch", false' "$SRC/ProcessNotificationScheduler.java"
@@ -95,7 +95,7 @@ grep -Fq 'process.elapsedPercent' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'processes, idleRoles, nowMillis, true);' "$SRC/ProcessNotificationManager.java"
 
 # Notification/live-monitor IA remains direct and the old one/both selector stays hidden.
-grep -Fq 'android:title="Notifications"' "$RES/preferences_settings.xml"
+! grep -Fq 'android:key="settings_notifications"' "$RES/preferences_settings.xml"
 grep -Fq 'android:key="settings_now_bar"' "$RES/preferences_settings.xml"
 ! grep -Fq 'notification_live_monitor_settings' "$RES/preferences_settings_notifications.xml"
 ! grep -Fq 'notification_style_ui' "$RES/preferences_settings_notifications.xml"
@@ -106,13 +106,13 @@ grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.j
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 
 # Current code-bearing candidate identity.
-grep -Fq 'versionCode = 44' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.18.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 44' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.18.0"' "$SRC/AppConstants.java"
+grep -Fq 'versionCode = 45' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.19.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'VERSION_CODE = 45' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = "2.19.0"' "$SRC/AppConstants.java"
 
 grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java"
 grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'GoogleCalendarAuthorizationActivity' "$MANIFEST"
 grep -Fq 'DiagonalStripeDrawable' "$SRC/IdleReminderOverlayService.java"
-echo 'Codex Monitor 2.18.0 scoped source contract PASS'
+echo 'Codex Monitor stable carry-forward source contract PASS'

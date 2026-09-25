@@ -835,8 +835,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     "android.permission.POST_NOTIFICATIONS")
                     == PackageManager.PERMISSION_GRANTED);
             if (testNotificationPreference != null) {
-                testNotificationPreference.setEnabled(
-                        allowed && ResetAlertPreferences.enabled(requireContext()));
+                testNotificationPreference.setEnabled(allowed);
             }
         }
     }

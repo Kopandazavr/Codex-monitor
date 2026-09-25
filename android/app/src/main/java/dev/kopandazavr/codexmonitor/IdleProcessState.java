@@ -76,7 +76,9 @@ final class IdleProcessState {
 
         if (observed != null) {
             for (CalendarProcess process : observed) {
-                MutableRole row = rows.computeIfAbsent(roleKey(process), MutableRole::new);
+                String key = roleKey(process);
+                if (key.isEmpty()) continue;
+                MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
                 rememberObserved(row, process);
             }
         }
@@ -84,6 +86,7 @@ final class IdleProcessState {
         if (active != null) {
             for (CalendarProcess process : active) {
                 String key = roleKey(process);
+                if (key.isEmpty()) continue;
                 activeKeys.add(key);
                 MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
                 rememberObserved(row, process);
@@ -93,6 +96,7 @@ final class IdleProcessState {
             for (CalendarProcess process : recentlyFinished) {
                 if (process.endMillis > nowMillis) continue;
                 String key = roleKey(process);
+                if (key.isEmpty()) continue;
                 MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
                 promoteFinished(row, process.project, process.projectShort,
                         process.role, process.topic, process.eventId,
@@ -192,11 +196,11 @@ final class IdleProcessState {
     }
 
     static String roleKey(CalendarProcess process) {
-        String role = clean(process == null ? null : process.role);
-        if (CalendarProcess.hasCanonicalRole(role)) return "role:" + role;
-        String project = clean(process == null ? null : process.project);
-        if (!project.isEmpty()) return "project:" + project;
-        return "process:" + (process == null ? 0L : process.eventId);
+        if (process == null
+                || !CalendarProcess.isCanonicalIdentity(process.project, process.role)) {
+            return "";
+        }
+        return "role:" + clean(process.role);
     }
 
     static boolean isRoleActive(List<CalendarProcess> active, String key) {
@@ -253,7 +257,15 @@ final class IdleProcessState {
                 JSONObject json = array.optJSONObject(i);
                 if (json == null) continue;
                 MutableRole row = MutableRole.fromJson(json);
-                if (!row.key.isEmpty()) rows.put(row.key, row);
+                if (row.key.isEmpty()) continue;
+                if (!CalendarProcess.isCanonicalIdentity(row.project, row.role)) {
+                    DiagnosticLog.warn(context, "idle_process",
+                            "watchdog_idle_state_rejected",
+                            "key", row.key,
+                            "reason", "missing_project_or_role");
+                    continue;
+                }
+                rows.put(row.key, row);
             }
         } catch (JSONException exception) {
             DiagnosticLog.warn(context, "idle_process", "state_parse_failed",

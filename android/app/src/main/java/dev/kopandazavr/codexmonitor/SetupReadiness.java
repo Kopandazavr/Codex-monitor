@@ -4,12 +4,24 @@ import android.Manifest;
 import android.app.AlarmManager;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
 
-/** Cheap local/shared setup readiness used by first-run setup and Settings. */
+/** Cheap local/shared setup readiness used by first-run setup, Settings, and Dashboard. */
 final class SetupReadiness {
     static final int REQUIRED_TOTAL = 5;
+    static final int RECOMMENDED_TOTAL = 2;
+
+    static final int STATUS_REQUIRED_MISSING = 0;
+    static final int STATUS_RECOMMENDED_MISSING = 1;
+    static final int STATUS_READY = 2;
+
+    private static final String PREFS = "codex_monitor_setup_readiness_v1";
+    private static final String KEY_BATTERY_UNRESTRICTED_ACK =
+            "battery_unrestricted_ack";
+    private static final String KEY_NEVER_SLEEPING_ACK =
+            "never_sleeping_ack";
 
     private SetupReadiness() {
     }
@@ -25,8 +37,45 @@ final class SetupReadiness {
         return ready;
     }
 
+    static int missingRequiredCount(Context context) {
+        return Math.max(0, REQUIRED_TOTAL - requiredReadyCount(context));
+    }
+
     static String requiredSummary(Context context) {
         return requiredReadyCount(context) + " of " + REQUIRED_TOTAL + " ready";
+    }
+
+    static int recommendedReadyCount(Context context) {
+        if (context == null) return 0;
+        int ready = 0;
+        if (batteryUnrestrictedAcknowledged(context)) ready++;
+        if (neverSleepingAcknowledged(context)) ready++;
+        return ready;
+    }
+
+    static int overallStatus(Context context) {
+        if (missingRequiredCount(context) > 0) return STATUS_REQUIRED_MISSING;
+        return recommendedReadyCount(context) >= RECOMMENDED_TOTAL
+                ? STATUS_READY : STATUS_RECOMMENDED_MISSING;
+    }
+
+    static boolean batteryUnrestrictedAcknowledged(Context context) {
+        return context != null && prefs(context).getBoolean(
+                KEY_BATTERY_UNRESTRICTED_ACK, false);
+    }
+
+    static void setBatteryUnrestrictedAcknowledged(Context context, boolean acknowledged) {
+        if (context == null) return;
+        prefs(context).edit().putBoolean(KEY_BATTERY_UNRESTRICTED_ACK, acknowledged).apply();
+    }
+
+    static boolean neverSleepingAcknowledged(Context context) {
+        return context != null && prefs(context).getBoolean(KEY_NEVER_SLEEPING_ACK, false);
+    }
+
+    static void setNeverSleepingAcknowledged(Context context, boolean acknowledged) {
+        if (context == null) return;
+        prefs(context).edit().putBoolean(KEY_NEVER_SLEEPING_ACK, acknowledged).apply();
     }
 
     static boolean notificationsAllowed(Context context) {
@@ -48,5 +97,9 @@ final class SetupReadiness {
     static boolean localCalendarAllowed(Context context) {
         return context != null && context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
                 == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private static SharedPreferences prefs(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 }

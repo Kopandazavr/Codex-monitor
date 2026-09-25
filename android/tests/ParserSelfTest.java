@@ -230,14 +230,23 @@ public final class ParserSelfTest {
         long start = 2_000_000_000_000L;
         long reset = start + TimeUnit.HOURS.toMillis(5);
         UsageHistory history = UsageHistory.empty(UsageHistory.FIVE_HOUR);
+        long firstObserved = start + TimeUnit.MINUTES.toMillis(5);
         history = history.append(new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
-                reset / 1000L), start + TimeUnit.MINUTES.toMillis(5));
+                reset / 1000L), firstObserved);
+        check(history.samples.size() == 2, "empty history bootstraps anchor plus live tail");
+        check(history.samples.get(0).observedAtMillis == firstObserved
+                        && history.samples.get(1).observedAtMillis == firstObserved,
+                "bootstrap pair keeps the truthful first observation timestamp");
         history = history.append(new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
                 reset / 1000L), start + TimeUnit.MINUTES.toMillis(6));
-        check(history.samples.size() == 1, "near-identical history samples are coalesced");
+        check(history.samples.size() == 2, "near-identical history updates only the tail");
+        check(history.samples.get(0).observedAtMillis == firstObserved
+                        && history.samples.get(1).observedAtMillis
+                        == start + TimeUnit.MINUTES.toMillis(6),
+                "coalescing preserves the stable anchor while moving the live tail");
         history = history.append(new UsageWindow(20, TimeUnit.HOURS.toSeconds(5), 0L,
                 reset / 1000L), start + TimeUnit.MINUTES.toMillis(20));
-        check(history.currentWindowSamples().size() == 2, "same-window samples are retained");
+        check(history.currentWindowSamples().size() == 3, "same-window changes are retained");
         check(history.observedBurnRate() > 0d, "sustained usage produces an observed burn rate");
 
         UsageWindow current = new UsageWindow(20, TimeUnit.HOURS.toSeconds(5), 0L,
@@ -270,7 +279,7 @@ public final class ParserSelfTest {
         UsageHistory monthly = UsageHistory.empty(UsageHistory.MONTHLY).append(
                 new UsageWindow(12, TimeUnit.DAYS.toSeconds(30), 0L,
                         (start + TimeUnit.DAYS.toMillis(30)) / 1000L), start);
-        check(monthly.samples.size() == 1
+        check(monthly.samples.size() == 2
                         && UsageHistory.MONTHLY.equals(
                         UsageHistory.fromJson(monthly.toJson(), UsageHistory.MONTHLY).kind),
                 "monthly history samples round-trip with their kind");

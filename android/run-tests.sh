@@ -110,7 +110,8 @@ grep -q 'WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1)' "$SRC/UsageBurnChartView.ja
 grep -q 'FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(5)' "$SRC/UsageBurnChartView.java"
 grep -q 'reset > 0L ? reset : System.currentTimeMillis()' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageBurnChartView.java"
-grep -q 'return isWeekly() ? 100d - used : used;' "$SRC/UsageBurnChartView.java"
+grep -q 'return 100d - used;' "$SRC/UsageBurnChartView.java"
+grep -q 'drawStripedFill' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageWaveView.java"
 grep -q 'currentWindowSamples()' "$SRC/UsageBurnChartView.java"
 ! grep -q 'recentWindows' "$SRC/UsageBurnChartView.java"
@@ -161,14 +162,17 @@ grep -q '"authorization_retry_scheduled"' "$SRC/GoogleCalendarAuthorizationActiv
 grep -q 'eventExists(' "$SRC/IdleProcessState.java"
 grep -q '"direct_cache_not_fresh"' "$SRC/CalendarProcessReader.java"
 
-# Carried 2.12 recovery/Calendar/branding contracts remain guarded in the 2.13 follow-up.
-grep -q 'android:key="restart_onboarding"' "$RES/preferences_settings_diagnostics.xml"
-grep -q 'restart_onboarding_requested' "$SRC/SettingsActivity.java"
-grep -q 'EXTRA_RESTART_ONBOARDING = "restart_onboarding"' "$SRC/OnboardingActivity.java"
-grep -q 'putExtra(OnboardingActivity.EXTRA_RESTART_ONBOARDING, true)' "$SRC/SettingsActivity.java"
-grep -q 'AppPreferences.isOnboardingComplete(this) && !restartRequested' "$SRC/OnboardingActivity.java"
-grep -q 'android:paddingTop="12dp"' "$ROOT/app/src/main/res/layout/preference_account_card.xml"
-grep -q 'setCornerRadius(Ui.dp(requireContext(), 26))' "$SRC/SettingsActivity.java"
+# Permissions & connections supersedes the old Restart onboarding/account-card setup.
+grep -Fq 'android:key="permissions_connections"' "$RES/preferences_settings.xml"
+! grep -Fq 'account_card' "$RES/preferences_settings.xml"
+! grep -Fq 'restart_onboarding' "$RES/preferences_settings_diagnostics.xml"
+! grep -Fq 'EXTRA_RESTART_ONBOARDING' "$SRC/OnboardingActivity.java"
+grep -Fq 'EXTRA_PERMISSIONS_CONNECTIONS = "permissions_connections"' "$SRC/OnboardingActivity.java"
+grep -Fq 'SetupReadiness.requiredSummary' "$SRC/SettingsActivity.java"
+grep -Fq '"Required"' "$SRC/OnboardingActivity.java"
+grep -Fq '"Optional"' "$SRC/OnboardingActivity.java"
+grep -Fq '"Alarms & reminders"' "$SRC/OnboardingActivity.java"
+grep -Fq '"Local Calendar fallback"' "$SRC/OnboardingActivity.java"
 grep -q 'CommonStatusCodes.DEVELOPER_ERROR' "$SRC/GoogleCalendarAuthorization.java"
 grep -q '"authorization_activity_result"' "$SRC/GoogleCalendarAuthorization.java"
 grep -q '"status_code", info.statusCode' "$SRC/GoogleCalendarAuthorization.java"
@@ -217,8 +221,8 @@ done
 ! grep -R -F 'android:targetPackage="dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
 ! grep -R -F 'android:data="package:dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
 ! grep -Fq 'DashboardReorderActivity.class' "$SRC/SettingsActivity.java"
-grep -Fq 'Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);' "$SRC/SettingsActivity.java"
-grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/SettingsActivity.java"
+grep -Fq 'Ui.startSecondaryActivity(this, CalendarPermissionActivity.class);' "$SRC/OnboardingActivity.java"
+grep -Fq 'Uri.parse("package:" + getPackageName())' "$SRC/OnboardingActivity.java"
 
 # Core permissions/routes and CI release branch support remain.
 grep -q 'android.permission.ACCESS_NETWORK_STATE' "$MANIFEST"

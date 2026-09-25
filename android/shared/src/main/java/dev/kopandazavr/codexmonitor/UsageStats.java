@@ -72,8 +72,20 @@ public final class UsageStats {
             peakRate = Math.max(peakRate, delta / hours(gap));
         }
         return new WindowStats(windowStart, last.resetAtMillis, first.observedAtMillis,
-                last.observedAtMillis, first.usedPercent, last.usedPercent, samples.size(),
+                last.observedAtMillis, first.usedPercent, last.usedPercent,
+                distinctObservationCount(samples),
                 averageRate, peakRate, last.usedPercent >= 100, complete);
+    }
+
+    private static int distinctObservationCount(List<UsageSample> samples) {
+        int count = 0;
+        long previous = Long.MIN_VALUE;
+        for (UsageSample sample : samples) {
+            if (sample == null || sample.observedAtMillis == previous) continue;
+            count++;
+            previous = sample.observedAtMillis;
+        }
+        return count;
     }
 
     /** Per-window statistics, oldest to newest; the final entry is the current window. */

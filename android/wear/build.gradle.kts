@@ -15,8 +15,8 @@ android {
         applicationId = "dev.kopandazavr.codexmonitor"
         minSdk = 30
         targetSdk = 36
-        versionCode = 43
-        versionName = "2.17.0"
+        versionCode = 44
+        versionName = "2.18.0"
     }
 
     signingConfigs {

@@ -422,7 +422,8 @@ public final class MainActivity extends AppCompatActivity {
         UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
         UsageWaveView wave = new UsageWaveView(this);
         int remainingPercent = window.remainingPercent();
-        boolean depleted = remainingPercent == 0;
+        boolean depleted = remainingPercent == 0
+                && ("5-hour".equals(label) || "Weekly".equals(label));
         int barPercent = depleted
                 ? resetCycleProgressPercent(window, snapshot.fetchedAtMillis, now)
                 : remainingPercent;

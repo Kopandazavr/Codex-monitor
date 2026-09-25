@@ -10,11 +10,13 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent == null ? "" : intent.getAction();
         if (NowBarManager.ACTION_STOP.equals(action)) {
+            // A stale pre-2.19 notification can still carry this PendingIntent briefly across an
+            // in-place update. The user-facing off-state no longer exists, so treat it as a
+            // request to reconcile the always-on surface rather than disabling monitoring.
             DiagnosticLog.info(context, "notification", "notification_action",
-                    "source", "stop");
-            NowBarManager.stop(context, true);
-            ProcessNotificationManager.clearAll(context);
-            ProcessNotificationScheduler.cancel(context);
+                    "source", "obsolete_stop_ignored");
+            NowBarManager.ensureAlwaysOn(context);
+            DualUsageNotificationManager.repostDelayed(context, 150L);
         } else if (NowBarManager.ACTION_END.equals(action)) {
             DiagnosticLog.info(context, "notification", "notification_action",
                     "source", "scheduled_end");

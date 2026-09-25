@@ -68,10 +68,14 @@ public final class NowBarManager {
 
     /** 2.19 product contract: monitoring is on whenever its usable prerequisites exist. */
     public static synchronized boolean ensureAlwaysOn(Context context) {
-        if (context == null || isPreview(context)) return isPreview(context);
-        if (!SecureTokenStore.isSignedIn(context) || !canPostNotifications(context)) return false;
+        if (context == null || isPreview(context)) return context != null && isPreview(context);
+        if (!SecureTokenStore.isSignedIn(context) || !canPostNotifications(context)) {
+            if (hasStoredActiveState(context)) stop(context, false);
+            return false;
+        }
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
         if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
+            if (hasStoredActiveState(context)) stop(context, false);
             return false;
         }
         NowBarPreferences.clearSuppression(context);

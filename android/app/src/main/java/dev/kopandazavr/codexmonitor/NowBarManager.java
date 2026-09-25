@@ -63,6 +63,24 @@ public final class NowBarManager {
     }
 
     public static synchronized boolean start(Context context) {
+        return ensureAlwaysOn(context);
+    }
+
+    /** 2.19 product contract: monitoring is on whenever its usable prerequisites exist. */
+    public static synchronized boolean ensureAlwaysOn(Context context) {
+        if (context == null || isPreview(context)) return isPreview(context);
+        if (!SecureTokenStore.isSignedIn(context) || !canPostNotifications(context)) return false;
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+        if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
+            return false;
+        }
+        NowBarPreferences.clearSuppression(context);
+        if (hasStoredActiveState(context)
+                && START_MANUAL.equals(sessionStartReason(context))
+                && isActive(context)) {
+            ProcessNotificationScheduler.schedule(context);
+            return true;
+        }
         return startInternal(context, START_MANUAL, null, 0L);
     }
 
@@ -167,40 +185,23 @@ public final class NowBarManager {
             if (!post(context, snapshot, until, false)) stop(context, false);
             return;
         }
-        maybeAutoStart(context, snapshot);
+        ensureAlwaysOn(context);
     }
 
     /**
-     * Starts the live monitor when auto-start is enabled, notifications are allowed,
-     * the user has not dismissed the current window, and remaining usage meets the threshold.
+     * Compatibility entry point retained for callers compiled against the pre-2.19 policy.
      */
     public static synchronized boolean maybeAutoStart(Context context, UsageSnapshot snapshot) {
-        if (context == null || isActive(context) || isPreview(context)) return false;
-        boolean lowEnabled = NowBarPreferences.isAutoStartEnabled(context);
-        boolean paceEnabled = UsagePacePreferences.areWarningsEnabled(context)
-                && NowBarPreferences.isAcceleratedStartEnabled(context);
-        if (!lowEnabled && !paceEnabled) return false;
-        if (NowBarPreferences.isSuppressed(context)) return false;
-        if (!canPostNotifications(context)) return false;
-        if (lowEnabled && NowBarPreferences.meetsThreshold(context, snapshot)) {
-            return startInternal(context, START_LOW, null, 0L);
-        }
-        long now = System.currentTimeMillis();
-        int acceleratedWindow = acceleratedWindow(context, snapshot, now);
-        if (!paceEnabled || acceleratedWindow == UsagePace.WINDOW_NONE) return false;
-        String focus = focusForPaceWindow(acceleratedWindow);
-        long until = acceleratedUntil(context, snapshot, focus, now);
-        return until > now && startInternal(context, START_ACCELERATED, focus, until);
+        // Kept as a compatibility entry point for older call sites. 2.19 has no conditional
+        // auto-start mode: a usable signed-in snapshot means the monitor should be on.
+        return ensureAlwaysOn(context);
     }
 
     public static synchronized void onPaceSettingsChanged(Context context) {
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-        if (START_ACCELERATED.equals(sessionStartReason(context))) {
-            onUsageUpdated(context, snapshot);
-        } else if (hasStoredActiveState(context)) {
+        if (hasStoredActiveState(context)) {
             repostActive(context);
         } else {
-            maybeAutoStart(context, snapshot);
+            ensureAlwaysOn(context);
         }
     }
 
@@ -237,7 +238,7 @@ public final class NowBarManager {
                 }
             }
         }
-        maybeAutoStart(context, AppPreferences.loadSnapshot(context));
+        ensureAlwaysOn(context);
     }
 
     public static synchronized boolean repostActive(Context context) {
@@ -464,7 +465,7 @@ public final class NowBarManager {
     }
 
     private static String resolveDisplayMode(Context context) {
-        return NowBarDisplayMode.resolve(NowBarPreferences.getDisplayMode(context),
+        return NowBarDisplayMode.resolve(NowBarDisplayMode.AUTO,
                 isSamsungDevice(), Build.VERSION.SDK_INT,
                 canPostPromotedNotifications(context));
     }
@@ -498,23 +499,21 @@ public final class NowBarManager {
             weekly = UsageSnapshot.currentWindow(weekly,
                     snapshot == null ? 0L : snapshot.fetchedAtMillis, now);
         }
-        String percentMode = NowBarPreferences.getPercentMode(context);
-        String lockedForAuto = null;
-        if (NowBarPercentMode.AUTO.equals(NowBarPercentMode.normalize(percentMode))) {
-            lockedForAuto = sessionAutoTriggerFocus(context);
-            if (lockedForAuto == null) lockedForAuto = lockedFocusMetric(context);
-        }
-        String acceleratedTrigger = START_ACCELERATED.equals(sessionStartReason(context))
-                ? sessionAutoTriggerFocus(context) : null;
-        String focus = acceleratedTrigger == null
-                ? NowBarPercentMode.resolveFocus(percentMode, fiveHour, weekly, lockedForAuto)
-                : NowBarPercentMode.resolveFocus(NowBarPercentMode.AUTO, fiveHour, weekly,
-                        acceleratedTrigger);
+        boolean weeklyResetProgress = !longIsMonthly && weekly != null
+                && weekly.remainingPercent() == 0;
+        String focus = weeklyResetProgress || fiveHour == null
+                ? NowBarPercentMode.WEEKLY : NowBarPercentMode.FIVE_HOUR;
         UsageWindow progressWindow = NowBarPercentMode.selectWindow(focus, fiveHour, weekly);
         UsagePace.Assessment pace = UsagePacePreferences.assess(
                 context, snapshot, progressWindow, now);
         boolean accelerated = !preview && pace.accelerated;
-        int remaining = progressWindow == null ? 0 : progressWindow.remainingPercent();
+        int remaining = weeklyResetProgress
+                ? resetCycleProgressPercent(progressWindow, snapshot == null ? now
+                        : snapshot.fetchedAtMillis, now)
+                : progressWindow == null ? 0 : progressWindow.remainingPercent();
+        int progressColor = weeklyResetProgress
+                ? 0xFFA8E6CF
+                : accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254);
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
         // Preview snapshots invent their own windows without a remote observation time;
         // live monitors must use fetchedAt so reset_after_seconds stays anchored.
@@ -532,16 +531,12 @@ public final class NowBarManager {
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent stopIntent = PendingIntent.getBroadcast(context, REQUEST_STOP,
-                new Intent(context, NowBarActionReceiver.class).setAction(ACTION_STOP),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent refreshIntent = PendingIntent.getBroadcast(context, REQUEST_REFRESH,
                 new Intent(context, NowBarActionReceiver.class).setAction(ACTION_REFRESH),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent dismissedIntent = PendingIntent.getBroadcast(context, REQUEST_DISMISSED,
                 new Intent(context, NowBarActionReceiver.class).setAction(ACTION_DISMISSED),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Icon stopActionIcon = Icon.createWithResource(context, R.drawable.ic_notification_codex_monitor);
         Icon refreshActionIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
         String displayMode = resolveDisplayMode(context);
 
@@ -559,9 +554,7 @@ public final class NowBarManager {
                 .setColor(accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254))
                 .setShowWhen(false)
                 .setGroup(NotificationSurfaceContract.GROUP_KEY)
-                .setSortKey(NotificationSurfaceContract.SORT_USAGE)
-                .addAction(new Notification.Action.Builder(
-                        stopActionIcon, "Stop", stopIntent).build());
+                .setSortKey(NotificationSurfaceContract.SORT_USAGE);
         if (!preview) {
             builder.addAction(new Notification.Action.Builder(
                     refreshActionIcon, "Refresh", refreshIntent).build());
@@ -577,13 +570,14 @@ public final class NowBarManager {
         if (NowBarDisplayMode.SAMSUNG_COMPATIBILITY.equals(displayMode)) {
             applySamsungCompatibility(context, builder, fiveHour, weekly, longLabel, remaining,
                     progressWindow, weeklyFocus, until, now, observedAt, preview,
-                    accelerated, estimate);
+                    accelerated, weeklyResetProgress, progressColor, estimate);
         } else {
             Bundle promotionExtras = new Bundle();
             promotionExtras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true);
             builder.addExtras(promotionExtras);
             if (Build.VERSION.SDK_INT >= 36) {
-                Api36.applyLiveUpdateStyle(context, builder, remaining, focusCritical, accelerated);
+                Api36.applyLiveUpdateStyle(context, builder, remaining, focusCritical,
+                        progressColor);
             }
         }
         Notification builtNotification;
@@ -657,6 +651,25 @@ public final class NowBarManager {
         return true;
     }
 
+    private static int resetCycleProgressPercent(UsageWindow window,
+            long observedAtMillis, long nowMillis) {
+        if (window == null || window.windowSeconds <= 0L) return 0;
+        long reference = observedAtMillis > 0L ? observedAtMillis : nowMillis;
+        long resetAt = window.effectiveResetAtMillis(reference);
+        if (resetAt <= 0L) return 0;
+        long cycleMillis;
+        try {
+            cycleMillis = Math.multiplyExact(window.windowSeconds, 1000L);
+        } catch (ArithmeticException exception) {
+            return 0;
+        }
+        if (cycleMillis <= 0L) return 0;
+        long remainingMillis = Math.max(0L, resetAt - nowMillis);
+        double remainingFraction = Math.min(1d, remainingMillis / (double) cycleMillis);
+        return Math.max(0, Math.min(100,
+                (int) Math.round((1d - remainingFraction) * 100d)));
+    }
+
     private static RemoteViews buildDualUsageContentView(Context context,
             UsageWindow fiveHour, UsageWindow weekly, String longLabel, long observedAt, long now) {
         RemoteViews views = new RemoteViews(context.getPackageName(),
@@ -694,7 +707,7 @@ public final class NowBarManager {
             UsageWindow fiveHour, UsageWindow weekly, String longLabel, int remaining,
             UsageWindow progressWindow,
             boolean weeklyFocus, long until, long now, long observedAt, boolean preview,
-            boolean accelerated, String estimate) {
+            boolean accelerated, boolean weeklyResetProgress, int progressColor, String estimate) {
         String fiveHourText = NowBarCopy.limitText("5-hour", fiveHour, observedAt, now);
         String weeklyText = NowBarCopy.limitText(longLabel, weekly, observedAt, now);
         String availableWindows = fiveHour != null && weekly != null
@@ -710,8 +723,7 @@ public final class NowBarManager {
         Bundle extras = new Bundle();
         extras.putInt(SAMSUNG_ONGOING_PREFIX + "style", 1);
         extras.putParcelable(SAMSUNG_ONGOING_PREFIX + "chipIcon", chipIcon);
-        extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor",
-                accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254));
+        extras.putInt(SAMSUNG_ONGOING_PREFIX + "chipBgColor", progressColor);
         extras.putCharSequence(SAMSUNG_ONGOING_PREFIX + "chipExpandedText",
                 NowBarCopy.chipExpandedText(weeklyFocus ? longLabel : "5-hour",
                         progressWindow, observedAt, now));
@@ -761,7 +773,7 @@ public final class NowBarManager {
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
                 "Codex live monitor", NotificationManager.IMPORTANCE_DEFAULT);
         channel.setDescription(
-                "Codex allowance monitor that ends at the next reset; may start from Settings or when remaining usage hits your threshold");
+                "Always-on Codex allowance and watched-process monitor");
         channel.setSound(null, null);
         channel.enableVibration(false);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
@@ -800,11 +812,8 @@ public final class NowBarManager {
 
     private static String sessionStartReason(Context context) {
         String reason = state(context).getString(KEY_START_REASON, START_MANUAL);
-        if (START_ACCELERATED.equals(reason) || START_LOW.equals(reason)
-                || START_PREVIEW.equals(reason)) {
-            return reason;
-        }
-        return START_MANUAL;
+        // Pre-2.19 LOW/ACCELERATED sessions are migrated into the persistent always-on mode.
+        return START_PREVIEW.equals(reason) ? START_PREVIEW : START_MANUAL;
     }
 
     private static int acceleratedWindow(Context context, UsageSnapshot snapshot, long now) {
@@ -890,18 +899,17 @@ public final class NowBarManager {
     /** Keeps API 36 class references out of code paths verified on older Android releases. */
     @RequiresApi(36)
     private static final class Api36 {
-        static void applyLiveUpdateStyle(Context context, Notification.Builder builder, int remaining,
-                String criticalText, boolean accelerated) {
+        static void applyLiveUpdateStyle(Context context, Notification.Builder builder,
+                int progress, String criticalText, int progressColor) {
             Notification.ProgressStyle style = new Notification.ProgressStyle()
-                    .setProgress(remaining)
+                    .setProgress(progress)
                     .setStyledByProgress(true)
                     // Plain circle tracker — not the brand glyph (that belongs in setSmallIcon).
                     .setProgressTrackerIcon(
                             Icon.createWithResource(context, R.drawable.ic_now_bar_progress_dot))
                     .setProgressSegments(Collections.singletonList(
                             new Notification.ProgressStyle.Segment(100)
-                                    .setColor(accelerated
-                                            ? Ui.warning(false) : Color.rgb(3, 129, 254))));
+                                    .setColor(progressColor)));
             builder.setStyle(style).setShortCriticalText(criticalText);
         }
 

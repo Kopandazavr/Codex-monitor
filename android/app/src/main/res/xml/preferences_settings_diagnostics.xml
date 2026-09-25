@@ -27,6 +27,14 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Notifications">
+        <Preference
+            android:key="notification_test"
+            android:summary="Verify notification delivery now"
+            android:title="Send test notification"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Sanitization">
         <Preference
             android:summary="Diagnostics are always captured into bounded private app storage. Authentication tokens, cookies, authorization codes, email addresses, URL queries, and request/response bodies are never intentionally recorded. Review an export before sharing it."

@@ -357,7 +357,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
             Preference setup = findPreference("permissions_connections");
             if (setup != null) {
-                setup.setSummary(SetupReadiness.requiredSummary(requireContext()));
+                setup.setSummary(SetupReadiness.overallSummary(requireContext()));
             }
 
             Preference liveMonitor = findPreference("settings_now_bar");

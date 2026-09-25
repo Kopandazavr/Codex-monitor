@@ -231,13 +231,13 @@ public final class ParserSelfTest {
         long reset = start + TimeUnit.HOURS.toMillis(5);
         UsageHistory history = UsageHistory.empty(UsageHistory.FIVE_HOUR);
         long firstObserved = start + TimeUnit.MINUTES.toMillis(5);
-        history = history.append(new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
+        history = history.append(new UsageWindow(4, TimeUnit.HOURS.toSeconds(5), 0L,
                 reset / 1000L), firstObserved);
         check(history.samples.size() == 2, "empty history bootstraps anchor plus live tail");
         check(history.samples.get(0).observedAtMillis == firstObserved
                         && history.samples.get(1).observedAtMillis == firstObserved,
                 "bootstrap pair keeps the truthful first observation timestamp");
-        history = history.append(new UsageWindow(5, TimeUnit.HOURS.toSeconds(5), 0L,
+        history = history.append(new UsageWindow(4, TimeUnit.HOURS.toSeconds(5), 0L,
                 reset / 1000L), start + TimeUnit.MINUTES.toMillis(6));
         check(history.samples.size() == 2, "near-identical history updates only the tail");
         check(history.samples.get(0).observedAtMillis == firstObserved

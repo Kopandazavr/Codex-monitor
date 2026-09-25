@@ -61,5 +61,8 @@ grep -Fq 'ResetAlertPreferences.STYLE_OFF' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'weeklyResetProgress' "$SRC/NowBarManager.java"
 grep -Fq '0xFF9FE8C1' "$SRC/NowBarManager.java"
 grep -Fq 'resetCycleProgressPercent' "$SRC/NowBarManager.java"
+grep -Fq 'systemProgressPercent' "$SRC/DualUsageNotificationManager.java"
+grep -Fq 'setProgress(100, systemProgress, false)' "$SRC/DualUsageNotificationManager.java"
+grep -Fq '0xFF9FE8C1' "$SRC/DualUsageNotificationManager.java"
 
 echo "Codex Monitor 2.19 source contract PASS"

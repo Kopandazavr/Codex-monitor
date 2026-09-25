@@ -106,10 +106,10 @@ grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.j
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 
 # Current code-bearing candidate identity.
-grep -Fq 'versionCode = 45' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.19.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 45' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.19.0"' "$SRC/AppConstants.java"
+grep -Fq 'versionCode = 46' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.20.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'VERSION_CODE = 46' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = "2.20.0"' "$SRC/AppConstants.java"
 
 grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java"
 grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"

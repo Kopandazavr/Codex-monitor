@@ -102,16 +102,16 @@ grep -A6 -F 'android:key="notification_metric_ui"' "$RES/preferences_settings_no
 grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.java"
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 
-# Current 2.16 code-bearing candidate identity.
-grep -Fq 'versionCode = 43' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.17.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionCode = 43' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'versionName = "2.17.0"' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 43' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.17.0"' "$SRC/AppConstants.java"
+# Current code-bearing candidate identity.
+grep -Fq 'versionCode = 44' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.18.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionCode = 44' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'versionName = "2.18.0"' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'VERSION_CODE = 44' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = "2.18.0"' "$SRC/AppConstants.java"
 
 grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java"
 grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"
 grep -Fq 'GoogleCalendarAuthorizationActivity' "$MANIFEST"
 grep -Fq 'DiagonalStripeDrawable' "$SRC/IdleReminderOverlayService.java"
-echo 'Codex Monitor 2.17.0 scoped source contract PASS'
+echo 'Codex Monitor 2.18.0 scoped source contract PASS'

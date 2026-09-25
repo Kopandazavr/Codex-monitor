@@ -38,11 +38,11 @@ grep -Fq 'private static final String PRODUCT_NAME = "Codex Monitor"' "$BRANDING
 grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
-# 2.17 clean-break identity release stays aligned on phone/Wear.
-grep -Fq 'versionName = "2.17.0"' "$APP_GRADLE"
-grep -Fq 'versionCode = 43' "$APP_GRADLE"
-grep -Fq 'versionName = "2.17.0"' "$WEAR_GRADLE"
-grep -Fq 'versionCode = 43' "$WEAR_GRADLE"
+# Current Codex Monitor identity release stays aligned on phone/Wear.
+grep -Fq 'versionName = "2.18.0"' "$APP_GRADLE"
+grep -Fq 'versionCode = 44' "$APP_GRADLE"
+grep -Fq 'versionName = "2.18.0"' "$WEAR_GRADLE"
+grep -Fq 'versionCode = 44' "$WEAR_GRADLE"
 grep -Fq 'rootProject.name = "Codex-Monitor"' "$ROOT/settings.gradle.kts"
 grep -Fq 'play-services-auth:22.0.0' "$APP_GRADLE"
 grep -Fq 'codex-monitor-local.p12' "$APP_GRADLE"

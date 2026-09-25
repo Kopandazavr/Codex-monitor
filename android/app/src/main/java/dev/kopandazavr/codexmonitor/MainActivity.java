@@ -160,14 +160,14 @@ public final class MainActivity extends AppCompatActivity {
 
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.drawable.ic_permissions_checklist);
-        icon.setImageTintList(ColorStateList.valueOf(color));
+        icon.setImageTintList(ColorStateList.valueOf(0xFFFFFFFF));
         FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(
-                Ui.dp(this, 26), Ui.dp(this, 26), Gravity.CENTER);
+                Ui.dp(this, 24), Ui.dp(this, 24), Gravity.CENTER);
         root.addView(icon, iconParams);
 
         int missing = SetupReadiness.missingRequiredCount(this);
         TextView badge = Ui.text(this, missing > 0 ? String.valueOf(missing) : "✓",
-                missing > 0 ? 10.0f : 11.0f, 0xFFFFFFFF);
+                missing > 0 ? 8.0f : 9.0f, 0xFFFFFFFF);
         badge.setGravity(Gravity.CENTER);
         badge.setTypeface(Ui.mediumTypeface(this));
         GradientDrawable badgeBackground = new GradientDrawable();
@@ -175,8 +175,8 @@ public final class MainActivity extends AppCompatActivity {
         badgeBackground.setColor(color);
         badge.setBackground(badgeBackground);
         FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(
-                Ui.dp(this, 18), Ui.dp(this, 18), Gravity.TOP | Gravity.END);
-        badgeParams.setMargins(0, 0, 0, 0);
+                Ui.dp(this, 13), Ui.dp(this, 13), Gravity.BOTTOM | Gravity.END);
+        badgeParams.setMargins(0, 0, Ui.dp(this, 1), Ui.dp(this, 1));
         root.addView(badge, badgeParams);
 
         root.setMinimumWidth(Ui.dp(this, 48));

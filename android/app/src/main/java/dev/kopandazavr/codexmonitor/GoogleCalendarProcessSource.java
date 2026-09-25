@@ -51,13 +51,26 @@ final class GoogleCalendarProcessSource {
             for (int index = 0; index < rows.length(); index++) {
                 JSONObject row = rows.optJSONObject(index);
                 if (row == null) continue;
+                long eventId = row.optLong("id", 0L);
+                String title = row.optString("title", "");
+                String description = row.optString("description", "");
+                long begin = row.optLong("begin", 0L);
+                long end = row.optLong("end", 0L);
                 CalendarProcess process = CalendarProcess.fromDirectEvent(
-                        row.optLong("id", 0L),
-                        row.optString("title", ""),
-                        row.optString("description", ""),
-                        row.optLong("begin", 0L),
-                        row.optLong("end", 0L));
-                if (process != null) result.add(process);
+                        eventId, title, description, begin, end);
+                if (process != null) {
+                    result.add(process);
+                } else {
+                    String reason = CalendarProcess.rejectionReason(
+                            title, description, begin, end);
+                    if (!"not_watchdog".equals(reason)) {
+                        DiagnosticLog.warn(context, "calendar_api",
+                                "watchdog_rejected_metadata",
+                                "event_id", eventId,
+                                "source", "direct_cache",
+                                "reason", reason);
+                    }
+                }
             }
         } catch (Exception exception) {
             DiagnosticLog.warn(context, "calendar_api", "cache_read_failed",

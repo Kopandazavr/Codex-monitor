@@ -169,9 +169,22 @@ final class GoogleCalendarProcessSource {
             long begin = eventMillis(item.optJSONObject("start"));
             long end = eventMillis(item.optJSONObject("end"));
             if (begin <= 0L || end <= begin) continue;
+            long eventId = stableEventId(remoteId);
             CalendarProcess process = CalendarProcess.fromDirectEvent(
-                    stableEventId(remoteId), title, description, begin, end);
-            if (process != null) result.add(process);
+                    eventId, title, description, begin, end);
+            if (process != null) {
+                result.add(process);
+            } else {
+                String reason = CalendarProcess.rejectionReason(
+                        title, description, begin, end);
+                if (!"not_watchdog".equals(reason)) {
+                    DiagnosticLog.warn(context, "calendar_api",
+                            "watchdog_rejected_metadata",
+                            "event_id", eventId,
+                            "source", "direct_api",
+                            "reason", reason);
+                }
+            }
         }
         return result;
     }
@@ -186,6 +199,9 @@ final class GoogleCalendarProcessSource {
                     row.put("title", CalendarProcess.WATCHDOG_PREFIX + process.project);
                     StringBuilder metadata = new StringBuilder("codex_monitor_watchdog=v1");
                     if (!process.project.isEmpty()) metadata.append(" project=").append(process.project);
+                    if (!process.projectShort.isEmpty()) {
+                        metadata.append(" project_short=").append(process.projectShort);
+                    }
                     if (!process.role.isEmpty()) metadata.append(" role=").append(process.role);
                     if (!process.topic.isEmpty()) metadata.append(" topic=").append(process.topic);
                     row.put("description", metadata.toString());

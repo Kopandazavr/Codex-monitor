@@ -52,18 +52,49 @@ final class CalendarProcess {
 
     private static CalendarProcess fromEvent(long eventId, String title, String description,
             long beginMillis, long endMillis, boolean directSource) {
-        if (title == null || !title.startsWith(WATCHDOG_PREFIX)
-                || beginMillis <= 0L || endMillis <= beginMillis) {
+        if (!rejectionReason(title, description, beginMillis, endMillis).isEmpty()) {
             return null;
         }
-        String titleProject = clean(title.substring(WATCHDOG_PREFIX.length()));
         Map<String, String> metadata = parseMetadata(description);
-        String project = valueOr(metadata.get("project"), titleProject);
+        String project = metadata.get("project");
         String projectShort = metadata.get("project_short");
         String role = metadata.get("role");
         String topic = metadata.get("topic");
         return new CalendarProcess(eventId, beginMillis, endMillis,
                 project, projectShort, role, topic, directSource);
+    }
+
+    static String rejectionReason(String title, String description,
+            long beginMillis, long endMillis) {
+        if (title == null || !title.startsWith(WATCHDOG_PREFIX)) return "not_watchdog";
+        if (beginMillis <= 0L || endMillis <= beginMillis) return "invalid_time";
+        if (!hasSupportedMarker(description)) return "missing_or_invalid_marker";
+        Map<String, String> metadata = parseMetadata(description);
+        if (!hasCanonicalProject(metadata.get("project"))) return "missing_or_invalid_project";
+        if (!hasCanonicalRole(metadata.get("role"))) return "missing_or_invalid_role";
+        return "";
+    }
+
+    static boolean isCanonicalIdentity(String project, String role) {
+        return hasCanonicalProject(project) && hasCanonicalRole(role);
+    }
+
+    static boolean hasCanonicalProject(String project) {
+        return hasCanonicalValue(project);
+    }
+
+    private static boolean hasSupportedMarker(String description) {
+        if (description == null || description.trim().isEmpty()) return false;
+        Matcher matcher = METADATA_PAIR.matcher(normalizeMetadata(description));
+        while (matcher.find()) {
+            String key = clean(matcher.group(1)).toLowerCase(Locale.ROOT);
+            String value = clean(matcher.group(2));
+            if (("codex_monitor_watchdog".equals(key) || "codex_meter_watchdog".equals(key))
+                    && METADATA_VERSION.equalsIgnoreCase(value)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static Map<String, String> parseMetadata(String description) {
@@ -168,13 +199,17 @@ final class CalendarProcess {
     }
 
     static boolean hasCanonicalRole(String role) {
-        String value = clean(role);
-        return !value.isEmpty()
-                && !"unknown".equalsIgnoreCase(value)
-                && !"null".equalsIgnoreCase(value)
-                && !"none".equalsIgnoreCase(value)
-                && !"n/a".equalsIgnoreCase(value)
-                && !"-".equals(value);
+        return hasCanonicalValue(role);
+    }
+
+    private static boolean hasCanonicalValue(String value) {
+        String cleanValue = clean(value);
+        return !cleanValue.isEmpty()
+                && !"unknown".equalsIgnoreCase(cleanValue)
+                && !"null".equalsIgnoreCase(cleanValue)
+                && !"none".equalsIgnoreCase(cleanValue)
+                && !"n/a".equalsIgnoreCase(cleanValue)
+                && !"-".equals(cleanValue);
     }
 
     String identity() {

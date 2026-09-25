@@ -218,20 +218,24 @@ public final class UsageBurnChartView extends View {
 
     private boolean zoomAt(float touchX) {
         long[] full = defaultAxis();
-        if (full == null) return false;
-        long zoomSpan = isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS;
-        long fullSpan = full[1] - full[0];
-        if (fullSpan <= zoomSpan) return false;
+        long measuredStart = measuredStartMillis();
+        long measuredEnd = measuredEndMillis();
+        if (full == null || measuredStart == Long.MAX_VALUE || measuredEnd <= measuredStart) {
+            return false;
+        }
+        long measuredSpan = measuredEnd - measuredStart;
+        long zoomSpan = Math.min(
+                isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS, measuredSpan);
+        if (zoomSpan <= 0L) return false;
         float left = chartLeft();
         float right = chartRight();
         double ratio = Math.max(0d, Math.min(1d,
                 (touchX - left) / Math.max(1d, right - left)));
-        long center = full[0] + Math.round(ratio * fullSpan);
-        long measuredEnd = measuredEndMillis();
-        if (measuredEnd <= full[0]) return false;
+        long center = full[0] + Math.round(ratio * (full[1] - full[0]));
+        center = Math.max(measuredStart, Math.min(center, measuredEnd));
         long start = center - zoomSpan / 2L;
-        long maxStart = Math.max(full[0], measuredEnd - zoomSpan);
-        start = Math.max(full[0], Math.min(start, maxStart));
+        long maxStart = measuredEnd - zoomSpan;
+        start = Math.max(measuredStart, Math.min(start, maxStart));
         viewportStartMillis = start;
         viewportEndMillis = start + zoomSpan;
         zoomed = true;
@@ -250,14 +254,15 @@ public final class UsageBurnChartView extends View {
     }
 
     public void restoreZoomViewport(long requestedStartMillis, long requestedEndMillis) {
-        long[] full = defaultAxis();
-        if (!zoomEnabled || full == null) return;
-        long span = requestedEndMillis - requestedStartMillis;
-        if (span <= 0L || full[1] - full[0] <= span) return;
+        if (!zoomEnabled || defaultAxis() == null) return;
+        long measuredStart = measuredStartMillis();
         long measuredEnd = measuredEndMillis();
-        if (measuredEnd <= full[0]) return;
-        long maxStart = Math.max(full[0], measuredEnd - span);
-        long start = Math.max(full[0], Math.min(requestedStartMillis, maxStart));
+        if (measuredStart == Long.MAX_VALUE || measuredEnd <= measuredStart) return;
+        long requestedSpan = requestedEndMillis - requestedStartMillis;
+        if (requestedSpan <= 0L) return;
+        long span = Math.min(requestedSpan, measuredEnd - measuredStart);
+        long maxStart = measuredEnd - span;
+        long start = Math.max(measuredStart, Math.min(requestedStartMillis, maxStart));
         viewportStartMillis = start;
         viewportEndMillis = start + span;
         zoomed = true;
@@ -265,15 +270,18 @@ public final class UsageBurnChartView extends View {
     }
 
     private void panBy(float deltaX) {
-        long[] full = defaultAxis();
-        if (full == null || !zoomed) return;
-        long span = viewportEndMillis - viewportStartMillis;
+        if (defaultAxis() == null || !zoomed) return;
+        long measuredStart = measuredStartMillis();
+        long measuredEnd = measuredEndMillis();
+        if (measuredStart == Long.MAX_VALUE || measuredEnd <= measuredStart) return;
+        long span = Math.min(viewportEndMillis - viewportStartMillis,
+                measuredEnd - measuredStart);
+        if (span <= 0L) return;
         float width = Math.max(1f, chartRight() - chartLeft());
         long shift = Math.round(-deltaX * span / width);
         long start = viewportStartMillis + shift;
-        long measuredEnd = measuredEndMillis();
-        long maxStart = Math.max(full[0], measuredEnd - span);
-        start = Math.max(full[0], Math.min(start, maxStart));
+        long maxStart = measuredEnd - span;
+        start = Math.max(measuredStart, Math.min(start, maxStart));
         viewportStartMillis = start;
         viewportEndMillis = start + span;
         if (zoomChangedListener != null) zoomChangedListener.onZoomChanged(true);
@@ -485,6 +493,18 @@ public final class UsageBurnChartView extends View {
         return new long[]{viewportStartMillis, viewportEndMillis};
     }
 
+    private long measuredStartMillis() {
+        long[] full = defaultAxis();
+        if (full == null || samples.isEmpty()) return Long.MAX_VALUE;
+        long earliest = Long.MAX_VALUE;
+        for (UsageSample sample : samples) {
+            if (sample == null) continue;
+            earliest = Math.min(earliest, sample.observedAtMillis);
+        }
+        if (earliest == Long.MAX_VALUE) return earliest;
+        return Math.max(full[0], Math.min(earliest, full[1]));
+    }
+
     private long measuredEndMillis() {
         long[] full = defaultAxis();
         if (full == null || samples.isEmpty()) return Long.MIN_VALUE;
@@ -504,10 +524,14 @@ public final class UsageBurnChartView extends View {
     private boolean isMeasuredInteractionX(float touchX) {
         if (!isChartInteractionX(touchX)) return false;
         long[] full = defaultAxis();
+        long measuredStart = measuredStartMillis();
         long measuredEnd = measuredEndMillis();
-        if (full == null || measuredEnd <= full[0]) return false;
+        if (full == null || measuredStart == Long.MAX_VALUE || measuredEnd < measuredStart) {
+            return false;
+        }
+        float measuredLeft = x(measuredStart, full[0], full[1], chartLeft(), chartRight());
         float measuredRight = x(measuredEnd, full[0], full[1], chartLeft(), chartRight());
-        return touchX <= measuredRight;
+        return touchX >= measuredLeft && touchX <= measuredRight;
     }
 
     private boolean isWeekly() {

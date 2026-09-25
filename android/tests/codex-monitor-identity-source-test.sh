@@ -34,8 +34,8 @@ grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
 # Current supported phone candidate identity.
-grep -Fq 'versionName = "2.19.0"' "$APP_GRADLE"
-grep -Fq 'versionCode = 45' "$APP_GRADLE"
+grep -Fq 'versionName = "2.20.0"' "$APP_GRADLE"
+grep -Fq 'versionCode = 46' "$APP_GRADLE"
 grep -Fq 'rootProject.name = "Codex-Monitor"' "$ROOT/settings.gradle.kts"
 grep -Fq 'play-services-auth:22.0.0' "$APP_GRADLE"
 grep -Fq 'codex-monitor-local.p12' "$APP_GRADLE"
@@ -108,7 +108,7 @@ grep -Fq 'static boolean hasCanonicalRole' "$CALENDAR"
 grep -Fq 'CalendarProcess.displayIdentity(role, project, projectShort, topic)' "$IDLE_STATE"
 grep -Fq 'json.put("project_short", projectShort)' "$IDLE_STATE"
 grep -Fq 'json.optString("project_short", "")' "$IDLE_STATE"
-grep -Fq 'CalendarProcess.hasCanonicalRole(role)' "$IDLE_STATE"
+grep -Fq 'CalendarProcess.isCanonicalIdentity(process.project, process.role)' "$IDLE_STATE"
 grep -Fq 'process.displayLabel()' "$PROCESS_NOTIF"
 
 # Two-card ordering remains structural: common group + stable keys, with both surfaces in STATUS

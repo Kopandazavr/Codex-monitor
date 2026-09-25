@@ -218,13 +218,9 @@ final class DualUsageNotificationManager {
                 state.planText, state.fiveResetTime, state.longResetTime, state.processes,
                 state.idleRoles, state.processMode);
 
-        int systemProgress = systemProgressPercent(state);
-        int systemColor = systemProgressColor(state);
-
-        // Reset controls live beside both limit rows. Live Monitor is always on in 2.19, so the
-        // only global action here is manual Refresh. Keep a system progress value as well so
-        // collapsed/SystemUI surfaces use 5-hour by default and the Weekly reset-cycle override
-        // when Weekly is fully depleted.
+        // Custom notification modes own their visible 5-hour/Weekly bars. Do not also set the
+        // framework progress field: Samsung renders it as an unexplained third bar in expanded
+        // RemoteViews. System-template progress belongs to the future One Card System mode.
         Notification.Builder builder = new Notification.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(title)
@@ -235,8 +231,7 @@ final class DualUsageNotificationManager {
                 .setOnlyAlertOnce(onlyAlertOnce)
                 .setCategory(Notification.CATEGORY_STATUS)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setColor(systemColor)
-                .setProgress(100, systemProgress, false)
+                .setColor(Color.rgb(3, 129, 254))
                 .setShowWhen(false)
                 .setGroup(NotificationSurfaceContract.GROUP_KEY)
                 .setSortKey(NotificationSurfaceContract.SORT_USAGE)
@@ -328,41 +323,6 @@ final class DualUsageNotificationManager {
             }
         }
         return views;
-    }
-
-    private static int systemProgressPercent(SurfaceState state) {
-        if (state == null) return 0;
-        if (!state.longWindowIsMonthly && state.longWindow != null
-                && state.longWindow.remainingPercent() == 0) {
-            return resetCycleProgressPercent(state.longWindow, state.observedAt, state.now);
-        }
-        if (state.fiveHour != null) return state.fiveHour.remainingPercent();
-        return state.longWindow == null ? 0 : state.longWindow.remainingPercent();
-    }
-
-    private static int systemProgressColor(SurfaceState state) {
-        return state != null && !state.longWindowIsMonthly && state.longWindow != null
-                && state.longWindow.remainingPercent() == 0
-                ? 0xFF9FE8C1 : Color.rgb(3, 129, 254);
-    }
-
-    private static int resetCycleProgressPercent(UsageWindow window,
-            long observedAtMillis, long nowMillis) {
-        if (window == null || window.windowSeconds <= 0L) return 0;
-        long resetAt = window.effectiveResetAtMillis(
-                observedAtMillis > 0L ? observedAtMillis : nowMillis);
-        if (resetAt <= 0L) return 0;
-        long cycleMillis;
-        try {
-            cycleMillis = Math.multiplyExact(window.windowSeconds, 1000L);
-        } catch (ArithmeticException exception) {
-            return 0;
-        }
-        if (cycleMillis <= 0L) return 0;
-        long remainingMillis = Math.max(0L, resetAt - nowMillis);
-        double remainingFraction = Math.min(1d, remainingMillis / (double) cycleMillis);
-        return Math.max(0, Math.min(100,
-                (int) Math.round((1d - remainingFraction) * 100d)));
     }
 
     private static String notificationLimitText(String label, UsageWindow window,

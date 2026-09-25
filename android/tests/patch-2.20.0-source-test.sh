@@ -58,6 +58,14 @@ grep -Fq 'Math.hypot(bounds.width(), bounds.height())' "$SRC/IdleReminderOverlay
 grep -Fq 'setProgressBar(R.id.notification_five_progress' "$SRC/DualUsageNotificationManager.java"
 grep -Fq 'setProgressBar(R.id.notification_long_progress' "$SRC/DualUsageNotificationManager.java"
 
+# Root-level Settings rows all carry icons.
+grep -Fq 'android:icon="@drawable/ic_permissions_checklist"' "$RES/xml/preferences_settings.xml"
+grep -Fq 'android:icon="@drawable/ic_settings_live_monitor"' "$RES/xml/preferences_settings.xml"
+grep -Fq 'android:icon="@drawable/ic_settings_diagnostics"' "$RES/xml/preferences_settings.xml"
+grep -Fq 'app:iconSpaceReserved="true"' "$RES/xml/preferences_settings.xml"
+test -f "$RES/drawable/ic_settings_live_monitor.xml"
+test -f "$RES/drawable/ic_settings_diagnostics.xml"
+
 # Accepted large circular small icon is preserved.
 grep -Fq 'M54,7 A47,47' "$RES/drawable/ic_notification_codex_monitor.xml"
 

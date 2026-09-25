@@ -545,6 +545,9 @@ public final class OnboardingActivity extends AppCompatActivity {
                     AppPreferences.setOAuthPending(this, false, "");
                     RefreshScheduler.cancelAll(this);
                     ResetAlertScheduler.cancelAll(this);
+                    NowBarManager.stop(this, false);
+                    ProcessNotificationScheduler.cancel(this);
+                    ProcessNotificationManager.clearAll(this);
                     WidgetRenderer.updateAll(this);
                     Toast.makeText(this, "Signed out.", Toast.LENGTH_SHORT).show();
                     render();

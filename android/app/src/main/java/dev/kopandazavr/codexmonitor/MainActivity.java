@@ -167,7 +167,7 @@ public final class MainActivity extends AppCompatActivity {
 
         int missing = SetupReadiness.missingRequiredCount(this);
         TextView badge = Ui.text(this, missing > 0 ? String.valueOf(missing) : "✓",
-                missing > 0 ? 10.0f : 11.0f, Color.WHITE);
+                missing > 0 ? 10.0f : 11.0f, 0xFFFFFFFF);
         badge.setGravity(Gravity.CENTER);
         badge.setTypeface(Ui.mediumTypeface(this));
         GradientDrawable badgeBackground = new GradientDrawable();

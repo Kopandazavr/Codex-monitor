@@ -41,6 +41,7 @@ import dev.kopandazavr.codexmonitor.wear.PhoneWearSync;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
+    private static final int MENU_PERMISSIONS = 8100;
     private static final int MENU_SETTINGS = 8101;
     private String appliedTheme;
     private boolean appliedMaterialYou;
@@ -110,20 +111,84 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        menu.add(Menu.NONE, MENU_SETTINGS, 0, "Settings")
+        MenuItem permissions = menu.add(Menu.NONE, MENU_PERMISSIONS, 0,
+                "Permissions & connections");
+        permissions.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        permissions.setActionView(buildPermissionsActionView());
+
+        menu.add(Menu.NONE, MENU_SETTINGS, 1, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem permissions = menu.findItem(MENU_PERMISSIONS);
+        if (permissions != null) permissions.setActionView(buildPermissionsActionView());
+        return super.onPrepareOptionsMenu(menu);
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_PERMISSIONS) {
+            openPermissionsConnections();
+            return true;
+        }
         if (item.getItemId() == MENU_SETTINGS) {
             DiagnosticLog.info(this, "user", "settings_opened");
             Ui.startSecondaryActivity(this, SettingsActivity.class);
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private View buildPermissionsActionView() {
+        int status = SetupReadiness.overallStatus(this);
+        int color = status == SetupReadiness.STATUS_REQUIRED_MISSING
+                ? (this.dark ? 0xFFFF6B6B : 0xFFD32F2F)
+                : status == SetupReadiness.STATUS_RECOMMENDED_MISSING
+                ? (this.dark ? 0xFFFFD54F : 0xFF9A6A00)
+                : (this.dark ? 0xFF6EDC8C : 0xFF16843D);
+
+        FrameLayout root = new FrameLayout(this);
+        root.setContentDescription("Permissions & connections");
+        root.setClickable(true);
+        root.setFocusable(true);
+        root.setPadding(Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8));
+        root.setOnClickListener(view -> openPermissionsConnections());
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_permissions_checklist);
+        icon.setImageTintList(ColorStateList.valueOf(color));
+        FrameLayout.LayoutParams iconParams = new FrameLayout.LayoutParams(
+                Ui.dp(this, 26), Ui.dp(this, 26), Gravity.CENTER);
+        root.addView(icon, iconParams);
+
+        int missing = SetupReadiness.missingRequiredCount(this);
+        TextView badge = Ui.text(this, missing > 0 ? String.valueOf(missing) : "✓",
+                missing > 0 ? 10.0f : 11.0f, Color.WHITE);
+        badge.setGravity(Gravity.CENTER);
+        badge.setTypeface(Ui.mediumTypeface(this));
+        GradientDrawable badgeBackground = new GradientDrawable();
+        badgeBackground.setShape(GradientDrawable.OVAL);
+        badgeBackground.setColor(color);
+        badge.setBackground(badgeBackground);
+        FrameLayout.LayoutParams badgeParams = new FrameLayout.LayoutParams(
+                Ui.dp(this, 18), Ui.dp(this, 18), Gravity.TOP | Gravity.END);
+        badgeParams.setMargins(0, 0, 0, 0);
+        root.addView(badge, badgeParams);
+
+        root.setMinimumWidth(Ui.dp(this, 48));
+        root.setMinimumHeight(Ui.dp(this, 48));
+        return root;
+    }
+
+    private void openPermissionsConnections() {
+        DiagnosticLog.info(this, "user", "permissions_connections_opened",
+                "source", "dashboard");
+        startActivity(new Intent(this, OnboardingActivity.class)
+                .putExtra(OnboardingActivity.EXTRA_PERMISSIONS_CONNECTIONS, true));
     }
 
     @Override // android.app.Activity
@@ -149,6 +214,7 @@ public final class MainActivity extends AppCompatActivity {
         } else {
             handleLaunchIntent(getIntent());
             rebuild();
+            invalidateOptionsMenu();
         }
     }
 

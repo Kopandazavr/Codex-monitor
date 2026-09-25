@@ -139,15 +139,26 @@ final class CalendarProcessReader {
             int beginIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.BEGIN);
             int endIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.END);
             while (cursor.moveToNext()) {
+                long eventId = cursor.getLong(eventIdIndex);
+                String title = cursor.getString(titleIndex);
+                String description = cursor.getString(descriptionIndex);
                 long begin = cursor.getLong(beginIndex);
                 long end = cursor.getLong(endIndex);
                 CalendarProcess process = CalendarProcess.fromEvent(
-                        cursor.getLong(eventIdIndex),
-                        cursor.getString(titleIndex),
-                        cursor.getString(descriptionIndex),
-                        begin,
-                        end);
-                if (process != null) processes.add(process);
+                        eventId, title, description, begin, end);
+                if (process != null) {
+                    processes.add(process);
+                    continue;
+                }
+                String reason = CalendarProcess.rejectionReason(
+                        title, description, begin, end);
+                if (!"not_watchdog".equals(reason)) {
+                    DiagnosticLog.warn(context, "calendar_process",
+                            "watchdog_rejected_metadata",
+                            "event_id", eventId,
+                            "source", "calendar_provider",
+                            "reason", reason);
+                }
             }
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(context, "calendar_process", "read_failed",

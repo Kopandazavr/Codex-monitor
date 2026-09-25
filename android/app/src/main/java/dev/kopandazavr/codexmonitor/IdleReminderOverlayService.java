@@ -126,7 +126,7 @@ public final class IdleReminderOverlayService extends Service {
 
         overlayRoot = new FrameLayout(this);
         overlayRoot.setBackground(new DiagonalStripeDrawable(
-                0xE62A2A2E, 0xE64A4A50, dp(26)));
+                0xE61B1B1F, 0xE62D2D33, dp(26)));
         overlayRoot.setClickable(true);
         overlayRoot.setOnClickListener(view -> dismissAll());
 
@@ -443,7 +443,8 @@ public final class IdleReminderOverlayService extends Service {
             Rect bounds = getBounds();
             canvas.drawRect(bounds, base);
             int overscan = bounds.width() + bounds.height() + stripeWidth * 2;
-            int spacing = Math.max(2, stripeWidth * 2);
+            // Equal visual dark/light bands at a 45-degree diagonal.
+            int spacing = Math.max(2, Math.round(stripeWidth * 2.828427f));
             for (int x = -overscan; x < bounds.width() + overscan; x += spacing) {
                 canvas.drawLine(x, bounds.bottom + overscan,
                         x + bounds.height() + overscan * 2, bounds.top - overscan, stripe);

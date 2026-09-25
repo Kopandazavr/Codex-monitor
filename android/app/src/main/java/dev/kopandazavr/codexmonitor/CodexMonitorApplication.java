@@ -33,6 +33,10 @@ public final class CodexMonitorApplication extends Application
         super.onCreate();
         lifecycleHandler = new Handler(Looper.getMainLooper());
         normalizeAutomaticDefaults();
+        // 2.19 retired low-usage/account-activity alerts are forcibly disabled even for
+        // upgraded installs that previously opted in.
+        ResetAlertScheduler.cancelAll(this);
+        ResetCreditExpiryScheduler.cancelAll(this);
         DiagnosticLog.install(this);
         if (ProcessNotificationScheduler.DIAGNOSTIC_FIVE_SECOND_REPAINT) {
             DiagnosticLog.setTemporaryTestCapture(this, true);
@@ -54,6 +58,12 @@ public final class CodexMonitorApplication extends Application
         if (!UsagePacePreferences.isEnabled(this)) {
             UsagePacePreferences.setEnabled(this, true);
         }
+        ResetAlertPreferences.save(this, ResetAlertPreferences.STYLE_OFF,
+                ResetAlertPreferences.getMetric(this),
+                ResetAlertPreferences.getThreshold(this));
+        ResetAlertPreferences.setUnexpectedRefillsEnabled(this, false);
+        ResetAlertPreferences.setResetCreditIncreasesEnabled(this, false);
+        ResetAlertPreferences.setResetCreditExpiryEnabled(this, false);
     }
 
     /**
@@ -152,6 +162,8 @@ public final class CodexMonitorApplication extends Application
             // dashboard path may request the same fetch; request() deliberately coalesces it.
             ForegroundUsageRefresh.startActivePolling(this);
             ForegroundUsageRefresh.request(this, "foreground_transition");
+            boolean active = NowBarManager.ensureAlwaysOn(this);
+            if (active) ProcessNotificationScheduler.recover(this);
         }
     }
 

@@ -147,7 +147,7 @@ grep -q 'this.settingsEntry ? "Done" : "Open Codex Monitor"' "$SRC/OnboardingAct
 ! grep -q 'Ui.installPage(this, "Quick setup"' "$SRC/OnboardingActivity.java"
 ! grep -q 'NestedScrollView' "$SRC/OnboardingActivity.java"
 grep -q 'STATUS_YELLOW = 0xFFFFC107' "$SRC/OnboardingActivity.java"
-grep -q 'addAccountRow(required)' "$SRC/OnboardingActivity.java"
+grep -q 'addAccountRow(account, false)' "$SRC/OnboardingActivity.java"
 grep -q 'SetupReadiness.requiredSummary(this)' "$SRC/OnboardingActivity.java"
 grep -q 'hasExplicitStyle' "$SRC/ResetAlertPreferences.java"
 grep -q 'ensureNotificationFeatureDefault' "$SRC/OnboardingActivity.java"

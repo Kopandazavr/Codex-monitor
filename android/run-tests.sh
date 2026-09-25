@@ -243,7 +243,7 @@ grep -q 'ensureAlwaysOn' "$SRC/NowBarManager.java"
 ! grep -Fq '"Stop", stopIntent' "$SRC/NowBarManager.java"
 ! grep -Fq '"Stop", stopIntent' "$SRC/DualUsageNotificationManager.java"
 grep -q 'weeklyResetProgress' "$SRC/NowBarManager.java"
-grep -q '0xFFA8E6CF' "$SRC/NowBarManager.java"
+grep -q '0xFF9FE8C1' "$SRC/NowBarManager.java"
 grep -q 'WidgetRepairJobService' "$MANIFEST"
 grep -Fq 'branches: [main, alpha]' "$WORKFLOW"
 

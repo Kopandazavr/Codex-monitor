@@ -39,6 +39,7 @@ public final class UsageBurnChartView extends View {
 
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path path = new Path();
+    private final Path fillPath = new Path();
     private final Typeface regularTypeface = Typeface.create("sec", Typeface.NORMAL);
     private final Typeface boldTypeface = Typeface.create("sec", Typeface.BOLD);
     private final int touchSlop;
@@ -321,41 +322,101 @@ public final class UsageBurnChartView extends View {
             return;
         }
         path.reset();
+        fillPath.reset();
         UsageSample before = null;
         boolean started = false;
+        float firstX = 0f;
+        float lastX = 0f;
+        float lastY = 0f;
         for (UsageSample sample : samples) {
             if (sample.observedAtMillis < axis[0]) {
                 before = sample;
                 continue;
             }
             if (!started && before != null) {
-                path.moveTo(x(before.observedAtMillis, axis[0], axis[1], left, right),
-                        y(plotPercent(before), top, bottom));
+                float bx = x(before.observedAtMillis, axis[0], axis[1], left, right);
+                float by = y(plotPercent(before), top, bottom);
+                path.moveTo(bx, by);
+                fillPath.moveTo(bx, by);
+                firstX = bx;
+                lastX = bx;
+                lastY = by;
                 started = true;
             }
             float sx = x(sample.observedAtMillis, axis[0], axis[1], left, right);
             float sy = y(plotPercent(sample), top, bottom);
             if (!started) {
                 path.moveTo(sx, sy);
+                fillPath.moveTo(sx, sy);
+                firstX = sx;
                 started = true;
             } else {
                 path.lineTo(sx, sy);
+                fillPath.lineTo(sx, sy);
             }
+            lastX = sx;
+            lastY = sy;
             if (sample.observedAtMillis > axis[1]) break;
         }
         if (!started && before != null) {
-            path.moveTo(left, y(plotPercent(before), top, bottom));
+            float by = y(plotPercent(before), top, bottom);
+            path.moveTo(left, by);
+            fillPath.moveTo(left, by);
+            firstX = left;
+            lastX = left;
+            lastY = by;
             started = true;
         }
         if (!started) return;
+
+        int seriesColor = isWeekly() ? WEEKLY_ORANGE : Ui.accent(getContext(), dark);
+        if (lastX > firstX + 0.5f) {
+            fillPath.lineTo(lastX, bottom);
+            fillPath.lineTo(firstX, bottom);
+            fillPath.close();
+            drawStripedFill(canvas, fillPath, firstX, lastX, top, bottom, density,
+                    seriesColor, dark);
+            // The texture moves independently from the measured geometry.
+            postInvalidateDelayed(1000L);
+        } else {
+            // A first bootstrap pair shares one truthful timestamp. Render that observation as a
+            // point rather than inventing horizontal history.
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(seriesColor);
+            canvas.drawCircle(lastX, lastY, 3f * density, paint);
+        }
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setPathEffect(null);
         paint.setStrokeWidth(3f * density);
         paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setStrokeJoin(Paint.Join.ROUND);
-        paint.setColor(isWeekly() ? WEEKLY_ORANGE : Ui.accent(getContext(), dark));
+        paint.setColor(seriesColor);
         canvas.drawPath(path, paint);
+        paint.setStyle(Paint.Style.FILL);
+    }
+
+    private void drawStripedFill(Canvas canvas, Path area, float firstX, float lastX,
+            float top, float bottom, float density, int seriesColor, boolean dark) {
+        paint.setStyle(Paint.Style.FILL);
+        paint.setColor(Color.argb(dark ? 20 : 16,
+                Color.red(seriesColor), Color.green(seriesColor), Color.blue(seriesColor)));
+        canvas.drawPath(area, paint);
+
+        float spacing = 14f * density;
+        float height = Math.max(1f, bottom - top);
+        float phase = (SystemClock.uptimeMillis() % 90_000L) / 90_000f * spacing;
+        int save = canvas.save();
+        canvas.clipPath(area);
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(1.5f * density);
+        paint.setColor(Color.argb(dark ? 54 : 42,
+                Color.red(seriesColor), Color.green(seriesColor), Color.blue(seriesColor)));
+        for (float sx = firstX - height - spacing + phase;
+                sx <= lastX + spacing; sx += spacing) {
+            canvas.drawLine(sx, bottom, sx + height, top, paint);
+        }
+        canvas.restoreToCount(save);
         paint.setStyle(Paint.Style.FILL);
     }
 
@@ -457,9 +518,9 @@ public final class UsageBurnChartView extends View {
     private double plotPercent(UsageSample sample) {
         if (sample == null) return 0d;
         double used = Math.max(0d, Math.min(100d, sample.usedPercent));
-        // Long-window limits (Weekly and Monthly) are presented as remaining allowance:
+        // Both visible dashboard histories use remaining allowance:
         // 100% available at the top, descending toward 0% as usage is consumed.
-        return isWeekly() ? 100d - used : used;
+        return 100d - used;
     }
 
     private float chartLeft() {

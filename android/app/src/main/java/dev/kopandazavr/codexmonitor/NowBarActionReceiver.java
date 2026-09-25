@@ -21,37 +21,35 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
             NowBarManager.onScheduledEnd(context);
             DualUsageNotificationManager.repostDelayed(context, 450L);
         } else if (NowBarManager.ACTION_REFRESH.equals(action)) {
+            String correlationId = "manual-calendar-" + System.currentTimeMillis();
             DiagnosticLog.info(context, "notification", "remote_refresh_requested",
-                    "source", "manual_notification_refresh");
-            RefreshScheduler.scheduleImmediate(context);
+                    "source", "manual_notification_refresh",
+                    "correlation_id", correlationId);
+            PendingResult pending = goAsync();
+            Context app = context.getApplicationContext();
+            GoogleCalendarProcessSource.forceRefresh(app, () -> {
+                try {
+                    boolean posted = DualUsageNotificationManager.repostForProcessChange(app);
+                    DiagnosticLog.info(app, "notification", "manual_calendar_refresh_completed",
+                            "correlation_id", correlationId,
+                            "posted", posted,
+                            "calendar_api_connected",
+                            GoogleCalendarAuthorization.isConnected(app));
+                    // Usage refresh is independent and may complete later; Calendar never repaints
+                    // stale cache first.
+                    RefreshScheduler.scheduleImmediate(app);
+                } finally {
+                    pending.finish();
+                }
+            });
         } else if (ProcessNotificationScheduler.ACTION_REFRESH.equals(action)) {
-            String correlationId = "local-repaint-" + System.currentTimeMillis();
             if (!NowBarManager.isActive(context)) {
                 DiagnosticLog.info(context, "notification", "local_repaint_suppressed",
-                        "correlation_id", correlationId,
                         "reason", "monitor_inactive");
                 ProcessNotificationScheduler.cancel(context);
                 ProcessNotificationManager.clearAll(context);
             } else {
-                PendingResult pending = goAsync();
-                Context app = context.getApplicationContext();
-                DiagnosticLog.info(app, "notification", "local_repaint_requested",
-                        "correlation_id", correlationId,
-                        "source", "process_notification_scheduler");
-                GoogleCalendarProcessSource.refreshIfDue(app, () -> {
-                    try {
-                        boolean posted = DualUsageNotificationManager.repostForProcessChange(app);
-                        DiagnosticLog.info(app, "notification", "local_repaint_completed",
-                                "correlation_id", correlationId,
-                                "posted", posted,
-                                "remote_usage_fetch", false,
-                                "calendar_api_connected",
-                                GoogleCalendarAuthorization.isConnected(app));
-                        ProcessNotificationScheduler.schedule(app);
-                    } finally {
-                        pending.finish();
-                    }
-                });
+                ProcessNotificationScheduler.recover(context.getApplicationContext());
             }
         } else if (NowBarManager.ACTION_DISMISSED.equals(action)) {
             DiagnosticLog.info(context, "notification", "notification_action",

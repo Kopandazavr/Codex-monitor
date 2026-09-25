@@ -37,20 +37,33 @@ public final class UsageHistory {
         UsageSample next = new UsageSample(observedAtMillis, window.usedPercent, resetAt,
                 window.windowSeconds);
         ArrayList<UsageSample> updated = new ArrayList<>(samples);
-        if (!updated.isEmpty()) {
-            UsageSample last = updated.get(updated.size() - 1);
-            if (observedAtMillis <= last.observedAtMillis) return this;
+        if (updated.isEmpty()) {
+            // Bootstrap with two factual points at the first observation. The first is a stable
+            // anchor and the second is the live tail. Sharing the same real timestamp avoids
+            // inventing an earlier history interval while making coalescing semantics explicit.
+            updated.add(next);
+            updated.add(next);
+            return new UsageHistory(kind, updated);
+        }
+        UsageSample last = updated.get(updated.size() - 1);
+        if (observedAtMillis <= last.observedAtMillis) return this;
+
+        // Repair legacy one-point histories by preserving that point as the anchor.
+        if (updated.size() == 1) {
+            updated.add(next);
+        } else {
             long minimumSpacing = FIVE_HOUR.equals(kind)
                     ? TimeUnit.MINUTES.toMillis(5)
                     : MONTHLY.equals(kind)
                             ? TimeUnit.HOURS.toMillis(2) : TimeUnit.MINUTES.toMillis(30);
             if (sameWindow(last, next) && last.usedPercent == next.usedPercent
                     && observedAtMillis - last.observedAtMillis < minimumSpacing) {
+                // Only the live tail moves. The anchor remains stable.
                 updated.set(updated.size() - 1, next);
                 return new UsageHistory(kind, updated);
             }
+            updated.add(next);
         }
-        updated.add(next);
         int max = maximumSamples(kind);
         while (updated.size() > max) updated.remove(0);
         return new UsageHistory(kind, updated);

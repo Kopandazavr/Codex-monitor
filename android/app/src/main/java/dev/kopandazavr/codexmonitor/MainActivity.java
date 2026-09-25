@@ -421,13 +421,37 @@ public final class MainActivity extends AppCompatActivity {
                 snapshot.fetchedAtMillis, now);
         UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
         UsageWaveView wave = new UsageWaveView(this);
+        int remainingPercent = window.remainingPercent();
+        boolean depleted = remainingPercent == 0;
+        int barPercent = depleted
+                ? resetCycleProgressPercent(window, snapshot.fetchedAtMillis, now)
+                : remainingPercent;
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
-                window.remainingPercent(),
+                remainingPercent, barPercent, depleted,
                 window.windowSeconds >= 86_400L
                         ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
                 invertedWave, pace.accelerated);
         card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
         return card;
+    }
+
+    private int resetCycleProgressPercent(UsageWindow window, long observedAtMillis, long nowMillis) {
+        if (window == null || window.windowSeconds <= 0L) return 0;
+        long reference = observedAtMillis > 0L ? observedAtMillis : nowMillis;
+        long resetAt = window.effectiveResetAtMillis(reference);
+        if (resetAt <= 0L) return 0;
+        long cycleMillis;
+        try {
+            cycleMillis = Math.multiplyExact(window.windowSeconds, 1000L);
+        } catch (ArithmeticException exception) {
+            return 0;
+        }
+        if (cycleMillis <= 0L) return 0;
+        long remainingMillis = Math.max(0L, resetAt - nowMillis);
+        double remainingFraction = Math.min(1d,
+                remainingMillis / (double) cycleMillis);
+        return Math.max(0, Math.min(100,
+                (int) Math.round((1d - remainingFraction) * 100d)));
     }
 
     private LinearLayout buildUsageHistoryCard() {

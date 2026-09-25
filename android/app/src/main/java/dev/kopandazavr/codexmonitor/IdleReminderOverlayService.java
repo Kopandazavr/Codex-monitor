@@ -181,8 +181,11 @@ public final class IdleReminderOverlayService extends Service {
         params.gravity = Gravity.TOP | Gravity.START;
         try {
             windowManager.addView(overlayRoot, params);
+            overlayShownHaptic();
             DiagnosticLog.info(this, "idle_process", "overlay_window_added",
                     "entries", roles.size());
+            DiagnosticLog.info(this, "idle_process", "overlay_haptic",
+                    "duration_ms", 330);
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(this, "idle_process", "overlay_add_failed",
                     "error", exception.getClass().getSimpleName());
@@ -360,14 +363,23 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     private void strongHaptic() {
+        vibrate(160L);
+    }
+
+    private void overlayShownHaptic() {
+        vibrate(330L);
+    }
+
+    private void vibrate(long durationMillis) {
         try {
+            VibrationEffect effect = VibrationEffect.createOneShot(durationMillis, 255);
             if (Build.VERSION.SDK_INT >= 31) {
-                VibratorManager manager = (VibratorManager) getSystemService(VIBRATOR_MANAGER_SERVICE);
-                if (manager != null) manager.getDefaultVibrator().vibrate(
-                        VibrationEffect.createOneShot(160L, 255));
+                VibratorManager manager =
+                        (VibratorManager) getSystemService(VIBRATOR_MANAGER_SERVICE);
+                if (manager != null) manager.getDefaultVibrator().vibrate(effect);
             } else {
                 Vibrator vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-                if (vibrator != null) vibrator.vibrate(VibrationEffect.createOneShot(160L, 255));
+                if (vibrator != null) vibrator.vibrate(effect);
             }
         } catch (RuntimeException ignored) {
         }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.18.0 — 2026-09-25
+
+### Added
+- Shared Permissions & connections hub for first-run and later setup, with Required N/5 readiness, exact-alarm access, and Local Calendar fallback as the only Optional item.
+- Subtle moving striped fill under measured Usage History and the fuller dot/arcs/puffy-squircle Android status icon.
+
+### Changed
+- Active Live Monitor experiments with non-overlapping 1-second direct Google Calendar polling; manual Refresh waits for the direct Calendar result before repainting.
+- 5-hour and Weekly Usage History both plot available percentage downward and bootstrap with a stable anchor/live tail.
+- Depleted 5-hour/Weekly cards reuse their fill as mint reset-cycle elapsed progress.
+- Completion overlay emits one strong ~330 ms vibration pulse when its window is actually added.
+
+### Removed
+- Separate Restart onboarding, duplicated Calendar/overlay permission controls, and the large Settings account/subscription card.
+
 ## 2.8.0 — 2026-08-14
 
 ### Added

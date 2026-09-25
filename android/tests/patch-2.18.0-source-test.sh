@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
+RES="$ROOT/app/src/main/res"
+SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
+
+grep -Fq 'POLL_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'setAndAllowWhileIdle' "$SRC/ProcessNotificationScheduler.java"
+! grep -Fq 'setExactAndAllowWhileIdle' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq '"calendar_poll_completed"' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq '"manual_calendar_refresh_completed"' "$SRC/NowBarActionReceiver.java"
+grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/NowBarActionReceiver.java"
+
+grep -Fq 'Only the live tail moves' "$SHARED/UsageHistory.java"
+grep -Fq 'return 100d - used;' "$SRC/UsageBurnChartView.java"
+grep -Fq 'drawStripedFill' "$SRC/UsageBurnChartView.java"
+grep -Fq 'postInvalidateDelayed(1000L)' "$SRC/UsageBurnChartView.java"
+grep -Fq 'DEPLETED_MINT = 0xFF9FE8C1' "$SRC/UsageWaveView.java"
+grep -Fq 'resetCycleProgressPercent' "$SRC/MainActivity.java"
+grep -Fq '"5-hour".equals(label) || "Weekly".equals(label)' "$SRC/MainActivity.java"
+
+grep -Fq 'android:key="permissions_connections"' "$RES/xml/preferences_settings.xml"
+! grep -Fq 'account_card' "$RES/xml/preferences_settings.xml"
+! grep -Fq 'notification_permission' "$RES/xml/preferences_settings.xml"
+! grep -Fq 'restart_onboarding' "$RES/xml/preferences_settings_diagnostics.xml"
+! grep -Fq 'google_calendar_connection' "$RES/xml/preferences_settings_now_bar.xml"
+! grep -Fq 'calendar_process_access' "$RES/xml/preferences_settings_now_bar.xml"
+! grep -Fq 'idle_overlay_access' "$RES/xml/preferences_settings_now_bar.xml"
+grep -Fq 'notifications_allowed_ui' "$RES/xml/preferences_settings_notifications.xml"
+grep -Fq 'REQUIRED_TOTAL = 5' "$SRC/SetupReadiness.java"
+grep -Fq 'EXTRA_PERMISSIONS_CONNECTIONS = "permissions_connections"' "$SRC/OnboardingActivity.java"
+grep -Fq '"Alarms & reminders"' "$SRC/OnboardingActivity.java"
+grep -Fq '"Local Calendar fallback"' "$SRC/OnboardingActivity.java"
+grep -Fq 'Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM' "$SRC/OnboardingActivity.java"
+grep -Fq 'confirmSignOut()' "$SRC/OnboardingActivity.java"
+grep -Fq '0xFFFF3B30' "$SRC/OnboardingActivity.java"
+
+grep -Fq 'overlayShownHaptic();' "$SRC/IdleReminderOverlayService.java"
+grep -Fq 'vibrate(330L)' "$SRC/IdleReminderOverlayService.java"
+grep -Fq 'M32,11 C18,11 11,18 11,32' "$RES/drawable/ic_notification_codex_monitor.xml"
+! grep -Fq 'A43,43' "$RES/drawable/ic_notification_codex_monitor.xml"
+
+grep -Fq 'RECEIVE_BOOT_COMPLETED' "$ROOT/app/src/main/AndroidManifest.xml"
+grep -Fq 'NowBarManager.restore(context)' "$SRC/BootReceiver.java"
+
+grep -Fq 'versionCode = 44' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.18.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionCode = 44' "$ROOT/wear/build.gradle.kts"
+grep -Fq 'versionName = "2.18.0"' "$ROOT/wear/build.gradle.kts"
+
+echo "Codex Monitor 2.18 source contract PASS"

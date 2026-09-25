@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Monochrome small-notification adaptation of the approved Codex Monitor Focus mark.
-     Only the colored Focus segments survive as white; inactive ring paths stay transparent. -->
+<!-- Monochrome tiny-system mark: filled center, two rounded Focus arcs, then one thick
+     puffy squircle. There is intentionally no additional circular ring. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"

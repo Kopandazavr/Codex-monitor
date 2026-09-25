@@ -54,6 +54,7 @@ grep -Fq 'M54,7 A47,47' "$RES/drawable/ic_notification_codex_monitor.xml"
 
 # Retired alert page/features are no longer reachable; test notification moved to Diagnostics.
 ! grep -Fq 'android:key="settings_notifications"' "$RES/xml/preferences_settings.xml"
+! grep -Fq 'PAGE_NOTIFICATIONS.equals(page)' "$SRC/SettingsActivity.java"
 grep -Fq 'android:key="notification_test"' "$RES/xml/preferences_settings_diagnostics.xml"
 grep -Fq 'ResetAlertPreferences.STYLE_OFF' "$SRC/CodexMonitorApplication.java"
 

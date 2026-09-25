@@ -1,6 +1,6 @@
 package dev.kopandazavr.codexmonitor;
 
-/** Focused regression coverage for watchdog metadata, canonical display identity and work timing. */
+/** Focused regression coverage for strict watchdog metadata, display identity and work timing. */
 public final class CalendarProcessSelfTest {
     private CalendarProcessSelfTest() {
     }
@@ -10,13 +10,15 @@ public final class CalendarProcessSelfTest {
         testFlattenedMetadata();
         testHtmlMetadata();
         testCompactProjectIdentity();
-        testLegacyProjectFallbackIdentity();
+        testFullProjectIdentityWithoutShortName();
         testAnotherCanonicalRole();
-        testProjectFallbackWithoutRole();
-        testUnsupportedMetadataFallsBackSoft();
+        testMissingRoleRejected();
+        testMissingProjectRejected();
+        testUnsupportedMetadataRejected();
+        testOptionalFieldsMayBeMissing();
         testDirectSourceProvenance();
         testCanonicalWorkWindow();
-        System.out.println("CalendarProcess metadata/display/timing self-test passed.");
+        System.out.println("CalendarProcess strict metadata/display/timing self-test passed.");
     }
 
     private static void testMultilineMetadata() {
@@ -78,16 +80,16 @@ public final class CalendarProcessSelfTest {
                 "compact project precedes canonical role");
     }
 
-    private static void testLegacyProjectFallbackIdentity() {
+    private static void testFullProjectIdentityWithoutShortName() {
         CalendarProcess process = CalendarProcess.fromEvent(
                 4321L,
                 "GPT_WATCHDOG|urgent|Data Matrix Scanner",
-                "codex_monitor_watchdog=v1 project=Data Matrix Scanner role=Developer topic=build",
+                "codex_monitor_watchdog=v1 project=Data Matrix Scanner role=Developer",
                 3_000L,
                 4_000L);
-        require(process != null, "legacy developer process parsed");
+        require(process != null, "full-project process parsed");
         require("Data Matrix Scanner — Developer".equals(process.displayLabel()),
-                "legacy project falls back to full project identity");
+                "full project is used when project_short is absent");
     }
 
     private static void testAnotherCanonicalRole() {
@@ -103,29 +105,46 @@ public final class CalendarProcessSelfTest {
                 process.displayLabel()), "second role is not hardcoded");
     }
 
-    private static void testProjectFallbackWithoutRole() {
-        CalendarProcess process = CalendarProcess.fromEvent(
-                434L,
-                "GPT_WATCHDOG|urgent|Data Matrix Scanner",
-                "codex_meter_watchdog=v1 project=Data Matrix Scanner topic=legacy producer",
-                3_000L,
-                4_000L);
-        require(process != null, "role-less process parsed");
-        require("Data Matrix Scanner".equals(process.displayLabel()),
-                "project fallback only when role is missing");
+    private static void testMissingRoleRejected() {
+        String title = "GPT_WATCHDOG|urgent|Data Matrix Scanner";
+        String description = "codex_monitor_watchdog=v1 project=Data Matrix Scanner topic=x";
+        require(CalendarProcess.fromEvent(434L, title, description, 3_000L, 4_000L) == null,
+                "role-less watchdog rejected");
+        require("missing_or_invalid_role".equals(
+                CalendarProcess.rejectionReason(title, description, 3_000L, 4_000L)),
+                "missing role has explicit rejection reason");
     }
 
-    private static void testUnsupportedMetadataFallsBackSoft() {
+    private static void testMissingProjectRejected() {
+        String title = "GPT_WATCHDOG|urgent|Title Must Not Be Project Fallback";
+        String description = "codex_monitor_watchdog=v1 role=Main Agent topic=x";
+        require(CalendarProcess.fromEvent(435L, title, description, 3_000L, 4_000L) == null,
+                "project-less watchdog rejected despite title suffix");
+        require("missing_or_invalid_project".equals(
+                CalendarProcess.rejectionReason(title, description, 3_000L, 4_000L)),
+                "missing project has explicit rejection reason");
+    }
+
+    private static void testUnsupportedMetadataRejected() {
+        String title = "GPT_WATCHDOG|urgent|Codex Monitor";
+        String description = "codex_monitor_watchdog=v2 project=Codex Monitor role=Main Agent";
+        require(CalendarProcess.fromEvent(44L, title, description, 5_000L, 6_000L) == null,
+                "unsupported watchdog metadata rejected");
+        require("missing_or_invalid_marker".equals(
+                CalendarProcess.rejectionReason(title, description, 5_000L, 6_000L)),
+                "unsupported marker has explicit rejection reason");
+    }
+
+    private static void testOptionalFieldsMayBeMissing() {
         CalendarProcess process = CalendarProcess.fromEvent(
-                44L,
-                "GPT_WATCHDOG|urgent|Title fallback",
-                "codex_monitor_watchdog=v2 project=Wrong role=Wrong topic=Wrong",
+                441L,
+                "GPT_WATCHDOG|urgent|Codex Monitor",
+                "codex_monitor_watchdog=v1 project=Codex Monitor role=Main Agent",
                 5_000L,
                 6_000L);
-        require(process != null, "unsupported metadata still yields title-only watchdog");
-        require("Title fallback".equals(process.project), "title fallback project");
-        require(process.role.isEmpty(), "unsupported metadata role ignored");
-        require(process.topic.isEmpty(), "unsupported metadata topic ignored");
+        require(process != null, "project_short/topic are optional");
+        require(process.projectShort.isEmpty(), "project_short may be absent");
+        require(process.topic.isEmpty(), "topic may be absent");
     }
 
     private static void testDirectSourceProvenance() {

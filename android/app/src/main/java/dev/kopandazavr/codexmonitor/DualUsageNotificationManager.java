@@ -201,9 +201,6 @@ final class DualUsageNotificationManager {
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent stopIntent = PendingIntent.getBroadcast(context, REQUEST_STOP,
-                new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_STOP),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent refreshIntent = PendingIntent.getBroadcast(context, REQUEST_REFRESH,
                 new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_REFRESH),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -211,7 +208,6 @@ final class DualUsageNotificationManager {
                 new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_DISMISSED),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        Icon stopIcon = Icon.createWithResource(context, R.drawable.ic_notification_codex_monitor);
         Icon refreshIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
         RemoteViews compact = buildViews(context, R.layout.notification_usage_dual_bars,
                 state.fiveHour, state.longWindow, state.longLabel, state.observedAt, state.now,
@@ -222,8 +218,8 @@ final class DualUsageNotificationManager {
                 state.planText, state.fiveResetTime, state.longResetTime, state.processes,
                 state.idleRoles, state.processMode);
 
-        // Reset controls now live directly beside both visible limit rows, so the old focused-metric
-        // action is deliberately absent. Stop + manual Refresh remain notification actions.
+        // Reset controls live beside both limit rows. Live Monitor is always on in 2.19, so the
+        // only global action here is manual Refresh.
         Notification.Builder builder = new Notification.Builder(context, channelId)
                 .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(title)
@@ -241,8 +237,8 @@ final class DualUsageNotificationManager {
                 .setStyle(new Notification.DecoratedCustomViewStyle())
                 .setCustomContentView(compact)
                 .setCustomBigContentView(expanded)
-                .addAction(new Notification.Action.Builder(stopIcon, "Stop", stopIntent).build())
-                .addAction(new Notification.Action.Builder(refreshIcon, "Refresh", refreshIntent).build());
+                .addAction(new Notification.Action.Builder(
+                        refreshIcon, "Refresh", refreshIntent).build());
         try {
             return builder.build();
         } catch (RuntimeException exception) {

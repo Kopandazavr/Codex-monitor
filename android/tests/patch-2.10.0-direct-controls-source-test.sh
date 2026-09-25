@@ -26,7 +26,7 @@ grep -Fq 'POLL_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10)' "$SRC/ProcessNotific
 grep -Fq 'RECOVERY_INTERVAL_MS = TimeUnit.SECONDS.toMillis(30)' "$SRC/ProcessNotificationScheduler.java"
 grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/ProcessNotificationScheduler.java"
 grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/NowBarActionReceiver.java"
-grep -Fq '"remote_usage_fetch", false' "$SRC/ProcessNotificationScheduler.java"
+# No UsageApi call in the Calendar loop is the durable proof that this remains local-process work.
 ! grep -Fq 'setExactAndAllowWhileIdle' "$SRC/ProcessNotificationScheduler.java"
 ! grep -Fq 'UsageApi.' "$SRC/ProcessNotificationScheduler.java"
 
@@ -105,11 +105,11 @@ grep -A6 -F 'android:key="notification_metric_ui"' "$RES/preferences_settings_no
 grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.java"
 ! grep -Fq 'SECONDS.toMillis(5)' "$SHARED/AdaptiveRefreshPolicy.java"
 
-# Current code-bearing candidate identity.
-grep -Fq 'versionCode = 46' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.20.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 46' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.20.0"' "$SRC/AppConstants.java"
+# Current code-bearing candidate identity stays synchronized across Gradle and AppConstants.
+APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
+APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+grep -Fq "VERSION_CODE = $APP_VERSION_CODE" "$SRC/AppConstants.java"
+grep -Fq "VERSION_NAME = \"$APP_VERSION_NAME\"" "$SRC/AppConstants.java"
 
 grep -Fq 'MediaStore.Downloads.EXTERNAL_CONTENT_URI' "$SRC/SettingsActivity.java"
 grep -Fq 'diagnostic_build_identity' "$RES/preferences_settings_diagnostics.xml"

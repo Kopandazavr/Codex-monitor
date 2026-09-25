@@ -59,7 +59,7 @@ grep -Fq 'ResetAlertPreferences.STYLE_OFF' "$SRC/CodexMonitorApplication.java"
 
 # Collapsed/system progress: five-hour by default; Weekly exhaustion uses mint reset progress.
 grep -Fq 'weeklyResetProgress' "$SRC/NowBarManager.java"
-grep -Fq '0xFFA8E6CF' "$SRC/NowBarManager.java"
+grep -Fq '0xFF9FE8C1' "$SRC/NowBarManager.java"
 grep -Fq 'resetCycleProgressPercent' "$SRC/NowBarManager.java"
 
 echo "Codex Monitor 2.19 source contract PASS"

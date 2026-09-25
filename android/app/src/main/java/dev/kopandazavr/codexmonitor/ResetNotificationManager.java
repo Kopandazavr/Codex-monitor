@@ -208,11 +208,9 @@ public final class ResetNotificationManager {
     }
 
     public static boolean sendTestNotification(Context context) {
-        if (context == null || !ResetAlertPreferences.enabled(context)) {
-            return false;
-        }
+        if (context == null) return false;
         return post(context, NOTIFICATION_TEST, "Codex Monitor notifications are working",
-                "Low usage, scheduled resets, surprise refills, and reset-credit alerts are ready.",
+                "Notification delivery is available.",
                 NOTIFICATION_TEST);
     }
 

@@ -516,7 +516,7 @@ public final class NowBarManager {
                         : snapshot.fetchedAtMillis, now)
                 : progressWindow == null ? 0 : progressWindow.remainingPercent();
         int progressColor = weeklyResetProgress
-                ? 0xFFA8E6CF
+                ? 0xFF9FE8C1
                 : accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254);
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
         // Preview snapshots invent their own windows without a remote observation time;

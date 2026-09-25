@@ -14,17 +14,20 @@ grep -Fq 'ForegroundUsageRefresh.request(this, "foreground_transition");' "$SRC/
 grep -Fq 'ForegroundUsageRefresh.isInFlight()' "$SRC/RefreshScheduler.java"
 grep -Fq '"immediate_refresh_coalesced"' "$SRC/RefreshScheduler.java"
 
-# Visible-app usage freshness uses one-minute remote polling; the 5-second experiment is local-only.
+# Visible-app usage freshness remains one-minute remote usage polling. Calendar process freshness
+# is a separate non-overlapping one-second direct loop; its AlarmManager path is recovery only.
 grep -Fq 'ACTIVE_POLL_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'request(app, "foreground_periodic", false)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'RefreshScheduler.suspendPeriodic(app)' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'ForegroundUsageRefresh.startActivePolling(this);' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'ForegroundUsageRefresh.stopActivePolling(this);' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'DIAGNOSTIC_FIVE_SECOND_REPAINT = false' "$SRC/ProcessNotificationScheduler.java"
-grep -Fq 'TimeUnit.MINUTES.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
-! grep -Fq '"diagnostic_5s_repaint"' "$SRC/NowBarActionReceiver.java"
-grep -Fq 'GoogleCalendarProcessSource.refreshIfDue(app' "$SRC/NowBarActionReceiver.java"
-grep -Fq '"remote_usage_fetch", false' "$SRC/NowBarActionReceiver.java"
+grep -Fq 'POLL_INTERVAL_MS = TimeUnit.SECONDS.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'RECOVERY_INTERVAL_MS = TimeUnit.MINUTES.toMillis(1)' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'GoogleCalendarProcessSource.forceRefresh(app' "$SRC/NowBarActionReceiver.java"
+grep -Fq '"remote_usage_fetch", false' "$SRC/ProcessNotificationScheduler.java"
+! grep -Fq 'setExactAndAllowWhileIdle' "$SRC/ProcessNotificationScheduler.java"
 ! grep -Fq 'UsageApi.' "$SRC/ProcessNotificationScheduler.java"
 
 # Cached cards stay visible while refreshing and surface restrained freshness state.
@@ -77,8 +80,8 @@ done
 ! grep -R -F 'android:targetPackage="dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
 ! grep -R -F 'android:data="package:dev.kopandazavr.codexmonitor"' "$RES/preferences_settings"*.xml
 ! grep -Fq 'DashboardReorderActivity.class' "$SRC/SettingsActivity.java"
-grep -Fq 'Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);' "$SRC/SettingsActivity.java"
-grep -Fq 'Uri.parse("package:" + requireContext().getPackageName())' "$SRC/SettingsActivity.java"
+grep -Fq 'Ui.startSecondaryActivity(this, CalendarPermissionActivity.class);' "$SRC/OnboardingActivity.java"
+grep -Fq 'Uri.parse("package:" + getPackageName())' "$SRC/OnboardingActivity.java"
 
 # Direct limit bells remain independent and reset-timed.
 grep -Fq '"five_hour"' "$SRC/DualUsageNotificationManager.java"

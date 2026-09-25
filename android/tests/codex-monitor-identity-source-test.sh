@@ -74,10 +74,11 @@ done
 # and the primary CTA lives outside the flexible content area at the bottom.
 grep -Fq 'installStaticLayout()' "$ONBOARDING"
 grep -Fq 'LinearLayout.LayoutParams(-1, 0, 1.0f)' "$ONBOARDING"
-grep -Fq 'this.doneButton = Ui.nativePrimaryButton(this, "Open Codex Monitor")' "$ONBOARDING"
+grep -Fq 'this.doneButton = Ui.nativePrimaryButton(this,' "$ONBOARDING"
+grep -Fq 'this.settingsEntry ? "Done" : "Open Codex Monitor"' "$ONBOARDING"
 ! grep -Fq 'Ui.installPage(this, "Quick setup"' "$ONBOARDING"
 ! grep -Fq 'NestedScrollView' "$ONBOARDING"
-grep -Fq 'Enable Codex Monitor notifications in Android Settings.' "$ONBOARDING"
+grep -Fq 'Settings.ACTION_APP_NOTIFICATION_SETTINGS' "$ONBOARDING"
 
 # Target-Samsung launcher contract: preserve the selected Focus artwork but inset it by ~10% of
 # the 108dp adaptive-icon canvas on every side, exposing graphite background as a real safe area.

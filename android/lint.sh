@@ -11,5 +11,4 @@ fi
 
 "$ROOT/gradlew" --project-dir "$ROOT" \
   :app:lintRelease \
-  :wear:lintRelease \
   --console=plain

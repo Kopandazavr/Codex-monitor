@@ -25,4 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "Codex-Monitor"
 include(":app")
 include(":shared")
-include(":wear")
+// Wear OS companion is retired/unsupported and intentionally excluded from the active Gradle graph.

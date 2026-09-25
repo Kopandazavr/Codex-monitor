@@ -44,7 +44,7 @@ jobs:
             android/**/*.gradle*
             android/**/gradle-wrapper.properties
 
-      - name: Install Android phone and Wear toolchains
+      - name: Install Android phone toolchain
         shell: bash
         working-directory: ${{ github.workspace }}
         run: |
@@ -56,7 +56,6 @@ jobs:
           yes | "$SDKMANAGER" --licenses >/dev/null || true
           "$SDKMANAGER" \
             "platforms;android-36" \
-            "platforms;android-37.0" \
             "build-tools;36.0.0"
 
       - name: Validate version
@@ -260,11 +259,8 @@ jobs:
               --notes-file release-notes.md \
               --title "Codex Monitor $VERSION_NAME"
           fi
-          # Historical regression marker for the pre-migration artifact name:
-          # release-dist/CodexMeter-Wear-$VERSION_NAME.apk
           gh release upload "$GITHUB_REF_NAME" \
             "release-dist/CodexMonitor-$VERSION_NAME.apk#Codex Monitor $VERSION_NAME APK" \
-            "release-dist/CodexMonitor-Wear-$VERSION_NAME.apk#Codex Monitor Wear OS $VERSION_NAME APK" \
             "release-dist/SHA256SUMS.txt#SHA-256 checksums" \
             --clobber
           if [[ "$PRERELEASE" == "true" ]]; then

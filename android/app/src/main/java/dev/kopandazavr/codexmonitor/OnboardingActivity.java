@@ -47,7 +47,6 @@ public final class OnboardingActivity extends AppCompatActivity {
     private boolean settingsEntry;
     private static final int RECOMMENDED_NONE = 0;
     private static final int RECOMMENDED_BATTERY = 1;
-    private static final int RECOMMENDED_NEVER_SLEEPING = 2;
 
     private int pendingRecommendedConfirmation = RECOMMENDED_NONE;
     private String authMessage = "";
@@ -191,7 +190,7 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.content.removeAllViews();
 
         int readinessStatus = SetupReadiness.overallStatus(this);
-        TextView readiness = Ui.text(this, SetupReadiness.requiredSummary(this),
+        TextView readiness = Ui.text(this, SetupReadiness.overallSummary(this),
                 14.0f, readinessForeground(readinessStatus));
         readiness.setGravity(Gravity.CENTER);
         readiness.setPadding(Ui.dp(this, 12), Ui.dp(this, 5),
@@ -246,6 +245,18 @@ public final class OnboardingActivity extends AppCompatActivity {
         addSetupRow(required, alarms, false);
         this.content.addView(required, sectionCardParams());
 
+        addSectionHeader("Recommended");
+        RoundedLinearLayout recommended = Ui.seslRowCard(this, this.dark);
+        boolean batteryDone = SetupReadiness.batteryUnrestrictedAcknowledged(this);
+        String batteryState = batteryDone ? "Reviewed · Unrestricted"
+                : "Tap to set Battery usage → Unrestricted";
+        CardItemView battery = Ui.actionRow(this, "Battery usage", batteryState,
+                R.drawable.ic_oui_time, view -> requestBatteryUnrestricted());
+        setMatchingTextColor(battery, batteryState,
+                batteryDone ? statusGreen() : STATUS_YELLOW);
+        addSetupRow(recommended, battery, false);
+        this.content.addView(recommended, sectionCardParams());
+
         addSectionHeader("Optional");
         RoundedLinearLayout optional = Ui.seslRowCard(this, this.dark);
         boolean localAllowed = SetupReadiness.localCalendarAllowed(this);
@@ -256,28 +267,6 @@ public final class OnboardingActivity extends AppCompatActivity {
                 localAllowed ? statusGreen() : Ui.secondaryText(this.dark));
         addSetupRow(optional, localCalendar, false);
         this.content.addView(optional, sectionCardParams());
-
-        addSectionHeader("Recommended");
-        RoundedLinearLayout recommended = Ui.seslRowCard(this, this.dark);
-        boolean batteryDone = SetupReadiness.batteryUnrestrictedAcknowledged(this);
-        String batteryState = batteryDone ? "Reviewed · Unrestricted"
-                : "Tap to set Battery usage → Unrestricted";
-        CardItemView battery = Ui.actionRow(this, "Battery usage", batteryState,
-                R.drawable.ic_oui_time, view -> requestBatteryUnrestricted());
-        setMatchingTextColor(battery, batteryState,
-                batteryDone ? statusGreen() : STATUS_YELLOW);
-        addSetupRow(recommended, battery, true);
-
-        boolean neverSleepingDone = SetupReadiness.neverSleepingAcknowledged(this);
-        String neverSleepingState = neverSleepingDone ? "Reviewed · Never sleeping"
-                : "Tap to add to Never sleeping apps";
-        CardItemView neverSleeping = Ui.actionRow(this, "Samsung background limits",
-                neverSleepingState, R.drawable.ic_oui_time,
-                view -> requestNeverSleepingApps());
-        setMatchingTextColor(neverSleeping, neverSleepingState,
-                neverSleepingDone ? statusGreen() : STATUS_YELLOW);
-        addSetupRow(recommended, neverSleeping, false);
-        this.content.addView(recommended, sectionCardParams());
 
         if (this.doneButton != null) this.doneButton.setEnabled(true);
     }
@@ -575,42 +564,17 @@ public final class OnboardingActivity extends AppCompatActivity {
         }
     }
 
-    private void requestNeverSleepingApps() {
-        this.pendingRecommendedConfirmation = RECOMMENDED_NEVER_SLEEPING;
-        Intent samsung = new Intent(
-                "com.samsung.android.sm.ACTION_OPEN_CHECKABLE_LISTACTIVITY")
-                .setPackage("com.samsung.android.lool")
-                .putExtra("activity_type", 2);
-        try {
-            startActivity(samsung);
-        } catch (RuntimeException exception) {
-            try {
-                startActivity(new Intent(Settings.ACTION_BATTERY_SAVER_SETTINGS));
-            } catch (RuntimeException fallback) {
-                this.pendingRecommendedConfirmation = RECOMMENDED_NONE;
-                Toast.makeText(this, "Could not open Samsung background limits.",
-                        Toast.LENGTH_LONG).show();
-            }
-        }
-    }
-
     private void showRecommendedConfirmation(int item) {
-        final boolean battery = item == RECOMMENDED_BATTERY;
-        String title = battery ? "Battery usage checked?" : "Never sleeping apps checked?";
-        String message = battery
-                ? "Is Codex Monitor set to Unrestricted battery usage?"
-                : "Did you add Codex Monitor to Never sleeping apps?";
+        if (item != RECOMMENDED_BATTERY) return;
         new AlertDialog.Builder(this)
-                .setTitle(title)
-                .setMessage(message)
+                .setTitle("Battery usage checked?")
+                .setMessage("Is Codex Monitor set to Unrestricted battery usage?")
                 .setNegativeButton("Not yet", (dialog, which) -> {
-                    if (battery) SetupReadiness.setBatteryUnrestrictedAcknowledged(this, false);
-                    else SetupReadiness.setNeverSleepingAcknowledged(this, false);
+                    SetupReadiness.setBatteryUnrestrictedAcknowledged(this, false);
                     render();
                 })
                 .setPositiveButton("Yes, done", (dialog, which) -> {
-                    if (battery) SetupReadiness.setBatteryUnrestrictedAcknowledged(this, true);
-                    else SetupReadiness.setNeverSleepingAcknowledged(this, true);
+                    SetupReadiness.setBatteryUnrestrictedAcknowledged(this, true);
                     render();
                 })
                 .show();

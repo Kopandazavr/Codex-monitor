@@ -6,7 +6,7 @@ attached to a signed-in ChatGPT account. This repository is a **monorepo** and p
 | Path | Platform | Notes |
 |------|----------|--------|
 | Repository root | Shared | Docs, license, changelog, CI, convenience script wrappers |
-| [`android/`](android/) | **Android** | Phone app + Wear companion: One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor |
+| [`android/`](android/) | **Android phone** | Supported target: phone app with One UI dashboard, home widgets, Samsung lock/AOD, notifications, optional live usage monitor. Historical Wear source is retired; see [`WEAR_RETIREMENT.md`](WEAR_RETIREMENT.md). |
 | [`ios/`](ios/) | **iPhone / iPad** | Native SwiftUI + WidgetKit client with portable 2.8.0 behavior (meters, monthly Free-tier windows, history analytics, diagnostics, widgets) |
 
 There is no shared backend. Each platform talks to ChatGPT/Codex endpoints
@@ -17,8 +17,6 @@ directly and stores credentials only on-device.
 Codex Watch keeps the fork-owned 2.9.x version line. The Android package identity is `dev.kopandazavr.codexwatch`; this is intentionally a new installed-app identity relative to the prior Codex Meter package. The internal Java namespace is temporarily retained for a bounded migration and does not define the installed package.
 
 The 2.8.0 baseline adapts to Free-tier monthly Codex limits when a paid plan expires, adds opt-in diagnostic log tracing/export, and declutters usage-history analytics with customizable highlights. The current 2.9.x work builds on that baseline with fork-specific process monitoring, idle reminders, Samsung acceptance fixes, and Codex Watch branding.
-
-On compatible Galaxy Watches, those five standard AndroidX Tiles also advertise Samsung's private modular-card hints: the overview requests a 2×2 footprint and the focused usage, reset, and monitor Tiles request 2×1 footprints. Their diagonal One UI gradient cards use the same rounded 228-degree usage-dial geometry and One UI Sans typography as the phone's battery-style widgets. Other Wear OS tile hosts ignore the sizing hints and keep the normal full-screen carousel presentation. Samsung does not document third-party eligibility for modular placement, so final grid behavior remains firmware-dependent.
 
 ### Live countdowns
 
@@ -55,9 +53,9 @@ The app includes:
 
 ## Compatibility
 
-- Phone minimum Android 8.0 (API 26); Wear companion minimum API 30
-- Phone compile SDK Android 16 (API 36); Wear compile SDK Android 17 (API 37.0)
-- Phone and Wear target Android 16 (API 36)
+- Phone minimum Android 8.0 (API 26)
+- Phone compile/target SDK Android 16 (API 36)
+- Wear OS companion: retired / unsupported; historical source only
 - Universal DEX APK with no native ABI libraries
 - Standard Android home-screen widgets
 - Private Samsung One UI lock/AOD integration on compatible Galaxy firmware
@@ -71,7 +69,7 @@ See [`android/README.md`](android/README.md). The Android project uses Gradle wi
 Requirements:
 
 - JDK 17 or newer
-- Android SDK Platforms 36 and 37.0
+- Android SDK Platform 36
 - Android Build Tools 36.x
 - `ANDROID_SDK_ROOT` or `ANDROID_HOME` configured
 - A GitHub Packages token in `GH_ACCESS_TOKEN` (with `read:packages`) and your username in `GH_USERNAME` when the OneUI-Design dependencies are not already cached
@@ -83,7 +81,7 @@ From the repository root:
 ./build.sh
 ```
 
-Or from `android/` directly. `build.sh` assembles the release APKs with Gradle and signs them with a local development key under `android/.local-signing/`. Those locally signed APKs will not install over the distributed release build. Artifacts land in `android/dist/` as `CodexWatch-<version>.apk` and `CodexWatch-Wear-<version>.apk`.
+Or from `android/` directly. `build.sh` assembles the supported phone APK with Gradle and signs it with a local development key under `android/.local-signing/`. That locally signed APK will not install over the distributed release build. Wear OS is not built or released.
 
 ### iOS
 
@@ -101,7 +99,7 @@ xcodebuild -project CodexMeter.xcodeproj -scheme CodexMeter \
 
 ## Releases
 
-Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` runs the full CI pipeline and publishes the signed phone APK, signed Wear OS APK, and their SHA-256 checksums to GitHub Releases. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every release remains on the established signing lineage. Release notes are taken from the root `CHANGELOG.md`.
+Creating a `v*` tag that matches the Gradle `versionName` in `android/app/build.gradle.kts` runs the phone-only CI pipeline and publishes the signed phone APK plus its SHA-256 checksum to GitHub Releases. Wear OS is retired and is not built, tested, signed, versioned, or published. CI authenticates and decrypts the persistent PKCS#12 release keystore `android/ci/release-keystore.p12.enc` (alias `codexmeter`) using the `ANDROID_SIGNING_PASSWORD` repository Actions secret, so every phone release remains on the established signing lineage. Release notes are taken from the root `CHANGELOG.md`.
 
 ## Platform stability
 

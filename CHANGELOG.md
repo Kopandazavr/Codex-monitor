@@ -14,6 +14,7 @@
 
 ### Removed
 - Separate Restart onboarding, duplicated Calendar/overlay permission controls, and the large Settings account/subscription card.
+- Wear OS companion support from the active project graph: future builds, lint, tests, versioning, releases, acceptance, and planning are phone-only; historical Wear source remains unsupported for provenance.
 
 ## 2.8.0 — 2026-08-14
 

@@ -1,9 +1,5 @@
 package dev.kopandazavr.codexmonitor;
 
-import dev.kopandazavr.codexmonitor.wear.WearSettingsState;
-import dev.kopandazavr.codexmonitor.wear.WearSurfaceMode;
-import dev.kopandazavr.codexmonitor.wear.WearSyncStatus;
-import dev.kopandazavr.codexmonitor.wear.WearUsageState;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
@@ -39,10 +35,6 @@ public final class ParserSelfTest {
         testAdaptiveRefreshPolicy();
         testNowBarAutoStart();
         testNowBarDisplayModes();
-        testWearSurfaceModes();
-        testWearSettingsState();
-        testWearSyncState();
-        testWearGlanceFormat();
         testNowBarPercentModes();
         testNowBarCopy();
         testJwtMerge();
@@ -403,160 +395,6 @@ public final class ParserSelfTest {
         System.out.println("Now Bar display mode isolates Android and Samsung notification paths.");
     }
 
-    private static void testWearSurfaceModes() {
-        check(WearSurfaceMode.ONGOING_ACTIVITY == WearSurfaceMode.resolve(
-                        NowBarDisplayMode.SAMSUNG_COMPATIBILITY, 36, true),
-                "Samsung compatibility maps to Wear Ongoing Activity");
-        check(WearSurfaceMode.LIVE_UPDATE == WearSurfaceMode.resolve(
-                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, 36, true),
-                "Wear OS 7 local Live Updates can be used when available");
-        check(WearSurfaceMode.ONGOING_ACTIVITY == WearSurfaceMode.resolve(
-                        NowBarDisplayMode.ANDROID_LIVE_UPDATE, 35, true),
-                "pre-36 Wear falls back to Ongoing Activity");
-        check(WearSurfaceMode.ONGOING_ACTIVITY == WearSurfaceMode.resolve(
-                        NowBarDisplayMode.AUTO, 36, false),
-                "automatic Wear mode falls back when Live Updates are unavailable");
-        check(WearSurfaceMode.LIVE_UPDATE == WearSurfaceMode.resolve(
-                        NowBarDisplayMode.AUTO, 36, true),
-                "automatic Wear mode uses local Live Updates on API 36+");
-        System.out.println("Wear surface mode maps phone Now Bar choices to Wear-native surfaces.");
-    }
-
-    private static void testWearSettingsState() throws Exception {
-        WearSettingsState phone = new WearSettingsState(
-                NowBarDisplayMode.SAMSUNG_COMPATIBILITY,
-                NowBarPercentMode.WEEKLY,
-                true,
-                NowBarAutoStart.METRIC_WEEKLY,
-                50,
-                true,
-                15,
-                1000L,
-                WearSettingsState.SOURCE_PHONE);
-        WearSettingsState roundTrip = WearSettingsState.fromJson(phone.toJson());
-        check(phone.equals(roundTrip), "Wear settings round trip preserves content");
-        WearSettingsState newerSameContent = new WearSettingsState(
-                NowBarDisplayMode.SAMSUNG_COMPATIBILITY,
-                NowBarPercentMode.WEEKLY,
-                true,
-                NowBarAutoStart.METRIC_WEEKLY,
-                50,
-                true,
-                15,
-                2000L,
-                WearSettingsState.SOURCE_PHONE);
-        check(phone.equals(newerSameContent), "Wear settings equality ignores update time");
-        WearSettingsState normalized = WearSettingsState.fromJson(new org.json.JSONObject()
-                .put("display_mode", "bad")
-                .put("percent_mode", "bad")
-                .put("metric", "bad")
-                .put("threshold", 3)
-                .put("refresh_minutes", 7)
-                .put("source_node", "wear"));
-        check(NowBarDisplayMode.AUTO.equals(normalized.displayMode), "Wear settings normalize display mode");
-        check(NowBarPercentMode.AUTO.equals(normalized.percentMode), "Wear settings normalize percent mode");
-        check(NowBarAutoStart.METRIC_BOTH.equals(normalized.metric), "Wear settings normalize metric");
-        check(normalized.threshold == 25, "Wear settings normalize threshold");
-        check(normalized.refreshMinutes == 30, "Wear settings normalize refresh interval");
-        check(WearSettingsState.SOURCE_WEAR.equals(normalized.sourceNode), "Wear settings preserve Wear source");
-        WearSettingsState pace = new WearSettingsState(
-                NowBarDisplayMode.AUTO, NowBarPercentMode.AUTO, true,
-                NowBarAutoStart.METRIC_BOTH, 25, false, 30, 3000L,
-                WearSettingsState.SOURCE_PHONE, "dev.kopandazavr.codexmonitor",
-                true, UsagePace.SENSITIVE, true);
-        WearSettingsState paceRoundTrip = WearSettingsState.fromJson(pace.toJson());
-        check(pace.equals(paceRoundTrip), "Wear settings preserve pace and accelerated start");
-        check(paceRoundTrip.acceleratedStartEnabled,
-                "Wear accelerated monitor preference survives sync");
-        check(UsagePace.SENSITIVE.equals(paceRoundTrip.usagePaceSensitivity),
-                "Wear pace sensitivity survives sync");
-        System.out.println("Wear settings JSON preserves normalized sync preferences.");
-    }
-
-    private static void testWearSyncState() throws Exception {
-        WearUsageState clear = new WearUsageState(null, 4000L,
-                WearSettingsState.SOURCE_PHONE, false);
-        WearUsageState clearRoundTrip = WearUsageState.fromJson(clear.toJson());
-        check(clearRoundTrip != null && clearRoundTrip.snapshot == null,
-                "Wear usage clear payload preserves an empty snapshot");
-        check(!clearRoundTrip.signedIn,
-                "Wear usage clear payload preserves signed-out state");
-        WearSyncStatus status = new WearSyncStatus(true, true, 3000L,
-                "Network unavailable", "2.6.10", 4000L);
-        WearSyncStatus statusRoundTrip = WearSyncStatus.fromJson(status.toJson());
-        check(statusRoundTrip != null && statusRoundTrip.signedIn,
-                "Wear status preserves phone sign-in state");
-        check(statusRoundTrip.refreshInProgress,
-                "Wear status preserves refresh progress");
-        check("Network unavailable".equals(statusRoundTrip.lastError),
-                "Wear status preserves safe refresh errors");
-        System.out.println("Wear sync status covers clear, sign-in, refresh, and error states.");
-    }
-
-    private static void testWearGlanceFormat() {
-        UsageWindow five = new UsageWindow(62, TimeUnit.HOURS.toSeconds(5),
-                TimeUnit.MINUTES.toSeconds(84), 2_000_000_000L);
-        UsageWindow weekly = new UsageWindow(41, TimeUnit.DAYS.toSeconds(7),
-                TimeUnit.DAYS.toSeconds(3), 2_100_000_000L);
-        UsageSnapshot snapshot = new UsageSnapshot("demo", true, false, five, weekly,
-                System.currentTimeMillis());
-        check("38%".equals(WearGlanceFormat.remainingPercentText(five)),
-                "five-hour remaining percent text");
-        check("59%".equals(WearGlanceFormat.remainingPercentText(weekly)),
-                "weekly remaining percent text");
-        check("--".equals(WearGlanceFormat.remainingPercentText(null)),
-                "missing window shows placeholder");
-        check(Math.abs(WearGlanceFormat.remainingProgress(five) - 0.38f) < 0.001f,
-                "remaining progress fraction matches percent");
-        check("38·59".equals(WearGlanceFormat.dualShortText(snapshot)),
-                "dual short complication text");
-        check(WearGlanceFormat.dualLongText(snapshot).contains("5h 38%"),
-                "dual long text includes five-hour");
-        check(WearGlanceFormat.dualLongText(snapshot).contains("Week 59%"),
-                "dual long text includes weekly");
-        long now = System.currentTimeMillis();
-        UsageSnapshot timed = new UsageSnapshot("demo", true, false,
-                new UsageWindow(10, 18000L, 600L, (now + TimeUnit.HOURS.toMillis(2)) / 1000L),
-                new UsageWindow(20, 604800L, 600L, (now + TimeUnit.DAYS.toMillis(2)) / 1000L),
-                now);
-        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(timed, now)),
-                "next reset prefers the sooner five-hour window");
-        check(WearGlanceFormat.nextResetRelativeText(timed, now).contains("h"),
-                "next reset relative text includes hours");
-        check(WearGlanceFormat.nextResetLongText(timed, now).startsWith("Resets in "),
-                "next reset long text is prefixed");
-        UsageSnapshot fallbackTimed = new UsageSnapshot("demo", true, false,
-                new UsageWindow(10, 18000L, TimeUnit.HOURS.toSeconds(2), 0L),
-                null, now);
-        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(fallbackTimed, now)),
-                "Wear reset label uses observation-based reset-after fallback");
-        check(WearGlanceFormat.nextResetRelativeText(fallbackTimed, now).contains("h"),
-                "Wear fallback reset countdown remains finite");
-        UsageSnapshot unused = new UsageSnapshot("demo", true, false,
-                new UsageWindow(0, 18000L, 0L, 0L),
-                new UsageWindow(0, 604800L, 0L, 0L), now);
-        check("--".equals(WearGlanceFormat.nextResetWindowLabel(unused, now)),
-                "unused windows without API reset have no next-reset label");
-        check("No reset yet".equals(WearGlanceFormat.nextResetLongText(unused, now)),
-                "unused windows without API reset show no reset timeframe");
-        UsageSnapshot unusedWithReset = new UsageSnapshot("demo", true, false,
-                new UsageWindow(0, 18000L, 0L,
-                        (now + TimeUnit.HOURS.toMillis(3)) / 1000L),
-                null, now);
-        check("5h reset".equals(WearGlanceFormat.nextResetWindowLabel(unusedWithReset, now)),
-                "100% remaining still surfaces an API reset timeline");
-        UsageSnapshot account = new UsageSnapshot("plus", true, true, five, weekly, 2, now);
-        check("Limit reached".equals(WearGlanceFormat.accountStatus(account)),
-                "Wear account status surfaces a reached limit");
-        check("2 reset credits".equals(WearGlanceFormat.resetCreditsText(account)),
-                "Wear displays reset-credit count");
-        check(WearGlanceFormat.isStale(now - TimeUnit.HOURS.toMillis(2), 30, now),
-                "Wear marks old phone data stale");
-        check(!WearGlanceFormat.isStale(now - TimeUnit.MINUTES.toMillis(10), 30, now),
-                "Wear keeps recent phone data fresh");
-        System.out.println("Wear glance formatting covers tiles and complication text.");
-    }
-
     private static void testNowBarPercentModes() {
         UsageWindow high = new UsageWindow(10, 18000L, 600L, 2000000000L); // 90% remaining
         UsageWindow mid = new UsageWindow(80, 18000L, 600L, 2000000000L); // 20% remaining
@@ -678,11 +516,6 @@ public final class ParserSelfTest {
                         NowBarCopy.limitText("5-hour", null, observed, now)),
                 "missing window stays unavailable");
 
-        check("5h 60%".equals(NowBarCopy.wearLimitText("5h", remaining, observed, now)),
-                "Wear limit text keeps remaining percentage");
-        check("Week resets 2d 4h".equals(
-                        NowBarCopy.wearLimitText("Week", exhaustedDays, observed, now)),
-                "Wear exhausted weekly text uses compact reset duration");
         check("2d 4h".equals(NowBarCopy.compactDuration(
                         TimeUnit.DAYS.toMillis(2) + TimeUnit.HOURS.toMillis(4))),
                 "compact duration prefers days and hours");
@@ -712,7 +545,7 @@ public final class ParserSelfTest {
 
     /**
      * Free-tier accounts report a single ~30-day Codex window. It must parse into the monthly
-     * slot, stay displayable, and adapt every long-window surface (widgets, Wear, Now Bar).
+     * slot, stay displayable, and adapt current phone long-window surfaces.
      */
     private static void testMonthlyWindow() throws Exception {
         long now = 2_000_000_000_000L;
@@ -760,7 +593,7 @@ public final class ParserSelfTest {
         check(pro.longWindow() == pro.weekly && !pro.longWindowIsMonthly(),
                 "weekly stays the long window whenever it is reported");
 
-        // Long-window consumers adapt: widgets and Wear surfaces label the monthly window.
+        // Phone long-window consumers adapt to the monthly window.
         check(WidgetMeters.meterWindow(WidgetMeters.WEEKLY, snapshot) == snapshot.monthly,
                 "weekly widget meter falls back to the monthly window");
         check("Mo".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, snapshot)),
@@ -770,20 +603,6 @@ public final class ParserSelfTest {
                 "widget config row names the monthly window");
         check("Wk".equals(WidgetMeters.shortLabel(WidgetMeters.WEEKLY, pro)),
                 "weekly widget meter keeps its label on paid tiers");
-        check("Monthly".equals(WearGlanceFormat.longWindowLabel(snapshot))
-                        && "Month".equals(WearGlanceFormat.longWindowShortLabel(snapshot)),
-                "Wear surfaces label the monthly long window");
-        check("Weekly".equals(WearGlanceFormat.longWindowLabel(pro)),
-                "Wear surfaces keep the weekly label on paid tiers");
-        check(WearGlanceFormat.dualLongText(snapshot).contains("Month 72%"),
-                "Wear dual text reports monthly remaining");
-        check(WearGlanceFormat.focusSummary(snapshot).contains("Month"),
-                "Wear focus summary includes the monthly window");
-        check("Month".equals(WearGlanceFormat.compactWindowLabel(snapshot.monthly, "5h")),
-                "compact window label recognizes month-length windows");
-        check("Month reset".equals(WearGlanceFormat.nextResetWindowLabel(snapshot, now)),
-                "next-reset label names the monthly window");
-
         // Refresh cadence and low-usage automation follow the monthly window too.
         check(AdaptiveRefreshPolicy.chooseMinutes(snapshot, 0.0d, 12, 0, now) == 30,
                 "72% remaining monthly quota refreshes at a balanced cadence");
@@ -797,7 +616,7 @@ public final class ParserSelfTest {
         check(NowBarAutoStart.shouldStart(true, "both", 25, null, lowMonthly.longWindow()),
                 "monthly window triggers low-usage auto-start through the long slot");
         System.out.println("Monthly-window demo: Pro 20x expiring to Free swaps weekly for "
-                + "a monthly card, widgets/Wear relabel, and nothing errors.");
+                + "a monthly phone card/widget surface, and nothing errors.");
     }
 
     private static void testWindowIdentification() throws Exception {

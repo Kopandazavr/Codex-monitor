@@ -108,8 +108,6 @@ grep -Fq 'INTERVALS = {5, 10, 15, 30, 60, 120}' "$SHARED/AdaptiveRefreshPolicy.j
 # Current code-bearing candidate identity.
 grep -Fq 'versionCode = 44' "$ROOT/app/build.gradle.kts"
 grep -Fq 'versionName = "2.18.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionCode = 44' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'versionName = "2.18.0"' "$ROOT/wear/build.gradle.kts"
 grep -Fq 'VERSION_CODE = 44' "$SRC/AppConstants.java"
 grep -Fq 'VERSION_NAME = "2.18.0"' "$SRC/AppConstants.java"
 

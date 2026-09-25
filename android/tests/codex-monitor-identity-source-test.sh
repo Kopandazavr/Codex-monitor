@@ -2,9 +2,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_GRADLE="$ROOT/app/build.gradle.kts"
-WEAR_GRADLE="$ROOT/wear/build.gradle.kts"
 STRINGS="$ROOT/app/src/main/res/values/strings.xml"
-WEAR_STRINGS="$ROOT/wear/src/main/res/values/strings.xml"
 BUILD="$ROOT/build.sh"
 WORKFLOW="$ROOT/../.github/workflows/build-apk.yml"
 BRANDING="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/Branding.java"
@@ -25,24 +23,19 @@ LAUNCHER="$ROOT/app/src/main/res/mipmap-anydpi/ic_launcher.xml"
 LAUNCHER_V33="$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
 MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
 
-# Canonical install/source identity is Codex Monitor everywhere in current Android sources.
+# Canonical supported Android identity is the phone app. Wear source is historical/unsupported.
 grep -Fq 'applicationId = "dev.kopandazavr.codexmonitor"' "$APP_GRADLE"
-grep -Fq 'applicationId = "dev.kopandazavr.codexmonitor"' "$WEAR_GRADLE"
 grep -Fq 'namespace = "dev.kopandazavr.codexmonitor"' "$APP_GRADLE"
-grep -Fq 'namespace = "dev.kopandazavr.codexmonitor"' "$WEAR_GRADLE"
-! grep -R -Fq 'dev.bennett.codexmeter' "$ROOT/app/src" "$ROOT/shared/src" "$ROOT/wear/src"
-! grep -R -Fq 'dev.kopandazavr.codexwatch' "$ROOT/app/src" "$ROOT/shared/src" "$ROOT/wear/src"
+! grep -R -Fq 'dev.bennett.codexmeter' "$ROOT/app/src" "$ROOT/shared/src"
+! grep -R -Fq 'dev.kopandazavr.codexwatch' "$ROOT/app/src" "$ROOT/shared/src"
 grep -Fq '<string name="app_name">Codex Monitor</string>' "$STRINGS"
-grep -Fq '<string name="app_name">Codex Monitor</string>' "$WEAR_STRINGS"
 grep -Fq 'private static final String PRODUCT_NAME = "Codex Monitor"' "$BRANDING"
 grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
-# Current Codex Monitor identity release stays aligned on phone/Wear.
+# Current supported phone candidate identity.
 grep -Fq 'versionName = "2.18.0"' "$APP_GRADLE"
 grep -Fq 'versionCode = 44' "$APP_GRADLE"
-grep -Fq 'versionName = "2.18.0"' "$WEAR_GRADLE"
-grep -Fq 'versionCode = 44' "$WEAR_GRADLE"
 grep -Fq 'rootProject.name = "Codex-Monitor"' "$ROOT/settings.gradle.kts"
 grep -Fq 'play-services-auth:22.0.0' "$APP_GRADLE"
 grep -Fq 'codex-monitor-local.p12' "$APP_GRADLE"
@@ -54,10 +47,10 @@ grep -Fq 'codex_meter_watchdog' "$CALENDAR" # legacy parser compatibility only
 # Release artifacts keep the Codex Monitor identity, but the personal-use app no longer contains an
 # in-app update client, installer, release browser, install permission, or update API config.
 grep -Fq 'OUT="$DIST/CodexMonitor-$VERSION_NAME.apk"' "$BUILD"
-grep -Fq 'WEAR_OUT="$DIST/CodexMonitor-Wear-$VERSION_NAME.apk"' "$BUILD"
+! grep -Fq 'CodexMonitor-Wear' "$BUILD"
 grep -Fq 'name: Build Codex Monitor APK' "$WORKFLOW"
 grep -Fq 'name: codex-monitor-${{ steps.version.outputs.name }}-ci' "$WORKFLOW"
-grep -Fq 'release-dist/CodexMonitor-Wear-$VERSION_NAME.apk#Codex Monitor Wear OS $VERSION_NAME APK' "$WORKFLOW"
+! grep -Fq 'CodexMonitor-Wear' "$WORKFLOW"
 grep -Fq -- '--title "Codex Monitor $VERSION_NAME"' "$WORKFLOW"
 ! grep -Fq 'UPDATE_API_URL' "$APP_GRADLE"
 ! grep -Fq 'REQUEST_INSTALL_PACKAGES' "$MANIFEST"

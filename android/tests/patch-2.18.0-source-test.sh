@@ -47,7 +47,5 @@ grep -Fq 'NowBarManager.restore(context)' "$SRC/BootReceiver.java"
 
 grep -Fq 'versionCode = 44' "$ROOT/app/build.gradle.kts"
 grep -Fq 'versionName = "2.18.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionCode = 44' "$ROOT/wear/build.gradle.kts"
-grep -Fq 'versionName = "2.18.0"' "$ROOT/wear/build.gradle.kts"
 
 echo "Codex Monitor 2.18 source contract PASS"

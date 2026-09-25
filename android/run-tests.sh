@@ -60,13 +60,6 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarDisplayMode.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarPercentMode.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarCopy.java" \
-  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSyncPaths.java" \
-  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSyncStatus.java" \
-  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSettingsState.java" \
-  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearUsageState.java" \
-  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearMonitorState.java" \
-  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/wear/WearSurfaceMode.java" \
-  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/WearGlanceFormat.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RateLimitResetCredit.java" \
@@ -86,8 +79,6 @@ APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.g
 [[ -n "$APP_VERSION_NAME" && -n "$APP_VERSION_CODE" ]]
 grep -q "VERSION_NAME = \"$APP_VERSION_NAME\"" "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
 grep -q "VERSION_CODE = $APP_VERSION_CODE" "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
-grep -q "versionName = \"$APP_VERSION_NAME\"" "$ROOT/wear/build.gradle.kts"
-grep -q "versionCode = $APP_VERSION_CODE" "$ROOT/wear/build.gradle.kts"
 grep -q 'return ORIGINATOR + "/" + VERSION_NAME' "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
 
 MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
@@ -233,4 +224,5 @@ grep -q 'NowBarActionReceiver' "$MANIFEST"
 grep -q 'WidgetRepairJobService' "$MANIFEST"
 grep -Fq 'branches: [main, alpha]' "$WORKFLOW"
 
+bash "$ROOT/tests/wear-retirement-source-test.sh"
 echo "Codex Monitor regression/source checks PASS"

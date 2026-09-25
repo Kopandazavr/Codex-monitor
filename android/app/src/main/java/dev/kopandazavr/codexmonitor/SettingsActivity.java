@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -18,7 +17,6 @@ import android.provider.Settings;
 import android.text.InputType;
 import android.view.View;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -32,8 +30,6 @@ import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.kopandazavr.codexmonitor.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
-import dev.oneuiproject.oneui.preference.LayoutPreference;
-import dev.oneuiproject.oneui.widget.CardItemView;
 import java.math.BigDecimal;
 import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
@@ -110,7 +106,6 @@ public final class SettingsActivity extends AppCompatActivity {
 
         private String page = PAGE_ROOT;
         private Preference expiryTimesPreference;
-        private Preference permissionPreference;
         private Preference testNotificationPreference;
         private PreferenceCategory notificationLowUsageCategory;
         private PreferenceCategory notificationResetCreditCategory;
@@ -196,20 +191,11 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindRoot() {
-            bindAccount();
-
-            SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
-            allow.setEnabled(true);
-            allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
-            allow.setOnPreferenceChangeListener((preference, value) -> {
-                setNotificationsEnabled((Boolean) value);
-                return true;
-            });
-
-            permissionPreference = findPreference("notification_permission");
-            permissionPreference.setOnPreferenceClickListener(preference -> {
-                startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
+            Preference setup = findPreference("permissions_connections");
+            setup.setOnPreferenceClickListener(preference -> {
+                DiagnosticLog.info(requireContext(), "user", "permissions_connections_opened");
+                startActivity(new Intent(requireContext(), OnboardingActivity.class)
+                        .putExtra(OnboardingActivity.EXTRA_PERMISSIONS_CONNECTIONS, true));
                 return true;
             });
 
@@ -217,7 +203,6 @@ public final class SettingsActivity extends AppCompatActivity {
             bindPageLink("settings_now_bar", PAGE_NOW_BAR);
             bindPageLink("settings_diagnostics", PAGE_DIAGNOSTICS);
             updateRootSummaries();
-            updatePermissionSummary();
         }
 
         private void bindPageLink(String key, String targetPage) {
@@ -232,14 +217,6 @@ public final class SettingsActivity extends AppCompatActivity {
         }
 
         private void bindDiagnostics() {
-            findPreference("restart_onboarding").setOnPreferenceClickListener(preference -> {
-                DiagnosticLog.info(requireContext(), "user", "restart_onboarding_requested",
-                        "source", "diagnostics");
-                startActivity(new Intent(requireContext(), OnboardingActivity.class)
-                        .putExtra(OnboardingActivity.EXTRA_RESTART_ONBOARDING, true)
-                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
-                return true;
-            });
             findPreference("export_diagnostic_logs").setOnPreferenceClickListener(preference -> {
                 launchDiagnosticExport();
                 return true;
@@ -366,8 +343,10 @@ public final class SettingsActivity extends AppCompatActivity {
         private void updateRootSummaries() {
             if (!PAGE_ROOT.equals(page) || getContext() == null) return;
 
-            SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
-            if (allow != null) allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
+            Preference setup = findPreference("permissions_connections");
+            if (setup != null) {
+                setup.setSummary(SetupReadiness.requiredSummary(requireContext()));
+            }
 
             Preference notifications = findPreference("settings_notifications");
             if (notifications != null) {
@@ -384,90 +363,16 @@ public final class SettingsActivity extends AppCompatActivity {
                 DiagnosticLog.Stats stats = DiagnosticLog.stats(requireContext());
                 diagnostics.setSummary("Always on · " + DiagnosticLog.formatBytes(stats.bytes));
             }
-            updatePermissionSummary();
-        }
-
-        private void bindAccount() {
-            boolean dark = Ui.isDark(requireContext());
-            LayoutPreference preference = findPreference("account_card");
-            LinearLayout card = preference.findViewById(R.id.settings_account_card);
-            GradientDrawable cardBackground = new GradientDrawable();
-            cardBackground.setShape(GradientDrawable.RECTANGLE);
-            cardBackground.setColor(Ui.cardColor(requireContext(), dark));
-            cardBackground.setCornerRadius(Ui.dp(requireContext(), 26));
-            card.setBackground(cardBackground);
-            card.setClipToOutline(true);
-            ImageView avatar = preference.findViewById(R.id.settings_account_avatar);
-            GradientDrawable avatarBackground = new GradientDrawable();
-            avatarBackground.setShape(GradientDrawable.OVAL);
-            avatarBackground.setColor(Ui.controlSurface(requireContext(), dark));
-            avatar.setBackground(avatarBackground);
-            avatar.setPadding(Ui.dp(requireContext(), 10), Ui.dp(requireContext(), 10),
-                    Ui.dp(requireContext(), 10), Ui.dp(requireContext(), 10));
-            avatar.setImageResource(R.drawable.ic_oui_contact_outline);
-            avatar.setColorFilter(Ui.mainText(dark));
-            TextView title = preference.findViewById(R.id.settings_account_title);
-            TextView summary = preference.findViewById(R.id.settings_account_summary);
-            TextView plan = preference.findViewById(R.id.settings_account_plan);
-            CardItemView action = preference.findViewById(R.id.settings_account_action);
-            title.setTextColor(Ui.mainText(dark));
-            summary.setTextColor(Ui.secondaryText(dark));
-            plan.setTextColor(Ui.mainText(dark));
-            plan.setBackground(Ui.pillBackground(requireContext(), dark));
-
-            AuthTokens tokens = SecureTokenStore.load(requireContext());
-            UsageSnapshot snapshot = AppPreferences.loadSnapshot(requireContext());
-            title.setText(tokens == null ? "Not connected" : "ChatGPT account");
-            summary.setText(tokens == null ? "Sign in from the dashboard"
-                    : (tokens.email.isEmpty() ? "Connected" : tokens.email));
-            if (tokens != null && snapshot != null) {
-                String label = UsageFormat.planLabel(snapshot.planType);
-                plan.setText(label.isEmpty() ? "Codex" : label);
-                plan.setVisibility(View.VISIBLE);
-            } else {
-                plan.setVisibility(View.GONE);
-            }
-            action.getTitleView().setText(tokens == null ? "Sign in with ChatGPT" : "Sign out");
-            action.getTitleView().setTextColor(tokens == null
-                    ? Ui.accent(requireContext(), dark)
-                    : (dark ? 0xFFFF6B6B : 0xFFFF3B30));
-            action.setOnClickListener(view -> {
-                if (SecureTokenStore.isSignedIn(requireContext())) {
-                    confirmSignOut();
-                } else {
-                    startActivity(new Intent(requireContext(), MainActivity.class)
-                            .putExtra("start_sign_in", true));
-                    requireActivity().finish();
-                }
-            });
-        }
-
-        private void confirmSignOut() {
-            AlertDialog dialog = new AlertDialog.Builder(requireContext())
-                    .setTitle("Sign out?")
-                    .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
-                    .setNegativeButton("Cancel", null)
-                    .setPositiveButton("Sign out", (dialogInterface, which) -> {
-                        AuthTokens tokens = SecureTokenStore.load(requireContext());
-                        SecureTokenStore.clear(requireContext());
-                        AppPreferences.clearSnapshot(requireContext());
-                        AppPreferences.setOAuthPending(requireContext(), false, "");
-                        RefreshScheduler.cancelAll(requireContext());
-                        ResetAlertScheduler.cancelAll(requireContext());
-                        WidgetRenderer.updateAll(requireContext());
-                        Toast.makeText(requireContext(), "Signed out.", Toast.LENGTH_SHORT).show();
-                        requireActivity().recreate();
-                        if (tokens != null) {
-                            Context app = requireContext().getApplicationContext();
-                            new Thread(() -> OAuthClient.revokeBestEffort(app, tokens),
-                                    "codex-sign-out").start();
-                        }
-                    })
-                    .create();
-            dialog.show();
         }
 
         private void bindNotifications() {
+            SwitchPreferenceCompat allow = findPreference("notifications_allowed_ui");
+            allow.setEnabled(true);
+            allow.setChecked(ResetAlertPreferences.enabled(requireContext()));
+            allow.setOnPreferenceChangeListener((preference, value) -> {
+                setNotificationsEnabled((Boolean) value);
+                return true;
+            });
             notificationLowUsageCategory = findPreference("notification_low_usage_category");
             notificationResetCreditCategory =
                     findPreference("notification_reset_credit_category");
@@ -536,12 +441,6 @@ public final class SettingsActivity extends AppCompatActivity {
             });
             updateExpiryTimesSummary();
 
-            permissionPreference = findPreference("notification_permission");
-            permissionPreference.setOnPreferenceClickListener(preference -> {
-                startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName()));
-                return true;
-            });
             testNotificationPreference = findPreference("notification_test");
             testNotificationPreference.setOnPreferenceClickListener(preference -> {
                 boolean sent = ResetNotificationManager.sendTestNotification(requireContext());
@@ -841,34 +740,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
-            Preference googleCalendar = findPreference("google_calendar_connection");
-            googleCalendar.setSummary(GoogleCalendarAuthorization.statusSummary(requireContext()));
-            googleCalendar.setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(),
-                        GoogleCalendarAuthorizationActivity.class);
-                return true;
-            });
-
-            Preference calendarAccess = findPreference("calendar_process_access");
-            calendarAccess.setOnPreferenceClickListener(preference -> {
-                Ui.startSecondaryActivity(requireActivity(), CalendarPermissionActivity.class);
-                return true;
-            });
-
-            Preference overlayAccess = findPreference("idle_overlay_access");
-            overlayAccess.setOnPreferenceClickListener(preference -> {
-                Intent overlay = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:" + requireContext().getPackageName()));
-                try {
-                    startActivity(overlay);
-                } catch (RuntimeException exception) {
-                    Toast.makeText(requireContext(),
-                            "Overlay settings are not available on this device.",
-                            Toast.LENGTH_LONG).show();
-                }
-                return true;
-            });
-
             Preference preview = findPreference("now_bar_preview");
             preview.setVisible((requireContext().getApplicationInfo().flags
                     & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
@@ -1047,12 +918,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 nowBarPercentModePreference.setValue(
                         NowBarPreferences.getPercentMode(requireContext()));
             }
-            Preference googleCalendar = findPreference("google_calendar_connection");
-            if (googleCalendar != null) {
-                googleCalendar.setSummary(
-                        GoogleCalendarAuthorization.statusSummary(requireContext()));
-            }
-
             if (nowBarPermissionPreference != null) {
                 String summary;
                 if (!NowBarManager.canPostNotifications(requireContext())) {
@@ -1121,9 +986,6 @@ public final class SettingsActivity extends AppCompatActivity {
                     || requireContext().checkSelfPermission(
                     "android.permission.POST_NOTIFICATIONS")
                     == PackageManager.PERMISSION_GRANTED);
-            if (permissionPreference != null) {
-                permissionPreference.setSummary(allowed ? "Allowed" : "Not allowed");
-            }
             if (testNotificationPreference != null) {
                 testNotificationPreference.setEnabled(
                         allowed && ResetAlertPreferences.enabled(requireContext()));

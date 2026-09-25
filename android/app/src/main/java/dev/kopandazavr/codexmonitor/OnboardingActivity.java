@@ -22,6 +22,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import dev.oneuiproject.oneui.widget.CardItemView;
 import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
@@ -29,7 +30,7 @@ import dev.oneuiproject.oneui.widget.RoundedLinearLayout;
 /** One-page first-run setup focused on the controls needed to make Codex Monitor useful quickly. */
 public final class OnboardingActivity extends AppCompatActivity {
     public static final String EXTRA_AUTH_RETURN = "oauth_return";
-    public static final String EXTRA_RESTART_ONBOARDING = "restart_onboarding";
+    public static final String EXTRA_PERMISSIONS_CONNECTIONS = "permissions_connections";
     private static final int REQUEST_NOTIFICATIONS = 8601;
     private static final int STATUS_GREEN_LIGHT = 0xFF16843D;
     private static final int STATUS_GREEN_DARK = 0xFF6EDC8C;
@@ -42,6 +43,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     private boolean dark;
     private boolean receiverRegistered;
     private boolean oauthRequested;
+    private boolean settingsEntry;
     private boolean startMonitorAfterNotificationPermission;
     private String authMessage = "";
     private String lastLaunchedAuthUrl = "";
@@ -81,9 +83,9 @@ public final class OnboardingActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
-        boolean restartRequested =
-                getIntent().getBooleanExtra(EXTRA_RESTART_ONBOARDING, false);
-        if (AppPreferences.isOnboardingComplete(this) && !restartRequested) {
+        this.settingsEntry =
+                getIntent().getBooleanExtra(EXTRA_PERMISSIONS_CONNECTIONS, false);
+        if (AppPreferences.isOnboardingComplete(this) && !this.settingsEntry) {
             openMain();
             return;
         }
@@ -101,6 +103,8 @@ public final class OnboardingActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        this.settingsEntry = intent.getBooleanExtra(
+                EXTRA_PERMISSIONS_CONNECTIONS, this.settingsEntry);
         this.oauthRequested = AppPreferences.isOAuthPending(this);
         if (SecureTokenStore.isSignedIn(this)) {
             this.authMessage = "ChatGPT connected.";
@@ -181,31 +185,22 @@ public final class OnboardingActivity extends AppCompatActivity {
         ensureNotificationFeatureDefault();
         this.content.removeAllViews();
 
-        TextView intro = Ui.text(this,
-                "Connect ChatGPT, allow notifications and Calendar, then turn on Live monitor. "
-                        + "Everything else stays in Settings.",
+        TextView readiness = Ui.text(this, SetupReadiness.requiredSummary(this),
                 14.0f, Ui.secondaryText(this.dark));
-        LinearLayout.LayoutParams introParams = new LinearLayout.LayoutParams(-1, -2);
-        introParams.setMargins(Ui.dp(this, 8), Ui.dp(this, 6), Ui.dp(this, 8), Ui.dp(this, 10));
-        this.content.addView(intro, introParams);
+        LinearLayout.LayoutParams readinessParams = new LinearLayout.LayoutParams(-1, -2);
+        readinessParams.setMargins(Ui.dp(this, 8), 0, Ui.dp(this, 8), Ui.dp(this, 4));
+        this.content.addView(readiness, readinessParams);
 
-        RoundedLinearLayout setup = Ui.seslRowCard(this, this.dark);
-
-        String accountState = accountSummary();
-        CardItemView account = Ui.actionRow(this, "ChatGPT account", accountState,
-                R.drawable.ic_oui_contact_outline, view -> startSignIn());
-        boolean signedIn = SecureTokenStore.isSignedIn(this);
-        setStatusTokenColor(account, accountState,
-                signedIn ? "Connected" : "Not connected",
-                signedIn ? statusGreen() : statusRed());
-        addSetupRow(setup, account, true);
+        addSectionHeader("Required");
+        RoundedLinearLayout required = Ui.seslRowCard(this, this.dark);
+        addAccountRow(required);
 
         String notificationState = notificationSummary();
         CardItemView notifications = Ui.actionRow(this, "Notifications", notificationState,
                 R.drawable.ic_oui_notification, view -> requestNotificationAccess(false));
         setMatchingTextColor(notifications, notificationState,
-                hasNotificationPermission() ? statusGreen() : STATUS_YELLOW);
-        addSetupRow(setup, notifications, true);
+                SetupReadiness.notificationsAllowed(this) ? statusGreen() : STATUS_YELLOW);
+        addSetupRow(required, notifications, true);
 
         boolean calendarConnected = GoogleCalendarAuthorization.isConnected(this);
         String calendarState = calendarSummary();
@@ -213,27 +208,48 @@ public final class OnboardingActivity extends AppCompatActivity {
                 R.drawable.ic_oui_calendar_week, view -> requestCalendarAccess());
         setMatchingTextColor(calendar, calendarState,
                 calendarConnected ? statusGreen() : STATUS_YELLOW);
-        addSetupRow(setup, calendar, true);
+        addSetupRow(required, calendar, true);
 
         boolean overlayAllowed = IdleReminderOverlayService.canDraw(this);
-        String overlayState = overlayAllowed ? "Allowed" : "Tap to allow completion overlays";
+        String overlayState = overlayAllowed ? "Allowed" : "Tap to allow";
         CardItemView overlay = Ui.actionRow(this, "Completion overlay", overlayState,
                 R.drawable.ic_oui_notification, view -> requestOverlayAccess());
         setMatchingTextColor(overlay, overlayState,
                 overlayAllowed ? statusGreen() : STATUS_YELLOW);
-        addSetupRow(setup, overlay, true);
+        addSetupRow(required, overlay, true);
+
+        boolean exactAlarmAllowed = SetupReadiness.exactAlarmAllowed(this);
+        String alarmState = exactAlarmAllowed ? "Allowed" : "Tap to allow";
+        CardItemView alarms = Ui.actionRow(this, "Alarms & reminders", alarmState,
+                R.drawable.ic_oui_alarm, view -> requestExactAlarmAccess());
+        setMatchingTextColor(alarms, alarmState,
+                exactAlarmAllowed ? statusGreen() : STATUS_YELLOW);
+        addSetupRow(required, alarms, false);
+        this.content.addView(required, sectionCardParams());
 
         String monitorState = monitorSummary();
+        RoundedLinearLayout monitorCard = Ui.seslRowCard(this, this.dark);
         CardItemView monitor = Ui.actionRow(this, "Live monitor", monitorState,
                 R.drawable.ic_oui_time, view -> enableLiveMonitor());
         setMatchingTextColor(monitor, monitorState,
                 NowBarManager.isActive(this) ? statusGreen() : STATUS_YELLOW);
-        addSetupRow(setup, monitor, false);
-        this.content.addView(setup);
+        addSetupRow(monitorCard, monitor, false);
+        LinearLayout.LayoutParams monitorParams = sectionCardParams();
+        monitorParams.setMargins(0, Ui.dp(this, 6), 0, Ui.dp(this, 2));
+        this.content.addView(monitorCard, monitorParams);
 
-        if (this.doneButton != null) {
-            this.doneButton.setEnabled(true);
-        }
+        addSectionHeader("Optional");
+        RoundedLinearLayout optional = Ui.seslRowCard(this, this.dark);
+        boolean localAllowed = SetupReadiness.localCalendarAllowed(this);
+        String localState = localAllowed ? "Allowed" : "Tap to allow fallback";
+        CardItemView localCalendar = Ui.actionRow(this, "Local Calendar fallback", localState,
+                R.drawable.ic_oui_calendar_week, view -> requestLocalCalendarAccess());
+        setMatchingTextColor(localCalendar, localState,
+                localAllowed ? statusGreen() : STATUS_YELLOW);
+        addSetupRow(optional, localCalendar, false);
+        this.content.addView(optional, sectionCardParams());
+
+        if (this.doneButton != null) this.doneButton.setEnabled(true);
     }
 
     private void installStaticLayout() {
@@ -244,7 +260,8 @@ public final class OnboardingActivity extends AppCompatActivity {
         root.setPadding(Ui.dp(this, 18), Ui.dp(this, 14),
                 Ui.dp(this, 18), Ui.dp(this, 18));
 
-        TextView title = Ui.title(this, "Quick setup", this.dark);
+        TextView title = Ui.title(this,
+                this.settingsEntry ? "Permissions & connections" : "Quick setup", this.dark);
         title.setTextSize(30.0f);
         LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(-1, -2);
         titleParams.setMargins(Ui.dp(this, 4), 0, Ui.dp(this, 4), Ui.dp(this, 8));
@@ -256,7 +273,8 @@ public final class OnboardingActivity extends AppCompatActivity {
                 new LinearLayout.LayoutParams(-1, 0, 1.0f);
         root.addView(this.content, contentParams);
 
-        this.doneButton = Ui.nativePrimaryButton(this, "Open Codex Monitor");
+        this.doneButton = Ui.nativePrimaryButton(this,
+                this.settingsEntry ? "Done" : "Open Codex Monitor");
         this.doneButton.setOnClickListener(view -> completeAndOpenMain());
         LinearLayout.LayoutParams doneParams =
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 54));
@@ -268,7 +286,54 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private void addSetupRow(RoundedLinearLayout setup, CardItemView row, boolean divider) {
         row.setShowBottomDivider(divider);
-        setup.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, 60)));
+        setup.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
+    }
+
+    private void addAccountRow(RoundedLinearLayout setup) {
+        boolean signedIn = SecureTokenStore.isSignedIn(this);
+        LinearLayout row = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        row.setPadding(Ui.dp(this, 14), 0, Ui.dp(this, 10), 0);
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView title = Ui.text(this, "ChatGPT", 15.0f, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        copy.addView(title);
+        TextView summary = Ui.text(this, accountSummary(), 11.5f, Ui.secondaryText(this.dark));
+        copy.addView(summary);
+        row.addView(copy, new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+        Button action = Ui.topAction(this, signedIn ? "Sign out" : "Sign in", this.dark);
+        action.setTextSize(13.0f);
+        action.setMinimumHeight(0);
+        action.setMinHeight(0);
+        if (signedIn) action.setTextColor(this.dark ? 0xFFFF6B6B : 0xFFFF3B30);
+        action.setOnClickListener(view -> {
+            if (SecureTokenStore.isSignedIn(this)) confirmSignOut();
+            else startSignIn();
+        });
+        row.addView(action, new LinearLayout.LayoutParams(-2, Ui.dp(this, 38)));
+        setup.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, 54)));
+
+        View divider = new View(this);
+        divider.setBackgroundColor(Ui.divider(this.dark));
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(-1, 1);
+        dividerParams.setMargins(Ui.dp(this, 14), 0, 0, 0);
+        setup.addView(divider, dividerParams);
+    }
+
+    private void addSectionHeader(String title) {
+        TextView header = Ui.text(this, title, 13.0f, Ui.secondaryText(this.dark));
+        header.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(Ui.dp(this, 8), Ui.dp(this, 3), Ui.dp(this, 8), Ui.dp(this, 3));
+        this.content.addView(header, params);
+    }
+
+    private LinearLayout.LayoutParams sectionCardParams() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, 0, 0, Ui.dp(this, 3));
+        return params;
     }
 
     private int statusGreen() {
@@ -315,9 +380,7 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private String accountSummary() {
         if (!SecureTokenStore.isSignedIn(this)) {
-            return AppPreferences.isOAuthPending(this)
-                    ? "Sign-in in progress · tap to continue"
-                    : "Not connected · tap to sign in";
+            return AppPreferences.isOAuthPending(this) ? "Sign-in in progress" : "Not connected";
         }
         AuthTokens tokens = SecureTokenStore.load(this);
         return tokens != null && !tokens.email.isEmpty()
@@ -325,8 +388,8 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private String notificationSummary() {
-        return hasNotificationPermission()
-                ? "Allowed" : "Tap to allow usage and process alerts";
+        return SetupReadiness.notificationsAllowed(this)
+                ? "Allowed" : "Tap to allow";
     }
 
     private String calendarSummary() {
@@ -365,19 +428,24 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void requestNotificationAccess(boolean forMonitor) {
-        if (hasNotificationPermission()) {
+        if (SetupReadiness.notificationsAllowed(this)) {
             ensureNotificationFeatureDefault();
             if (forMonitor) enableLiveMonitor();
-            else Toast.makeText(this, "Notifications are already allowed.", Toast.LENGTH_SHORT).show();
+            else Toast.makeText(this, "Notifications are already allowed.",
+                    Toast.LENGTH_SHORT).show();
             return;
         }
-        if (Build.VERSION.SDK_INT >= 33) {
+        if (Build.VERSION.SDK_INT >= 33 && !hasNotificationPermission()) {
             this.startMonitorAfterNotificationPermission = forMonitor;
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},
                     REQUEST_NOTIFICATIONS);
-        } else {
-            Toast.makeText(this,
-                    "Enable Codex Monitor notifications in Android Settings.",
+            return;
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
+        } catch (RuntimeException exception) {
+            Toast.makeText(this, "Could not open notification settings.",
                     Toast.LENGTH_LONG).show();
         }
     }
@@ -406,6 +474,49 @@ public final class OnboardingActivity extends AppCompatActivity {
 
     private void requestCalendarAccess() {
         Ui.startSecondaryActivity(this, GoogleCalendarAuthorizationActivity.class);
+    }
+
+    private void requestLocalCalendarAccess() {
+        Ui.startSecondaryActivity(this, CalendarPermissionActivity.class);
+    }
+
+    private void requestExactAlarmAccess() {
+        if (SetupReadiness.exactAlarmAllowed(this)) {
+            Toast.makeText(this, "Alarms & reminders are already allowed.",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                    Uri.parse("package:" + getPackageName())));
+        } catch (RuntimeException exception) {
+            Toast.makeText(this, "Could not open Alarms & reminders settings.",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void confirmSignOut() {
+        new AlertDialog.Builder(this)
+                .setTitle("Sign out?")
+                .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Sign out", (dialog, which) -> {
+                    AuthTokens tokens = SecureTokenStore.load(this);
+                    SecureTokenStore.clear(this);
+                    AppPreferences.clearSnapshot(this);
+                    AppPreferences.setOAuthPending(this, false, "");
+                    RefreshScheduler.cancelAll(this);
+                    ResetAlertScheduler.cancelAll(this);
+                    WidgetRenderer.updateAll(this);
+                    Toast.makeText(this, "Signed out.", Toast.LENGTH_SHORT).show();
+                    render();
+                    if (tokens != null) {
+                        Context app = getApplicationContext();
+                        new Thread(() -> OAuthClient.revokeBestEffort(app, tokens),
+                                "codex-sign-out").start();
+                    }
+                })
+                .show();
     }
 
     private void enableLiveMonitor() {
@@ -460,6 +571,10 @@ public final class OnboardingActivity extends AppCompatActivity {
     private void completeAndOpenMain() {
         cancelPendingSignIn();
         ensureNotificationFeatureDefault();
+        if (this.settingsEntry) {
+            finish();
+            return;
+        }
         AppPreferences.completeOnboarding(this);
         openMain();
     }

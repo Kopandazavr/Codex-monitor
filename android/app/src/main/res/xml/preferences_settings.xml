@@ -2,20 +2,10 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <dev.oneuiproject.oneui.preference.LayoutPreference
-        android:key="account_card"
-        android:layout="@layout/preference_account_card"
-        app:allowDividerAbove="false"
-        app:allowDividerBelow="false" />
-
-    <SwitchPreferenceCompat
-        android:key="notifications_allowed_ui"
-        android:summary="Usage and account activity alerts"
-        android:title="Allow notifications" />
-
     <Preference
-        android:key="notification_permission"
-        android:title="System notifications"
+        android:key="permissions_connections"
+        android:summary="0 of 5 ready"
+        android:title="Permissions &amp; connections"
         app:iconSpaceReserved="false" />
 
     <Preference

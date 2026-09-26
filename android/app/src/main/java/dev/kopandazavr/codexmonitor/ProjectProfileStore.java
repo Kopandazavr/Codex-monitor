@@ -3,7 +3,10 @@ package dev.kopandazavr.codexmonitor;
 import android.content.Context;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -13,6 +16,7 @@ import org.json.JSONObject;
 final class ProjectProfileStore {
     private static final String PREFS = "codex_project_profiles_v1";
     private static final String KEY_PROFILES = "profiles_json";
+    private static final String KEY_ROUTES = "incoming_routes_json";
 
     static final String COLOR_GRAY = "gray";
     static final String COLOR_RED = "red";
@@ -54,21 +58,74 @@ final class ProjectProfileStore {
         }
     }
 
+    static final class EditSession {
+        private final String profileId;
+        private final ProjectProfileEditState state;
+        private final Map<String, String> externalOwners;
+
+        EditSession(String profileId, ProjectProfileEditState state,
+                Map<String, String> externalOwners) {
+            this.profileId = profileId;
+            this.state = state;
+            this.externalOwners = new HashMap<>(externalOwners);
+        }
+
+        Profile profile() {
+            return new Profile(profileId, state.aliases(), state.primaryAlias(),
+                    state.shortOverride(), state.iconKey(), state.colorKey());
+        }
+
+        boolean setAppearance(String iconKey, String colorKey) {
+            if (!contains(ICON_KEYS, iconKey) || !contains(COLOR_KEYS, colorKey)) return false;
+            state.setAppearance(iconKey, colorKey);
+            return true;
+        }
+
+        void setShortOverride(String value) {
+            state.setShortOverride(value);
+        }
+
+        String addAlias(String alias) { return state.addAlias(alias, externalOwners); }
+        String makePrimary(String alias) { return state.makePrimary(alias); }
+        String deleteAlias(String alias) { return state.deleteAlias(alias); }
+        String commit(Context context) { return commitEdit(context, this); }
+    }
+
     private ProjectProfileStore() {}
 
     static synchronized Profile resolve(Context context, String incomingProject) {
-        List<MutableProfile> profiles = loadAndSeed(context);
-        String normalized = ProjectProfileRules.normalizeAlias(incomingProject);
-        for (MutableProfile profile : profiles) {
-            if (profile.hasAlias(normalized)) return profile.freeze();
-        }
         String raw = ProjectProfileRules.collapseWhitespace(incomingProject);
         if (raw.isEmpty()) return null;
+        String normalized = ProjectProfileRules.normalizeAlias(raw);
+        List<MutableProfile> profiles = loadAndSeed(context);
+        Map<String, String> routes = loadRoutes(context);
+
+        MutableProfile aliasOwner = findAliasOwner(profiles, normalized);
+        MutableProfile recovered = legacySeedTarget(profiles, aliasOwner, normalized);
+        if (recovered != null) {
+            profiles.remove(aliasOwner);
+            routes.put(normalized, recovered.id);
+            save(context, profiles, routes);
+            DiagnosticLog.info(context, "project_profile", "legacy_orphan_reconciled",
+                    "alias", raw, "profile_id", recovered.id);
+            return recovered.freeze();
+        }
+
+        if (aliasOwner != null) {
+            bindRoute(context, routes, normalized, aliasOwner.id);
+            return aliasOwner.freeze();
+        }
+
+        MutableProfile routed = findMutable(profiles, routes.get(normalized));
+        if (routed != null) return routed.freeze();
+        routes.remove(normalized);
+
         MutableProfile created = new MutableProfile(
                 "project:" + UUID.randomUUID(), raw, "", "folder", COLOR_GRAY);
         created.aliases.add(raw);
         profiles.add(created);
-        save(context, profiles);
+        routes.put(normalized, created.id);
+        save(context, profiles, routes);
         return created.freeze();
     }
 
@@ -89,69 +146,40 @@ final class ProjectProfileStore {
                 profile.shortOverride, watchdogShort, profile.primaryAlias);
     }
 
-    static synchronized boolean setShortOverride(Context context, String id, String value) {
-        List<MutableProfile> profiles = loadAndSeed(context);
-        MutableProfile profile = findMutable(profiles, id);
-        if (profile == null) return false;
-        profile.shortOverride = ProjectProfileRules.collapseWhitespace(value);
-        save(context, profiles);
-        return true;
-    }
-
-    static synchronized boolean setAppearance(Context context, String id,
-            String iconKey, String colorKey) {
-        if (!contains(ICON_KEYS, iconKey) || !contains(COLOR_KEYS, colorKey)) return false;
-        List<MutableProfile> profiles = loadAndSeed(context);
-        MutableProfile profile = findMutable(profiles, id);
-        if (profile == null) return false;
-        profile.iconKey = iconKey;
-        profile.colorKey = colorKey;
-        save(context, profiles);
-        return true;
-    }
-
-    static synchronized String addAlias(Context context, String id, String alias) {
-        String clean = ProjectProfileRules.collapseWhitespace(alias);
-        String normalized = ProjectProfileRules.normalizeAlias(clean);
-        if (normalized.isEmpty()) return "Alias cannot be empty.";
+    static synchronized EditSession beginEdit(Context context, String id) {
         List<MutableProfile> profiles = loadAndSeed(context);
         MutableProfile target = findMutable(profiles, id);
-        if (target == null) return "Project profile not found.";
-        for (MutableProfile profile : profiles) {
-            if (!profile.hasAlias(normalized)) continue;
-            return profile.id.equals(id)
-                    ? "That alias is already known for this project."
-                    : "That alias already belongs to " + profile.primaryAlias + ".";
+        if (target == null) return null;
+        ProjectProfileEditState state = new ProjectProfileEditState(
+                target.id, target.aliases, target.primaryAlias, target.shortOverride,
+                target.iconKey, target.colorKey);
+        return new EditSession(target.id, state, externalAliasOwners(profiles, target.id));
+    }
+
+    private static synchronized String commitEdit(Context context, EditSession session) {
+        if (session == null || !session.state.ownsPrimary() || session.state.aliases().isEmpty()) {
+            return "Project profile is incomplete.";
         }
-        target.aliases.add(clean);
-        save(context, profiles);
-        return "";
-    }
-
-    static synchronized String makePrimary(Context context, String id, String alias) {
-        String normalized = ProjectProfileRules.normalizeAlias(alias);
-        List<MutableProfile> profiles = loadAndSeed(context);
-        MutableProfile target = findMutable(profiles, id);
-        if (target == null) return "Project profile not found.";
-        String stored = target.aliasFor(normalized);
-        if (stored.isEmpty()) return "Alias not found.";
-        target.primaryAlias = stored;
-        save(context, profiles);
-        return "";
-    }
-
-    static synchronized String deleteAlias(Context context, String id, String alias) {
-        String normalized = ProjectProfileRules.normalizeAlias(alias);
-        List<MutableProfile> profiles = loadAndSeed(context);
-        MutableProfile target = findMutable(profiles, id);
-        if (target == null) return "Project profile not found.";
-        String stored = target.aliasFor(normalized);
-        if (stored.isEmpty()) return "Alias not found.";
-        if (ProjectProfileRules.normalizeAlias(target.primaryAlias).equals(normalized)) {
-            return "Make another alias Primary before deleting this one.";
+        if (!contains(ICON_KEYS, session.state.iconKey())
+                || !contains(COLOR_KEYS, session.state.colorKey())) {
+            return "Project appearance is invalid.";
         }
-        if (target.aliases.size() <= 1) return "The last alias cannot be deleted.";
-        target.aliases.remove(stored);
+        List<MutableProfile> profiles = loadAndSeed(context);
+        MutableProfile target = findMutable(profiles, session.profileId);
+        if (target == null) return "Project profile not found.";
+        Map<String, String> currentOwners = externalAliasOwners(profiles, session.profileId);
+        for (String alias : session.state.aliases()) {
+            String owner = currentOwners.get(ProjectProfileRules.normalizeAlias(alias));
+            if (owner != null && !owner.isEmpty()) {
+                return "That alias already belongs to " + owner + ".";
+            }
+        }
+        MutableProfile replacement = new MutableProfile(
+                session.profileId, session.state.primaryAlias(), session.state.shortOverride(),
+                session.state.iconKey(), session.state.colorKey());
+        replacement.aliases.addAll(session.state.aliases());
+        int index = profiles.indexOf(target);
+        profiles.set(index, replacement);
         save(context, profiles);
         return "";
     }
@@ -176,19 +204,12 @@ final class ProjectProfileStore {
         }
     }
 
-    static int discColor(Profile profile) {
-        String colorKey = profile == null ? COLOR_GRAY : profile.colorKey;
-        switch (colorKey) {
-            case COLOR_RED: return 0xFF2E0F0D;
-            case COLOR_ORANGE: return 0xFF2C1A0E;
-            case COLOR_YELLOW: return 0xFF2F2712;
-            case COLOR_GREEN: return 0xFF162415;
-            case COLOR_BLUE: return 0xFF0F1A2E;
-            case COLOR_PURPLE: return 0xFF19102D;
-            case COLOR_PINK: return 0xFF2C1522;
-            default: return 0xFF242424;
-        }
+    static int surfaceTintColor(Profile profile) {
+        // 70% transparent means ~30% opacity, not 70% opacity.
+        return 0x4D000000 | (accentColor(profile) & 0x00FFFFFF);
     }
+
+    static int discColor(Profile profile) { return surfaceTintColor(profile); }
 
     static int iconRes(Profile profile) {
         return iconRes(profile == null ? "folder" : profile.iconKey);
@@ -260,6 +281,27 @@ final class ProjectProfileStore {
         return true;
     }
 
+    private static Map<String, String> loadRoutes(Context context) {
+        Map<String, String> routes = new HashMap<>();
+        if (context == null) return routes;
+        String raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .getString(KEY_ROUTES, "{}");
+        try {
+            JSONObject json = new JSONObject(raw == null ? "{}" : raw);
+            Iterator<String> keys = json.keys();
+            while (keys.hasNext()) {
+                String rawKey = keys.next();
+                String key = ProjectProfileRules.normalizeAlias(rawKey);
+                String id = json.optString(rawKey, "");
+                if (!key.isEmpty() && !id.isEmpty()) routes.put(key, id);
+            }
+        } catch (JSONException exception) {
+            DiagnosticLog.warn(context, "project_profile", "routes_parse_failed",
+                    "error", exception.getClass().getSimpleName());
+        }
+        return routes;
+    }
+
     private static List<MutableProfile> load(Context context) {
         List<MutableProfile> profiles = new ArrayList<>();
         if (context == null) return profiles;
@@ -283,10 +325,82 @@ final class ProjectProfileStore {
 
     private static void save(Context context, List<MutableProfile> profiles) {
         if (context == null) return;
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit().putString(KEY_PROFILES, profilesJson(profiles)).apply();
+    }
+
+    private static void save(Context context, List<MutableProfile> profiles,
+            Map<String, String> routes) {
+        if (context == null) return;
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putString(KEY_PROFILES, profilesJson(profiles))
+                .putString(KEY_ROUTES, routesJson(routes))
+                .apply();
+    }
+
+    private static String profilesJson(List<MutableProfile> profiles) {
         JSONArray array = new JSONArray();
         for (MutableProfile profile : profiles) array.put(profile.toJson());
+        return array.toString();
+    }
+
+    private static String routesJson(Map<String, String> routes) {
+        JSONObject json = new JSONObject();
+        for (Map.Entry<String, String> entry : routes.entrySet()) {
+            try { json.put(entry.getKey(), entry.getValue()); } catch (JSONException ignored) {}
+        }
+        return json.toString();
+    }
+
+    private static void bindRoute(Context context, Map<String, String> routes,
+            String normalized, String profileId) {
+        if (profileId.equals(routes.get(normalized))) return;
+        routes.put(normalized, profileId);
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().putString(KEY_PROFILES, array.toString()).apply();
+                .edit().putString(KEY_ROUTES, routesJson(routes)).apply();
+    }
+
+    private static Map<String, String> externalAliasOwners(
+            List<MutableProfile> profiles, String excludedId) {
+        Map<String, String> owners = new HashMap<>();
+        for (MutableProfile profile : profiles) {
+            if (profile.id.equals(excludedId)) continue;
+            for (String alias : profile.aliases) {
+                owners.put(ProjectProfileRules.normalizeAlias(alias), profile.primaryAlias);
+            }
+        }
+        return owners;
+    }
+
+    private static MutableProfile findAliasOwner(
+            List<MutableProfile> profiles, String normalized) {
+        for (MutableProfile profile : profiles) if (profile.hasAlias(normalized)) return profile;
+        return null;
+    }
+
+    private static MutableProfile legacySeedTarget(List<MutableProfile> profiles,
+            MutableProfile owner, String normalized) {
+        if (owner == null || !owner.id.startsWith("project:")
+                || owner.aliases.size() != 1 || !owner.shortOverride.isEmpty()
+                || !"folder".equals(owner.iconKey) || !COLOR_GRAY.equals(owner.colorKey)
+                || !ProjectProfileRules.normalizeAlias(owner.primaryAlias).equals(normalized)) {
+            return null;
+        }
+        String seedId = seedIdForCanonicalAlias(normalized);
+        if (seedId.isEmpty()) return null;
+        MutableProfile seed = findMutable(profiles, seedId);
+        return seed == owner ? null : seed;
+    }
+
+    private static String seedIdForCanonicalAlias(String normalized) {
+        if (ProjectProfileRules.normalizeAlias("Data Matrix").equals(normalized)) return "seed:data-matrix";
+        if (ProjectProfileRules.normalizeAlias("Codex Monitor").equals(normalized)) return "seed:codex-monitor";
+        if (ProjectProfileRules.normalizeAlias("Заказы сигарет").equals(normalized)) return "seed:orders-cigarettes";
+        if (ProjectProfileRules.normalizeAlias("Mira Technical").equals(normalized)) return "seed:mira-technical";
+        if (ProjectProfileRules.normalizeAlias("Написание книг про ии будущего").equals(normalized)) return "seed:ai-books-future";
+        if (ProjectProfileRules.normalizeAlias("Mira Universe").equals(normalized)) return "seed:mira-universe";
+        return "";
     }
 
     private static MutableProfile findMutable(List<MutableProfile> profiles, String id) {

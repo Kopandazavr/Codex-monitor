@@ -43,6 +43,7 @@ import dev.kopandazavr.codexmonitor.wear.PhoneWearSync;
 public final class MainActivity extends AppCompatActivity {
     private static final int MENU_PERMISSIONS = 8100;
     private static final int MENU_SETTINGS = 8101;
+    private static final int PROCESS_ACTION_GUTTER_DP = 42;
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -519,7 +520,6 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout card = Ui.card(this, this.dark);
         card.setPadding(Ui.dp(this, 18), Ui.dp(this, 15),
                 Ui.dp(this, 14), Ui.dp(this, 15));
-        boolean expanded = AppPreferences.isDashboardProcessesExpanded(this);
 
         LinearLayout header = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         LinearLayout heading = new LinearLayout(this);
@@ -533,18 +533,6 @@ public final class MainActivity extends AppCompatActivity {
         countParams.setMargins(0, Ui.dp(this, 2), 0, 0);
         heading.addView(count, countParams);
         header.addView(heading, new LinearLayout.LayoutParams(0, -2, 1.0f));
-
-        TextView toggle = Ui.text(this, expanded ? "−" : "+", 24.0f, Ui.mainText(this.dark));
-        toggle.setGravity(Gravity.CENTER);
-        toggle.setContentDescription(expanded ? "Collapse Processes" : "Expand Processes");
-        header.addView(toggle, new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44)));
-        header.setClickable(true);
-        header.setFocusable(true);
-        header.setContentDescription(expanded ? "Collapse Processes" : "Expand Processes");
-        header.setOnClickListener(view -> {
-            AppPreferences.setDashboardProcessesExpanded(MainActivity.this, !expanded);
-            refreshProcessesCard();
-        });
         card.addView(header);
 
         if (active.isEmpty() && idleRoles.isEmpty()) {
@@ -554,27 +542,6 @@ public final class MainActivity extends AppCompatActivity {
             LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(-1, -2);
             emptyParams.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 2));
             card.addView(empty, emptyParams);
-            this.processesCard = card;
-            return card;
-        }
-
-        if (!expanded) {
-            String summary;
-            if (!active.isEmpty()) {
-                CalendarProcess process = active.get(0);
-                summary = process.displayLabel() + " · Active · "
-                        + formatProcessRemaining(process.remainingMillis(now));
-            } else {
-                IdleProcessState.IdleRole idle = idleRoles.get(0);
-                summary = idle.displayLabel() + " · Idle · "
-                        + formatIdleAge(now - idle.lastFinishedMillis);
-            }
-            int extra = active.size() + idleRoles.size() - 1;
-            if (extra > 0) summary += " · +" + extra + " more";
-            TextView summaryView = Ui.text(this, summary, 13.0f, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
-            summaryParams.setMargins(0, Ui.dp(this, 8), 0, 0);
-            card.addView(summaryView, summaryParams);
             this.processesCard = card;
             return card;
         }
@@ -596,10 +563,12 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private View buildActiveProcessRow(CalendarProcess process, long nowMillis) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout row = Ui.horizontal(this, Gravity.TOP);
         row.setPadding(0, Ui.dp(this, 9), 0, Ui.dp(this, 7));
+        addProcessActionGutter(row, null);
 
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
         LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -625,13 +594,13 @@ public final class MainActivity extends AppCompatActivity {
                 new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
         bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
         top.addView(bell, bellParams);
-        row.addView(top);
+        body.addView(top);
 
         if (process.topic != null && !process.topic.isEmpty()) {
             TextView topic = Ui.text(this, process.topic, 13.5f, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-1, -2);
             topicParams.setMargins(0, Ui.dp(this, 7), 0, 0);
-            row.addView(topic, topicParams);
+            body.addView(topic, topicParams);
         }
 
         ProgressBar progress = Ui.progress(this, this.dark);
@@ -639,15 +608,25 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams progressParams =
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 7));
         progressParams.setMargins(0, Ui.dp(this, 10), 0, 0);
-        row.addView(progress, progressParams);
+        body.addView(progress, progressParams);
+
+        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        bodyParams.setMargins(Ui.dp(this, 4), 0, 0, 0);
+        row.addView(body, bodyParams);
         return row;
     }
 
     private View buildIdleProcessRow(IdleProcessState.IdleRole idle, long nowMillis) {
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout row = Ui.horizontal(this, Gravity.TOP);
         row.setPadding(0, Ui.dp(this, 9), 0, Ui.dp(this, 7));
 
+        ImageView trash = processActionIcon(R.drawable.ic_idle_trash,
+                Ui.secondaryText(this.dark), "Hide this idle episode");
+        trash.setOnClickListener(view -> dismissIdleProcess(idle));
+        addProcessActionGutter(row, trash);
+
+        LinearLayout body = new LinearLayout(this);
+        body.setOrientation(LinearLayout.VERTICAL);
         LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -671,21 +650,13 @@ public final class MainActivity extends AppCompatActivity {
                 new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
         bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
         top.addView(bell, bellParams);
-
-        ImageView trash = processActionIcon(R.drawable.ic_idle_trash, Ui.danger(this.dark),
-                "Hide this idle episode");
-        trash.setOnClickListener(view -> dismissIdleProcess(idle));
-        LinearLayout.LayoutParams trashParams =
-                new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
-        trashParams.setMargins(Ui.dp(this, 2), 0, 0, 0);
-        top.addView(trash, trashParams);
-        row.addView(top);
+        body.addView(top);
 
         if (idle.topic != null && !idle.topic.isEmpty()) {
             TextView topic = Ui.text(this, idle.topic, 13.5f, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-1, -2);
             topicParams.setMargins(0, Ui.dp(this, 7), 0, 0);
-            row.addView(topic, topicParams);
+            body.addView(topic, topicParams);
         }
 
         if (idle.lastStartedMillis > 0L && idle.lastFinishedMillis > idle.lastStartedMillis) {
@@ -695,9 +666,25 @@ public final class MainActivity extends AppCompatActivity {
                     11.5f, Ui.secondaryText(this.dark));
             LinearLayout.LayoutParams durationParams = new LinearLayout.LayoutParams(-1, -2);
             durationParams.setMargins(0, Ui.dp(this, 5), 0, 0);
-            row.addView(duration, durationParams);
+            body.addView(duration, durationParams);
         }
+
+        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
+        bodyParams.setMargins(Ui.dp(this, 4), 0, 0, 0);
+        row.addView(body, bodyParams);
         return row;
+    }
+
+    private void addProcessActionGutter(LinearLayout row, View action) {
+        FrameLayout gutter = new FrameLayout(this);
+        if (action != null) {
+            FrameLayout.LayoutParams actionParams = new FrameLayout.LayoutParams(
+                    Ui.dp(this, PROCESS_ACTION_GUTTER_DP),
+                    Ui.dp(this, PROCESS_ACTION_GUTTER_DP), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+            gutter.addView(action, actionParams);
+        }
+        row.addView(gutter, new LinearLayout.LayoutParams(
+                Ui.dp(this, PROCESS_ACTION_GUTTER_DP), Ui.dp(this, PROCESS_ACTION_GUTTER_DP)));
     }
 
     private ImageView processActionIcon(int drawable, int tint, String description) {
@@ -789,37 +776,16 @@ public final class MainActivity extends AppCompatActivity {
         UsagePace.Assessment pace = UsagePacePreferences.assess(this, snapshot, window, now);
         UsageWaveView wave = new UsageWaveView(this);
         int remainingPercent = window.remainingPercent();
-        boolean depleted = remainingPercent == 0
-                && ("5-hour".equals(label) || "Weekly".equals(label));
-        int barPercent = depleted
-                ? resetCycleProgressPercent(window, snapshot.fetchedAtMillis, now)
-                : remainingPercent;
+        boolean showResetRing = "5-hour".equals(label) || "Weekly".equals(label);
+        int resetRemainingPercent = showResetRing
+                ? ResetProgress.timeRemainingPercent(window, snapshot.fetchedAtMillis, now) : -1;
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
-                remainingPercent, barPercent, depleted,
+                remainingPercent, resetRemainingPercent,
                 window.windowSeconds >= 86_400L
                         ? R.drawable.ic_oui_calendar_week : R.drawable.ic_oui_time,
                 invertedWave, pace.accelerated);
         card.addView(wave, new LinearLayout.LayoutParams(-1, Ui.dp(this, 103.0f)));
         return card;
-    }
-
-    private int resetCycleProgressPercent(UsageWindow window, long observedAtMillis, long nowMillis) {
-        if (window == null || window.windowSeconds <= 0L) return 0;
-        long reference = observedAtMillis > 0L ? observedAtMillis : nowMillis;
-        long resetAt = window.effectiveResetAtMillis(reference);
-        if (resetAt <= 0L) return 0;
-        long cycleMillis;
-        try {
-            cycleMillis = Math.multiplyExact(window.windowSeconds, 1000L);
-        } catch (ArithmeticException exception) {
-            return 0;
-        }
-        if (cycleMillis <= 0L) return 0;
-        long remainingMillis = Math.max(0L, resetAt - nowMillis);
-        double remainingFraction = Math.min(1d,
-                remainingMillis / (double) cycleMillis);
-        return Math.max(0, Math.min(100,
-                (int) Math.round((1d - remainingFraction) * 100d)));
     }
 
     private LinearLayout buildUsageHistoryCard() {

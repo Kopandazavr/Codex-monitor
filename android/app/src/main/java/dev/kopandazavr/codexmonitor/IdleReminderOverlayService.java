@@ -39,6 +39,9 @@ import java.util.Map;
 /** Full-screen application-overlay surface for one or more newly completed watched roles. */
 public final class IdleReminderOverlayService extends Service {
     private static final String ACTION_SHOW = "dev.kopandazavr.codexmonitor.action.SHOW_IDLE_OVERLAY";
+    private static final String ACTION_SHOW_TEST =
+            "dev.kopandazavr.codexmonitor.action.SHOW_IDLE_OVERLAY_TEST";
+    private static final String TEST_ROLE_KEY = "__overlay_test__";
     private static final String CHANNEL_ID = "codex_idle_overlay_service_v1";
     private static final int FOREGROUND_ID = 8641;
     private static volatile IdleReminderOverlayService running;
@@ -69,6 +72,21 @@ public final class IdleReminderOverlayService extends Service {
         }
     }
 
+    static boolean showTest(Context context) {
+        if (context == null || !canDraw(context)) return false;
+        Intent intent = new Intent(context, IdleReminderOverlayService.class)
+                .setAction(ACTION_SHOW_TEST);
+        try {
+            if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
+            else context.startService(intent);
+            return true;
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warn(context, "idle_process", "overlay_test_start_failed",
+                    "error", exception.getClass().getSimpleName());
+            return false;
+        }
+    }
+
     static void dismiss(Context context, String key) {
         IdleReminderOverlayService service = running;
         if (service == null || key == null) return;
@@ -86,7 +104,18 @@ public final class IdleReminderOverlayService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null || !ACTION_SHOW.equals(intent.getAction()) || !canDraw(this)) {
+        if (intent == null || !canDraw(this)) {
+            stopSelfIfEmpty();
+            return START_NOT_STICKY;
+        }
+        if (ACTION_SHOW_TEST.equals(intent.getAction())) {
+            long now = System.currentTimeMillis();
+            showRole(new IdleProcessState.IdleRole(
+                    TEST_ROLE_KEY, "Codex Monitor", "CM", "Main Agent", "Test overlay",
+                    now - 300_000L, now, -1L, false, 0L));
+            return START_NOT_STICKY;
+        }
+        if (!ACTION_SHOW.equals(intent.getAction())) {
             stopSelfIfEmpty();
             return START_NOT_STICKY;
         }
@@ -258,23 +287,28 @@ public final class IdleReminderOverlayService extends Service {
         bell.setClickable(true);
         bell.setFocusable(true);
         updateBell(bell, idle);
-        bell.setContentDescription(role + " notifications "
-                + (idle.reminderEnabled ? "on" : "off"));
-        bell.setOnClickListener(view -> {
-            strongHaptic();
-            long now = System.currentTimeMillis();
-            boolean enabled = IdleProcessState.toggleReminder(this, idle.key, now);
-            IdleReminderManager.onReminderToggled(this, idle.key, enabled, now);
-            IdleProcessState.IdleRole updated = IdleProcessState.find(this, idle.key);
-            if (updated != null) {
-                roles.put(idle.key, updated);
-                updateBell(view, updated);
-            }
-            DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
-            DiagnosticLog.info(this, "idle_process", "overlay_bell_toggled",
-                    "role", idle.displayLabel(),
-                    "enabled", enabled);
-        });
+        boolean testRole = TEST_ROLE_KEY.equals(idle.key);
+        bell.setContentDescription(testRole ? "Test overlay sample"
+                : role + " notifications " + (idle.reminderEnabled ? "on" : "off"));
+        bell.setClickable(!testRole);
+        bell.setFocusable(!testRole);
+        if (!testRole) {
+            bell.setOnClickListener(view -> {
+                strongHaptic();
+                long now = System.currentTimeMillis();
+                boolean enabled = IdleProcessState.toggleReminder(this, idle.key, now);
+                IdleReminderManager.onReminderToggled(this, idle.key, enabled, now);
+                IdleProcessState.IdleRole updated = IdleProcessState.find(this, idle.key);
+                if (updated != null) {
+                    roles.put(idle.key, updated);
+                    updateBell(view, updated);
+                }
+                DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
+                DiagnosticLog.info(this, "idle_process", "overlay_bell_toggled",
+                        "role", idle.displayLabel(),
+                        "enabled", enabled);
+            });
+        }
 
         ImageView icon = new ImageView(this);
         icon.setId(android.R.id.icon);

@@ -274,8 +274,8 @@ final class DualUsageNotificationManager {
             }
             views.setTextViewText(R.id.notification_five_text, fiveText);
             views.setTextColor(R.id.notification_five_text, textColor);
-            views.setProgressBar(R.id.notification_five_progress, 100,
-                    fiveHour.remainingPercent(), false);
+            bindLimitProgress(views, R.id.notification_five_progress,
+                    R.id.notification_five_progress_lime, fiveHour, observedAt, now, true);
             bindResetBell(context, views, R.id.notification_five_bell, "five_hour",
                     fiveHour, observedAt, textColor);
         }
@@ -290,8 +290,9 @@ final class DualUsageNotificationManager {
             }
             views.setTextViewText(R.id.notification_long_text, longText);
             views.setTextColor(R.id.notification_long_text, textColor);
-            views.setProgressBar(R.id.notification_long_progress, 100,
-                    longWindow.remainingPercent(), false);
+            bindLimitProgress(views, R.id.notification_long_progress,
+                    R.id.notification_long_progress_lime, longWindow, observedAt, now,
+                    "Weekly".equals(longLabel));
             bindResetBell(context, views, R.id.notification_long_bell,
                     "Monthly".equals(longLabel) ? "monthly" : "weekly",
                     longWindow, observedAt, textColor);
@@ -310,6 +311,19 @@ final class DualUsageNotificationManager {
             }
         }
         return views;
+    }
+
+    private static void bindLimitProgress(RemoteViews views, int normalId, int resetId,
+            UsageWindow window, long observedAt, long now, boolean resetWhenExhausted) {
+        boolean resetMode = resetWhenExhausted && window != null
+                && window.remainingPercent() == 0;
+        int value = resetMode
+                ? ResetProgress.timeRemainingPercent(window, observedAt, now)
+                : window == null ? 0 : window.remainingPercent();
+        views.setProgressBar(normalId, 100, value, false);
+        views.setProgressBar(resetId, 100, value, false);
+        views.setViewVisibility(normalId, resetMode ? View.GONE : View.VISIBLE);
+        views.setViewVisibility(resetId, resetMode ? View.VISIBLE : View.GONE);
     }
 
     private static String notificationLimitText(String label, UsageWindow window,

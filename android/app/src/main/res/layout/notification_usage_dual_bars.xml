@@ -54,14 +54,27 @@
                 android:padding="2dp"
                 android:src="@drawable/ic_bell_off" />
         </LinearLayout>
-        <ProgressBar
-            android:id="@+id/notification_five_progress"
-            style="?android:attr/progressBarStyleHorizontal"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="4dp"
-            android:max="100"
-            android:progressTint="#70A7FF"
-            android:progressBackgroundTint="#3070A7FF" />
+            android:layout_height="4dp">
+            <ProgressBar
+                android:id="@+id/notification_five_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:max="100"
+                android:progressTint="#70A7FF"
+                android:progressBackgroundTint="#3070A7FF" />
+            <ProgressBar
+                android:id="@+id/notification_five_progress_lime"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:max="100"
+                android:progressTint="#A4D65E"
+                android:progressBackgroundTint="#30A4D65E"
+                android:visibility="gone" />
+        </FrameLayout>
     </LinearLayout>
 
     <LinearLayout
@@ -91,13 +104,26 @@
                 android:padding="2dp"
                 android:src="@drawable/ic_bell_off" />
         </LinearLayout>
-        <ProgressBar
-            android:id="@+id/notification_long_progress"
-            style="?android:attr/progressBarStyleHorizontal"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="4dp"
-            android:max="100"
-            android:progressTint="#F4B95F"
-            android:progressBackgroundTint="#30F4B95F" />
+            android:layout_height="4dp">
+            <ProgressBar
+                android:id="@+id/notification_long_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:max="100"
+                android:progressTint="#F4B95F"
+                android:progressBackgroundTint="#30F4B95F" />
+            <ProgressBar
+                android:id="@+id/notification_long_progress_lime"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="4dp"
+                android:max="100"
+                android:progressTint="#A4D65E"
+                android:progressBackgroundTint="#30A4D65E"
+                android:visibility="gone" />
+        </FrameLayout>
     </LinearLayout>
 </LinearLayout>

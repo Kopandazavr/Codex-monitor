@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
+RES="$ROOT/app/src/main/res"
+
+grep -Fq 'versionCode = 49' "$ROOT/app/build.gradle.kts"
+grep -Fq 'versionName = "2.23.0"' "$ROOT/app/build.gradle.kts"
+grep -Fq 'VERSION_CODE = 49' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = "2.23.0"' "$SRC/AppConstants.java"
+
+! grep -Fq 'isDashboardProcessesExpanded' "$SRC/MainActivity.java"
+! grep -Fq 'setDashboardProcessesExpanded' "$SRC/MainActivity.java"
+grep -Fq 'PROCESS_ACTION_GUTTER_DP = 42' "$SRC/MainActivity.java"
+grep -Fq 'addProcessActionGutter(row, null)' "$SRC/MainActivity.java"
+grep -Fq 'addProcessActionGutter(row, trash)' "$SRC/MainActivity.java"
+grep -Fq 'R.drawable.ic_idle_trash' "$SRC/MainActivity.java"
+grep -Fq 'Ui.secondaryText(this.dark), "Hide this idle episode"' "$SRC/MainActivity.java"
+
+grep -Fq '"Version " + BuildConfig.VERSION_NAME + " · Build " + BuildConfig.VERSION_CODE' "$SRC/SettingsActivity.java"
+grep -Fq 'return BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"' "$SRC/SettingsActivity.java"
+! grep -Fq 'BuildConfig.GIT_SHA' "$SRC/SettingsActivity.java"
+grep -Fq 'export.setSummary(DiagnosticLog.formatBytes(stats.bytes));' "$SRC/SettingsActivity.java"
+grep -Fq 'android:key="overlay_test"' "$RES/xml/preferences_settings_diagnostics.xml"
+grep -Fq 'android:title="Show test overlay"' "$RES/xml/preferences_settings_diagnostics.xml"
+! grep -Fq 'Sanitization' "$RES/xml/preferences_settings_diagnostics.xml"
+! grep -Fq 'Sensitive data protection' "$RES/xml/preferences_settings_diagnostics.xml"
+grep -Fq 'IdleReminderOverlayService.showTest' "$SRC/SettingsActivity.java"
+grep -Fq 'ACTION_SHOW_TEST' "$SRC/IdleReminderOverlayService.java"
+grep -Fq 'TEST_ROLE_KEY' "$SRC/IdleReminderOverlayService.java"
+
+grep -Fq 'BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"' "$SRC/HomeVersionLabel.java"
+
+grep -Fq 'fillPercent = percent;' "$SRC/UsageWaveView.java"
+grep -Fq 'if (fillPercent > 0)' "$SRC/UsageWaveView.java"
+grep -Fq 'RESET_LIME = 0xFFA4D65E' "$SRC/UsageWaveView.java"
+grep -Fq 'ResetProgress.timeRemainingPercent' "$SRC/MainActivity.java"
+grep -Fq 'remainingFraction * 100d' "$SRC/ResetProgress.java"
+grep -Fq 'notification_five_progress_lime' "$RES/layout/notification_usage_dual_bars.xml"
+grep -Fq 'notification_long_progress_lime' "$RES/layout/notification_usage_dual_bars_expanded.xml"
+grep -Fq 'bindLimitProgress' "$SRC/DualUsageNotificationManager.java"
+grep -Fq '"Weekly".equals(longLabel)' "$SRC/DualUsageNotificationManager.java"
+
+grep -Fq 'setStatusTokenColor(summary, summaryText, "Connected", statusGreen())' "$SRC/OnboardingActivity.java"
+grep -Fq 'COMBINED = "combined"' "$SRC/ProcessNotificationMode.java"
+grep -Fq 'PER_PROCESS = "per_process"' "$SRC/ProcessNotificationMode.java"
+grep -Fq 'GROUPED = "grouped"' "$SRC/ProcessNotificationMode.java"
+grep -Fq 'DEFAULT_CADENCE_MINUTES = 5' "$SRC/IdleProcessState.java"
+grep -Fq 'android:key="diagnostic_monitor_health"' "$RES/xml/preferences_settings_diagnostics.xml"
+
+echo "Codex Monitor 2.23 source contract PASS"

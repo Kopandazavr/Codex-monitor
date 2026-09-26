@@ -27,14 +27,11 @@
             android:summary="Verify notification delivery now"
             android:title="Send test notification"
             app:iconSpaceReserved="false" />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Sanitization">
         <Preference
-            android:summary="Diagnostics are always captured into bounded private app storage. Authentication tokens, cookies, authorization codes, email addresses, URL queries, and request/response bodies are never intentionally recorded. Review an export before sharing it."
-            android:title="Sensitive data protection"
-            app:iconSpaceReserved="false"
-            app:selectable="false" />
+            android:key="overlay_test"
+            android:summary="Preview the completion overlay without creating a process"
+            android:title="Show test overlay"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
 </PreferenceScreen>

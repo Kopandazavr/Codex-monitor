@@ -106,28 +106,27 @@ public final class SettingsActivity extends AppCompatActivity {
     }
 
     private void configureDiagnosticsToolbar(ToolbarLayout toolbar) {
-        String identity = diagnosticBuildIdentity();
-        String collapsedText = "Diagnostics   " + identity;
+        String compactIdentity = diagnosticBuildIdentity();
+        String collapsedText = "Diagnostics   " + compactIdentity;
         SpannableString collapsed = new SpannableString(collapsedText);
-        int identityStart = collapsedText.indexOf(identity);
+        int identityStart = collapsedText.indexOf(compactIdentity);
         if (identityStart >= 0) {
             collapsed.setSpan(new ForegroundColorSpan(Ui.secondaryText(Ui.isDark(this))),
                     identityStart, collapsed.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
             collapsed.setSpan(new RelativeSizeSpan(0.72f),
                     identityStart, collapsed.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
+        SpannableString expandedSubtitle = new SpannableString(
+                "Version " + BuildConfig.VERSION_NAME + " · Build " + BuildConfig.VERSION_CODE);
+        expandedSubtitle.setSpan(new ForegroundColorSpan(Ui.secondaryText(Ui.isDark(this))),
+                0, expandedSubtitle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         toolbar.setTitle("Diagnostics", collapsed);
-        toolbar.setSubtitle(identity);
+        toolbar.setSubtitle(expandedSubtitle);
         toolbar.setCollapsedSubtitle(null);
     }
 
     private static String diagnosticBuildIdentity() {
-        String identity = BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")";
-        String sha = BuildConfig.GIT_SHA == null ? "" : BuildConfig.GIT_SHA.trim();
-        if (!sha.isEmpty() && !"unknown".equalsIgnoreCase(sha)) {
-            identity += " · " + sha;
-        }
-        return identity;
+        return BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")";
     }
 
     @SuppressLint("FindPreferenceKeyNotFound")
@@ -277,6 +276,17 @@ public final class SettingsActivity extends AppCompatActivity {
                     return true;
                 });
             }
+            Preference testOverlay = findPreference("overlay_test");
+            if (testOverlay != null) {
+                testOverlay.setOnPreferenceClickListener(preference -> {
+                    boolean shown = IdleReminderOverlayService.showTest(requireContext());
+                    Toast.makeText(requireContext(), shown
+                            ? "Test overlay shown."
+                            : "Allow display over other apps first.",
+                            shown ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+                    return true;
+                });
+            }
             updateDiagnosticSummary();
             updatePermissionSummary();
         }
@@ -290,9 +300,7 @@ public final class SettingsActivity extends AppCompatActivity {
             }
             Preference export = findPreference("export_diagnostic_logs");
             if (export != null) {
-                export.setSummary("Always on · " + DiagnosticLog.formatBytes(stats.bytes)
-                        + (stats.files == 1 ? " in 1 file"
-                        : " across " + stats.files + " files"));
+                export.setSummary(DiagnosticLog.formatBytes(stats.bytes));
                 export.setEnabled(stats.hasLogs());
             }
             Preference clear = findPreference("clear_diagnostic_logs");

@@ -24,9 +24,8 @@ final class HomeVersionLabel {
         if (toolbar == null) return;
         TextView title = findHomeTitle(toolbar);
         if (title == null) return;
-        String version = Ui.versionName(activity);
-        if (version == null || version.trim().isEmpty()) return;
-        String suffix = "  " + version.trim();
+        String version = BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")";
+        String suffix = "  " + version;
         SpannableString text = new SpannableString(HOME_TITLE + suffix);
         int start = HOME_TITLE.length();
         text.setSpan(new RelativeSizeSpan(0.56f), start, text.length(),

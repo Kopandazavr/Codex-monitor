@@ -17,7 +17,7 @@ public final class UsageWaveView extends View {
     private static final long NORMAL_WAVE_DURATION_MS = 2400L;
     private static final long WARNING_WAVE_DURATION_MS = 950L;
     private static final int WEEKLY_ORANGE = 0xFFFF9800;
-    private static final int DEPLETED_MINT = 0xFF9FE8C1;
+    private static final int RESET_LIME = 0xFFA4D65E;
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -25,6 +25,7 @@ public final class UsageWaveView extends View {
     private final Paint pacePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint percentPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint refreshStatePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint resetRingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path fillPath = new Path();
     private ValueAnimator animator;
     private Drawable icon;
@@ -34,7 +35,7 @@ public final class UsageWaveView extends View {
     private String pace = "";
     private int percent;
     private int fillPercent;
-    private boolean depleted;
+    private int resetRingPercent = -1;
     private boolean warning;
     private boolean weekly;
     private float phase;
@@ -57,19 +58,28 @@ public final class UsageWaveView extends View {
 
     public void setUsage(String label, String reset, String paceEstimate, int remainingPercent,
             int iconRes, boolean invertedWave, boolean acceleratedWarning) {
-        setUsage(label, reset, paceEstimate, remainingPercent, remainingPercent, false,
+        setUsage(label, reset, paceEstimate, remainingPercent, -1,
+                iconRes, invertedWave, acceleratedWarning);
+    }
+
+    /** Legacy signature retained for source compatibility; liquid always follows availability. */
+    public void setUsage(String label, String reset, String paceEstimate, int remainingPercent,
+            int ignoredBarPercent, boolean ignoredDepletedMode, int iconRes, boolean invertedWave,
+            boolean acceleratedWarning) {
+        setUsage(label, reset, paceEstimate, remainingPercent, -1,
                 iconRes, invertedWave, acceleratedWarning);
     }
 
     public void setUsage(String label, String reset, String paceEstimate, int remainingPercent,
-            int barPercent, boolean depletedMode, int iconRes, boolean invertedWave,
+            int resetTimeRemainingPercent, int iconRes, boolean invertedWave,
             boolean acceleratedWarning) {
         title = label;
         percent = Math.max(0, Math.min(100, remainingPercent));
-        fillPercent = Math.max(0, Math.min(100, barPercent));
-        depleted = depletedMode;
+        fillPercent = percent;
+        resetRingPercent = resetTimeRemainingPercent < 0 ? -1
+                : Math.max(0, Math.min(100, resetTimeRemainingPercent));
         pace = paceEstimate == null ? "" : paceEstimate;
-        warning = acceleratedWarning && !depleted;
+        warning = acceleratedWarning;
         weekly = "Weekly".equals(label);
         if (animator != null) {
             animator.setDuration(warning ? WARNING_WAVE_DURATION_MS : NORMAL_WAVE_DURATION_MS);
@@ -84,7 +94,9 @@ public final class UsageWaveView extends View {
         }
         icon = AppCompatResources.getDrawable(getContext(), iconRes);
         String description = label + ", " + percent + " percent available. " + reset;
-        if (depleted) description += ". Reset cycle " + fillPercent + " percent complete";
+        if (resetRingPercent >= 0) {
+            description += ". Reset time remaining " + resetRingPercent + " percent";
+        }
         if (!pace.isEmpty()) description += ". " + pace.replace("Est.", "Estimated");
         if (warning) description += ". Accelerated usage warning";
         if (ForegroundUsageRefresh.isInFlight()) description += ". Refreshing";
@@ -126,30 +138,31 @@ public final class UsageWaveView extends View {
             canvas.drawRect(0f, 0f, getWidth(), getHeight(), trackPaint);
         }
         float edge = getWidth() * fillPercent / 100f;
-        float amplitude = (warning ? 10f : 8f) * density;
-        fillPath.reset();
-        fillPath.moveTo(0, 0);
-        fillPath.lineTo(edge, 0);
-        int steps = warning ? 36 : 28;
-        for (int i = 1; i <= steps; i++) {
-            float y = getHeight() * i / (float) steps;
-            float envelope = (float) Math.sin(Math.PI * y / getHeight());
-            float angle = (float) ((warning ? Math.PI * 4 : Math.PI * 2)
-                    * y / getHeight() + phase + phaseOffset);
-            float wave = (float) Math.sin(angle);
-            float x = edge + amplitude * envelope * wave;
-            fillPath.lineTo(x, y);
+        if (fillPercent > 0) {
+            float amplitude = (warning ? 10f : 8f) * density;
+            fillPath.reset();
+            fillPath.moveTo(0, 0);
+            fillPath.lineTo(edge, 0);
+            int steps = warning ? 36 : 28;
+            for (int i = 1; i <= steps; i++) {
+                float y = getHeight() * i / (float) steps;
+                float envelope = (float) Math.sin(Math.PI * y / getHeight());
+                float angle = (float) ((warning ? Math.PI * 4 : Math.PI * 2)
+                        * y / getHeight() + phase + phaseOffset);
+                float wave = (float) Math.sin(angle);
+                float x = edge + amplitude * envelope * wave;
+                fillPath.lineTo(x, y);
+            }
+            fillPath.lineTo(0, getHeight());
+            fillPath.close();
+            fillPaint.setColor(warning ? Ui.warning(dark)
+                    : weekly ? WEEKLY_ORANGE
+                    : Ui.desaturatedAccent(getContext(), dark));
+            canvas.drawPath(fillPath, fillPaint);
         }
-        fillPath.lineTo(0, getHeight());
-        fillPath.close();
-        fillPaint.setColor(depleted ? DEPLETED_MINT
-                : warning ? Ui.warning(dark)
-                : weekly ? WEEKLY_ORANGE
-                : Ui.desaturatedAccent(getContext(), dark));
-        canvas.drawPath(fillPath, fillPaint);
 
         int foreground = warning ? (dark ? 0xFFFFFFFF : 0xFF000000)
-                : weekly ? 0xFF000000 : Ui.mainText(dark);
+                : weekly && fillPercent > 0 ? 0xFF000000 : Ui.mainText(dark);
         titlePaint.setColor(foreground);
         titlePaint.setTextSize(20f * density);
         // Reset duration must match title/percent contrast (black light / white dark).
@@ -176,6 +189,22 @@ public final class UsageWaveView extends View {
             canvas.drawText(pace, 12f * density, 87f * density, pacePaint);
         }
         float rightCenter = getWidth() - 48f * density;
+        if (resetRingPercent >= 0) {
+            float centerY = 31f * density;
+            float radius = 22f * density;
+            resetRingPaint.setStyle(Paint.Style.STROKE);
+            resetRingPaint.setStrokeWidth(3f * density);
+            resetRingPaint.setStrokeCap(Paint.Cap.ROUND);
+            resetRingPaint.setColor(Ui.divider(dark));
+            canvas.drawCircle(rightCenter, centerY, radius, resetRingPaint);
+            if (resetRingPercent > 0) {
+                resetRingPaint.setColor(RESET_LIME);
+                canvas.drawArc(rightCenter - radius, centerY - radius,
+                        rightCenter + radius, centerY + radius,
+                        -90f, 360f * resetRingPercent / 100f, false, resetRingPaint);
+            }
+            resetRingPaint.setStyle(Paint.Style.FILL);
+        }
         if (icon != null) {
             int size = Math.round(36f * density);
             int left = Math.round(rightCenter - size / 2f);

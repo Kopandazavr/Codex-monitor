@@ -33,6 +33,7 @@ public final class CodexMonitorApplication extends Application
         super.onCreate();
         lifecycleHandler = new Handler(Looper.getMainLooper());
         normalizeAutomaticDefaults();
+        AlertSoundManager.ensureChannels(this);
         // 2.19 retired low-usage/account-activity alerts are forcibly disabled even for
         // upgraded installs that previously opted in.
         ResetAlertScheduler.cancelAll(this);

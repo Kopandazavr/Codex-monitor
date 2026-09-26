@@ -8,6 +8,14 @@
             android:title="Notifications"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
+    <PreferenceCategory android:title="Alert sounds">
+        <SwitchPreferenceCompat
+            android:key="alert_sounds_phone_speaker"
+            android:defaultValue="false"
+            android:summary="Best effort for Process completion and Limits reset alerts"
+            android:title="Play alert sounds on phone speaker"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
     <PreferenceCategory android:title="Long-running processes">
         <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
             android:defaultValue="combined"

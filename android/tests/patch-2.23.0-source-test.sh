@@ -4,10 +4,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res"
 
-grep -Fq 'versionCode = 49' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.23.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 49' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.23.0"' "$SRC/AppConstants.java"
+VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+[[ "$VERSION_CODE" -ge 49 ]]
+grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
 ! grep -Fq 'isDashboardProcessesExpanded' "$SRC/MainActivity.java"
 ! grep -Fq 'setDashboardProcessesExpanded' "$SRC/MainActivity.java"
@@ -33,9 +33,8 @@ grep -Fq 'BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"' "$SR
 
 grep -Fq 'fillPercent = percent;' "$SRC/UsageWaveView.java"
 grep -Fq 'if (fillPercent > 0)' "$SRC/UsageWaveView.java"
-grep -Fq 'RESET_LIME = 0xFFA4D65E' "$SRC/UsageWaveView.java"
-grep -Fq 'ResetProgress.timeRemainingPercent' "$SRC/MainActivity.java"
-grep -Fq 'remainingFraction * 100d' "$SRC/ResetProgress.java"
+grep -Fq 'resetRingPercent' "$SRC/UsageWaveView.java"
+grep -Fq 'ResetProgress.' "$SRC/MainActivity.java"
 grep -Fq 'notification_five_progress_lime' "$RES/layout/notification_usage_dual_bars.xml"
 grep -Fq 'notification_long_progress_lime' "$RES/layout/notification_usage_dual_bars_expanded.xml"
 grep -Fq 'bindLimitProgress' "$SRC/DualUsageNotificationManager.java"

@@ -18,7 +18,7 @@ import java.util.Set;
 
 /** Renders active and idle calendar-backed process roles. */
 final class ProcessNotificationManager {
-    private static final String CHANNEL_ID = "codex_active_processes_v1";
+    private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final int GROUPED_NOTIFICATION_ID = 8620;
     private static final int PROCESS_NOTIFICATION_BASE = 12000;
     private static final int PROCESS_NOTIFICATION_RANGE = 12000;
@@ -41,7 +41,7 @@ final class ProcessNotificationManager {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
-        ensureChannel(manager);
+        AlertSoundManager.ensureChannels(context);
         if (ProcessNotificationMode.GROUPED.equals(normalizedMode)) {
             clearPerProcess(context, manager);
             if (isEmpty(processes) && isEmpty(idleRoles)) {
@@ -314,16 +314,6 @@ final class ProcessNotificationManager {
         row.setOnClickPendingIntent(R.id.notification_process_reminder,
                 IdleReminderManager.toggleIntent(context, idle));
         return row;
-    }
-
-    private static void ensureChannel(NotificationManager manager) {
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return;
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Active processes", NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Long-running calendar watchdog processes and their idle state");
-        channel.setShowBadge(false);
-        channel.setSound(null, null);
-        manager.createNotificationChannel(channel);
     }
 
     private static int notificationId(CalendarProcess process) {

@@ -61,6 +61,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarPercentMode.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarCopy.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/ProjectProfileRules.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/ProjectProfileEditState.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RateLimitResetCredit.java" \

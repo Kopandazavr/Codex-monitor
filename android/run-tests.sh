@@ -60,6 +60,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarDisplayMode.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarPercentMode.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarCopy.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/ProjectProfileRules.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RateLimitResetCredit.java" \
@@ -71,8 +72,10 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OnboardingFlow.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OAuthBrowserPage.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/DiagnosticSanitizer.java" \
-  "$FILTERED_TEST"
+  "$FILTERED_TEST" \
+  "$ROOT/tests/ProjectProfileRulesSelfTest.java"
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
@@ -105,6 +108,8 @@ grep -q 'return 100d - used;' "$SRC/UsageBurnChartView.java"
 grep -q 'drawStripedFill' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageWaveView.java"
 grep -q 'currentWindowSamples()' "$SRC/UsageBurnChartView.java"
+grep -q 'resetLabel(System.currentTimeMillis())' "$SRC/UsageBurnChartView.java"
+! grep -Fq 'samples.size() + " samples"' "$SRC/UsageBurnChartView.java"
 ! grep -q 'recentWindows' "$SRC/UsageBurnChartView.java"
 ! grep -q 'projectionDash' "$SRC/UsageBurnChartView.java"
 ! test -e "$SRC/UsageHistoryActivity.java"
@@ -260,9 +265,29 @@ grep -q 'ensureAlwaysOn' "$SRC/NowBarManager.java"
 ! grep -Fq 'setProgress(100, systemProgress, false)' "$SRC/DualUsageNotificationManager.java"
 ! grep -Fq 'systemProgressPercent' "$SRC/DualUsageNotificationManager.java"
 grep -q 'weeklyResetProgress' "$SRC/NowBarManager.java"
-grep -q '0xFF9FE8C1' "$SRC/NowBarManager.java"
+grep -q 'ResetProgress.RESET_LIME' "$SRC/NowBarManager.java"
 grep -q 'WidgetRepairJobService' "$MANIFEST"
 grep -Fq 'branches: [main, alpha]' "$WORKFLOW"
+
+# 2.24 project-profile and reset-progress contracts.
+test -f "$SRC/ProjectProfileStore.java"
+test -f "$SRC/ProjectBadgeView.java"
+test -f "$SRC/ProjectSettingsDialog.java"
+grep -Fq '"Data Matrix"' "$SRC/ProjectProfileStore.java"
+grep -Fq '"DM", "terminal", COLOR_GREEN' "$SRC/ProjectProfileStore.java"
+grep -Fq '"Codex Monitor"' "$SRC/ProjectProfileStore.java"
+grep -Fq '"Заказы сигарет"' "$SRC/ProjectProfileStore.java"
+grep -Fq '"Mira Technical"' "$SRC/ProjectProfileStore.java"
+grep -Fq '"Написание книг про ии будущего"' "$SRC/ProjectProfileStore.java"
+grep -Fq '"Mira Universe"' "$SRC/ProjectProfileStore.java"
+grep -q 'ProjectProfileStore.resolve' "$SRC/MainActivity.java"
+grep -q 'ProjectSettingsDialog.show' "$SRC/MainActivity.java"
+grep -q 'ResetProgress.elapsedPercent' "$SRC/MainActivity.java"
+grep -q 'ResetProgress.elapsedPercent' "$SRC/DualUsageNotificationManager.java"
+! grep -R -q 'ResetProgress.timeRemainingPercent' "$SRC"
+grep -q 'RESET_LIME = 0xFFB7F34A' "$SRC/ResetProgress.java"
+grep -q 'acceleratedWarning && percent > 0' "$SRC/UsageWaveView.java"
+test -f "$ROOT/app/src/main/assets/licenses/OpenAI-Apps-SDK-UI-LICENSE.txt"
 
 bash "$ROOT/tests/wear-retirement-source-test.sh"
 echo "Codex Monitor regression/source checks PASS"

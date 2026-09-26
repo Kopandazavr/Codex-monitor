@@ -512,11 +512,11 @@ public final class NowBarManager {
                 context, snapshot, progressWindow, now);
         boolean accelerated = !preview && pace.accelerated;
         int remaining = weeklyResetProgress
-                ? resetCycleProgressPercent(progressWindow, snapshot == null ? now
+                ? ResetProgress.elapsedPercent(progressWindow, snapshot == null ? now
                         : snapshot.fetchedAtMillis, now)
                 : progressWindow == null ? 0 : progressWindow.remainingPercent();
         int progressColor = weeklyResetProgress
-                ? 0xFF9FE8C1
+                ? ResetProgress.RESET_LIME
                 : accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254);
         boolean weeklyFocus = NowBarPercentMode.isWeeklyFocus(focus);
         // Preview snapshots invent their own windows without a remote observation time;
@@ -653,25 +653,6 @@ public final class NowBarManager {
         }
         PhoneWearSync.pushMonitorState(context);
         return true;
-    }
-
-    private static int resetCycleProgressPercent(UsageWindow window,
-            long observedAtMillis, long nowMillis) {
-        if (window == null || window.windowSeconds <= 0L) return 0;
-        long reference = observedAtMillis > 0L ? observedAtMillis : nowMillis;
-        long resetAt = window.effectiveResetAtMillis(reference);
-        if (resetAt <= 0L) return 0;
-        long cycleMillis;
-        try {
-            cycleMillis = Math.multiplyExact(window.windowSeconds, 1000L);
-        } catch (ArithmeticException exception) {
-            return 0;
-        }
-        if (cycleMillis <= 0L) return 0;
-        long remainingMillis = Math.max(0L, resetAt - nowMillis);
-        double remainingFraction = Math.min(1d, remainingMillis / (double) cycleMillis);
-        return Math.max(0, Math.min(100,
-                (int) Math.round((1d - remainingFraction) * 100d)));
     }
 
     private static RemoteViews buildDualUsageContentView(Context context,

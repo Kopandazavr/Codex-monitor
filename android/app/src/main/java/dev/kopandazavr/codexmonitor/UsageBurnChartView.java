@@ -83,8 +83,7 @@ public final class UsageBurnChartView extends View {
         zoomed = false;
         viewportStartMillis = 0L;
         viewportEndMillis = 0L;
-        String detail = samples.size() < 2 ? "Building measured history"
-                : samples.size() + " measured samples";
+        String detail = resetLabel(System.currentTimeMillis());
         if (zoomEnabled) detail += ". Tap to zoom; horizontal drag pans when zoomed";
         setContentDescription(this.label + " measured usage chart. " + detail + ".");
         if (wasZoomed && zoomChangedListener != null) zoomChangedListener.onZoomChanged(false);
@@ -307,10 +306,9 @@ public final class UsageBurnChartView extends View {
         paint.setTypeface(regularTypeface);
         paint.setTextSize(10f * density);
         paint.setColor(Ui.secondaryText(dark));
-        String sampleLabel = samples.size() < 2 ? "Building history"
-                : samples.size() + " samples";
-        if (zoomed) sampleLabel += " · zoom";
-        canvas.drawText(sampleLabel, right - paint.measureText(sampleLabel), 20f * density, paint);
+        String resetLabel = resetLabel(System.currentTimeMillis());
+        if (zoomed) resetLabel += " · zoom";
+        canvas.drawText(resetLabel, right - paint.measureText(resetLabel), 20f * density, paint);
 
         long[] full = defaultAxis();
         long[] axis = visibleAxis();
@@ -532,6 +530,14 @@ public final class UsageBurnChartView extends View {
         float measuredLeft = x(measuredStart, full[0], full[1], chartLeft(), chartRight());
         float measuredRight = x(measuredEnd, full[0], full[1], chartLeft(), chartRight());
         return touchX >= measuredLeft && touchX <= measuredRight;
+    }
+
+    private String resetLabel(long nowMillis) {
+        if (window == null) return "Reset time unavailable";
+        long reference = observedAtMillis > 0L ? observedAtMillis : nowMillis;
+        String value = UsageFormat.reset(getContext(), window, WidgetOptions.RESET_RELATIVE,
+                reference, nowMillis);
+        return value == null || value.isEmpty() ? "Reset time unavailable" : value;
     }
 
     private boolean isWeekly() {

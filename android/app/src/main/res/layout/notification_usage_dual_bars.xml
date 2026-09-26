@@ -71,7 +71,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="4dp"
                 android:max="100"
-                android:progressTint="#A4D65E"
+                android:progressTint="#B7F34A"
                 android:progressBackgroundTint="#30A4D65E"
                 android:visibility="gone" />
         </FrameLayout>
@@ -121,7 +121,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="4dp"
                 android:max="100"
-                android:progressTint="#A4D65E"
+                android:progressTint="#B7F34A"
                 android:progressBackgroundTint="#30A4D65E"
                 android:visibility="gone" />
         </FrameLayout>

@@ -572,9 +572,18 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
-        TextView identity = Ui.text(this, process.displayLabel(), 15.0f, Ui.mainText(this.dark));
-        identity.setTypeface(Ui.mediumTypeface(this));
-        copy.addView(identity);
+        ProjectProfileStore.Profile projectProfile =
+                ProjectProfileStore.resolve(this, process.project);
+        ProjectBadgeView projectBadge =
+                new ProjectBadgeView(this, projectProfile, process.projectShort);
+        projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
+                this, projectProfile.id, process.projectShort, this::refreshProcessesCard));
+        copy.addView(projectBadge);
+        TextView role = Ui.text(this, process.role, 14.0f, Ui.mainText(this.dark));
+        role.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-1, -2);
+        roleParams.setMargins(0, Ui.dp(this, 5), 0, 0);
+        copy.addView(role, roleParams);
         TextView state = Ui.text(this,
                 "Active · " + formatProcessRemaining(process.remainingMillis(nowMillis)),
                 12.0f, Ui.accent(this, this.dark));
@@ -630,9 +639,18 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
-        TextView identity = Ui.text(this, idle.displayLabel(), 15.0f, Ui.mainText(this.dark));
-        identity.setTypeface(Ui.mediumTypeface(this));
-        copy.addView(identity);
+        ProjectProfileStore.Profile projectProfile =
+                ProjectProfileStore.resolve(this, idle.project);
+        ProjectBadgeView projectBadge =
+                new ProjectBadgeView(this, projectProfile, idle.projectShort);
+        projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
+                this, projectProfile.id, idle.projectShort, this::refreshProcessesCard));
+        copy.addView(projectBadge);
+        TextView role = Ui.text(this, idle.role, 14.0f, Ui.mainText(this.dark));
+        role.setTypeface(Ui.mediumTypeface(this));
+        LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-1, -2);
+        roleParams.setMargins(0, Ui.dp(this, 5), 0, 0);
+        copy.addView(role, roleParams);
         TextView state = Ui.text(this,
                 "Idle · " + formatIdleAge(nowMillis - idle.lastFinishedMillis),
                 12.0f, Ui.secondaryText(this.dark));
@@ -778,7 +796,7 @@ public final class MainActivity extends AppCompatActivity {
         int remainingPercent = window.remainingPercent();
         boolean showResetRing = "5-hour".equals(label) || "Weekly".equals(label);
         int resetRemainingPercent = showResetRing
-                ? ResetProgress.timeRemainingPercent(window, snapshot.fetchedAtMillis, now) : -1;
+                ? ResetProgress.elapsedPercent(window, snapshot.fetchedAtMillis, now) : -1;
         wave.setUsage(label, reset, UsageFormat.estimatedRemaining(pace),
                 remainingPercent, resetRemainingPercent,
                 window.windowSeconds >= 86_400L

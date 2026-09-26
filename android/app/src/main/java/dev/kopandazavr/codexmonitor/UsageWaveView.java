@@ -17,7 +17,7 @@ public final class UsageWaveView extends View {
     private static final long NORMAL_WAVE_DURATION_MS = 2400L;
     private static final long WARNING_WAVE_DURATION_MS = 950L;
     private static final int WEEKLY_ORANGE = 0xFFFF9800;
-    private static final int RESET_LIME = 0xFFA4D65E;
+    private static final int RESET_LIME = ResetProgress.RESET_LIME;
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint titlePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -79,7 +79,7 @@ public final class UsageWaveView extends View {
         resetRingPercent = resetTimeRemainingPercent < 0 ? -1
                 : Math.max(0, Math.min(100, resetTimeRemainingPercent));
         pace = paceEstimate == null ? "" : paceEstimate;
-        warning = acceleratedWarning;
+        warning = acceleratedWarning && percent > 0;
         weekly = "Weekly".equals(label);
         if (animator != null) {
             animator.setDuration(warning ? WARNING_WAVE_DURATION_MS : NORMAL_WAVE_DURATION_MS);
@@ -95,7 +95,7 @@ public final class UsageWaveView extends View {
         icon = AppCompatResources.getDrawable(getContext(), iconRes);
         String description = label + ", " + percent + " percent available. " + reset;
         if (resetRingPercent >= 0) {
-            description += ". Reset time remaining " + resetRingPercent + " percent";
+            description += ". Reset cycle progress " + resetRingPercent + " percent";
         }
         if (!pace.isEmpty()) description += ". " + pace.replace("Est.", "Estimated");
         if (warning) description += ". Accelerated usage warning";

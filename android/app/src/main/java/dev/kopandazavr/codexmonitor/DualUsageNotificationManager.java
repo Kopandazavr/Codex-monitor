@@ -318,7 +318,7 @@ final class DualUsageNotificationManager {
         boolean resetMode = resetWhenExhausted && window != null
                 && window.remainingPercent() == 0;
         int value = resetMode
-                ? ResetProgress.timeRemainingPercent(window, observedAt, now)
+                ? ResetProgress.elapsedPercent(window, observedAt, now)
                 : window == null ? 0 : window.remainingPercent();
         views.setProgressBar(normalId, 100, value, false);
         views.setProgressBar(resetId, 100, value, false);

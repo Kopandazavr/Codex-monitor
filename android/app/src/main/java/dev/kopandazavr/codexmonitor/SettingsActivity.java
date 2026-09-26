@@ -675,9 +675,23 @@ public final class SettingsActivity extends AppCompatActivity {
             nowBarPermissionPreference = findPreference("now_bar_permission");
             if (nowBarPermissionPreference != null) {
                 nowBarPermissionPreference.setOnPreferenceClickListener(preference -> {
+                    AlertSoundManager.ensureChannels(requireContext());
                     startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                             .putExtra(Settings.EXTRA_APP_PACKAGE,
                                     requireContext().getPackageName()));
+                    return true;
+                });
+            }
+
+            SwitchPreferenceCompat phoneSpeaker =
+                    findPreference("alert_sounds_phone_speaker");
+            if (phoneSpeaker != null) {
+                phoneSpeaker.setPersistent(false);
+                phoneSpeaker.setChecked(
+                        AlertSoundManager.playOnPhoneSpeaker(requireContext()));
+                phoneSpeaker.setOnPreferenceChangeListener((preference, value) -> {
+                    AlertSoundManager.setPlayOnPhoneSpeaker(
+                            requireContext(), (Boolean) value);
                     return true;
                 });
             }

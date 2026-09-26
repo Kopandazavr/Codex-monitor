@@ -20,7 +20,7 @@ import java.util.Locale;
 
 /** Notification-shade presentation for the live monitor. */
 final class DualUsageNotificationManager {
-    private static final String CHANNEL_ID = "codex_live_monitor_v2";
+    private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final int NOTIFICATION_ID = 8610;
     private static final int REQUEST_CONTENT = 9760;
     private static final int REQUEST_STOP = 9761;
@@ -35,6 +35,7 @@ final class DualUsageNotificationManager {
                 || !NowBarManager.canPostNotifications(context)) {
             return false;
         }
+        AlertSoundManager.ensureChannels(context);
         SurfaceState state = surfaceState(context, snapshot);
         if (state == null) return false;
         Notification notification = buildSurface(context, CHANNEL_ID, state,

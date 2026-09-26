@@ -55,8 +55,8 @@ grep -Fq 'Math.hypot(bounds.width(), bounds.height())' "$SRC/IdleReminderOverlay
 # Custom RemoteViews keep their own usage bars; no duplicate framework progress line.
 ! grep -Fq 'setProgress(100, systemProgress, false)' "$SRC/DualUsageNotificationManager.java"
 ! grep -Fq 'systemProgressPercent' "$SRC/DualUsageNotificationManager.java"
-grep -Fq 'setProgressBar(R.id.notification_five_progress' "$SRC/DualUsageNotificationManager.java"
-grep -Fq 'setProgressBar(R.id.notification_long_progress' "$SRC/DualUsageNotificationManager.java"
+grep -Fq 'bindLimitProgress(views, R.id.notification_five_progress' "$SRC/DualUsageNotificationManager.java"
+grep -Fq 'bindLimitProgress(views, R.id.notification_long_progress' "$SRC/DualUsageNotificationManager.java"
 
 # Root-level Settings rows all carry icons.
 grep -Fq 'android:icon="@drawable/ic_permissions_checklist"' "$RES/xml/preferences_settings.xml"

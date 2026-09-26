@@ -200,13 +200,13 @@ final class ProjectSettingsDialog {
             commitParams.setMargins(Ui.dp(activity, 8), 0, 0, 0);
             row.addView(commit, commitParams);
 
-            String applied = ProjectProfileRules.collapseWhitespace(profile.shortOverride);
+            String persisted = ProjectProfileRules.collapseWhitespace(profile.shortOverride);
             Runnable updateCommitState = () -> {
                 boolean focused = shortName.hasFocus();
                 String current = ProjectProfileRules.collapseWhitespace(
                         shortName.getText() == null ? "" : shortName.getText().toString());
                 commit.setVisibility(focused ? View.VISIBLE : View.GONE);
-                commit.setEnabled(focused && !current.equals(applied));
+                commit.setEnabled(focused && !current.equals(persisted));
             };
             shortName.setOnFocusChangeListener((view, focused) -> updateCommitState.run());
             shortName.addTextChangedListener(new TextWatcher() {

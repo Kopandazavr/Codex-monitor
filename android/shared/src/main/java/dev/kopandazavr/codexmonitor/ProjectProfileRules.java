@@ -27,8 +27,9 @@ final class ProjectProfileRules {
     }
 
     static String fallbackShort(String watchdogShort, String primaryAlias) {
-        String watchdog = collapseWhitespace(watchdogShort);
-        return watchdog.isEmpty() ? automaticAcronym(primaryAlias) : watchdog;
+        // Local project identity owns the automatic short. Calendar metadata remains read-only
+        // input and must not pin the fallback after the user changes the Primary alias.
+        return automaticAcronym(primaryAlias);
     }
 
     static String effectiveShort(String localOverride, String watchdogShort, String primaryAlias) {

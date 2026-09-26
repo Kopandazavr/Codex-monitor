@@ -12,6 +12,7 @@ public final class AppConstants {
             "dev.kopandazavr.codexmonitor.action.RESET_CREDIT_EXPIRY_ALERT";
     public static final String ACTION_RESET_CREDITS_UPDATED = "dev.kopandazavr.codexmonitor.action.RESET_CREDITS_UPDATED";
     public static final String ACTION_USAGE_UPDATED = "dev.kopandazavr.codexmonitor.action.USAGE_UPDATED";
+    public static final String ACTION_PROCESS_UPDATED = "dev.kopandazavr.codexmonitor.action.PROCESS_UPDATED";
     // Canonical Codex Monitor app callback scheme.
     public static final String APP_LINK = "codexmonitor://auth/complete";
     public static final String AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
@@ -34,8 +35,8 @@ public final class AppConstants {
     public static final String REVOKE_URL = "https://auth.openai.com/oauth/revoke";
     public static final String TOKEN_URL = "https://auth.openai.com/oauth/token";
     public static final String USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
-    public static final int VERSION_CODE = 47;
-    public static final String VERSION_NAME = "2.21.0";
+    public static final int VERSION_CODE = 48;
+    public static final String VERSION_NAME = "2.22.0";
 
     private AppConstants() {
     }

@@ -318,7 +318,11 @@ public final class OnboardingActivity extends AppCompatActivity {
         TextView title = Ui.text(this, "ChatGPT", 15.0f, Ui.mainText(this.dark));
         title.setTypeface(Ui.mediumTypeface(this));
         copy.addView(title);
-        TextView summary = Ui.text(this, accountSummary(), 11.5f, Ui.secondaryText(this.dark));
+        String summaryText = accountSummary();
+        TextView summary = Ui.text(this, summaryText, 11.5f, Ui.secondaryText(this.dark));
+        if (signedIn) {
+            setStatusTokenColor(summary, summaryText, "Connected", statusGreen());
+        }
         copy.addView(summary);
         row.addView(copy, new LinearLayout.LayoutParams(0, -2, 1.0f));
 

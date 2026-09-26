@@ -13,6 +13,7 @@ public final class AppPreferences {
     private static final String KEY_DASHBOARD_FIVE_HOUR = "dashboard_five_hour";
     private static final String KEY_DASHBOARD_HIDDEN_SECTIONS = "dashboard_hidden_sections";
     private static final String KEY_DASHBOARD_MONTHLY = "dashboard_monthly";
+    private static final String KEY_DASHBOARD_PROCESSES_EXPANDED = "dashboard_processes_expanded";
     private static final String KEY_DASHBOARD_RESET_CREDITS = "dashboard_reset_credits";
     private static final String KEY_DASHBOARD_SECTION_ORDER = "dashboard_section_order";
     private static final String KEY_DASHBOARD_USAGE_CREDITS = "dashboard_usage_credits";
@@ -324,6 +325,15 @@ public final class AppPreferences {
 
     public static void setShowDashboardResetCredits(Context context, boolean show) {
         prefs(context).edit().putBoolean(KEY_DASHBOARD_RESET_CREDITS, show).apply();
+    }
+
+    /** Processes is fixed on Dashboard; only its expansion state is user-persistent. */
+    public static boolean isDashboardProcessesExpanded(Context context) {
+        return prefs(context).getBoolean(KEY_DASHBOARD_PROCESSES_EXPANDED, true);
+    }
+
+    public static void setDashboardProcessesExpanded(Context context, boolean expanded) {
+        prefs(context).edit().putBoolean(KEY_DASHBOARD_PROCESSES_EXPANDED, expanded).apply();
     }
 
     /** Hidden section keys (currently model-specific limits) as a {@link DashboardSections} CSV. */

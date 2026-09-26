@@ -4,18 +4,6 @@
 
     <PreferenceCategory android:title="Diagnostic logs">
         <Preference
-            android:key="diagnostic_build_identity"
-            android:summary="Version and source provenance"
-            android:title="Build"
-            app:iconSpaceReserved="false"
-            app:selectable="false" />
-        <Preference
-            android:key="diagnostic_log_status"
-            android:summary="Always on · bounded rolling storage"
-            android:title="Saved logs"
-            app:iconSpaceReserved="false"
-            app:selectable="false" />
-        <Preference
             android:key="diagnostic_monitor_health"
             android:summary="Calendar monitor state"
             android:title="Monitor health"

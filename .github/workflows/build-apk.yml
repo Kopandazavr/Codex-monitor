@@ -108,6 +108,7 @@ jobs:
           bash ./tests/patch-2.10.0-direct-controls-source-test.sh
           bash ./tests/patch-2.20.0-source-test.sh
           bash ./tests/patch-2.21.0-source-test.sh
+          bash ./tests/patch-2.22.0-source-test.sh
 
       - name: Run Android lint
         shell: bash

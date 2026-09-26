@@ -14,6 +14,10 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.provider.Settings;
 import android.text.InputType;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.RelativeSizeSpan;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -68,6 +72,9 @@ public final class SettingsActivity extends AppCompatActivity {
         String page = normalizePage(getIntent().getStringExtra(EXTRA_PAGE));
         ToolbarLayout toolbar = findViewById(R.id.settings_toolbar_layout);
         Ui.configureReachToolbar(toolbar, pageTitle(page), true);
+        if (PAGE_DIAGNOSTICS.equals(page)) {
+            configureDiagnosticsToolbar(toolbar);
+        }
         if (bundle == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.settings_fragment, SettingsFragment.newInstance(page))
@@ -96,6 +103,31 @@ public final class SettingsActivity extends AppCompatActivity {
             default:
                 return "Settings";
         }
+    }
+
+    private void configureDiagnosticsToolbar(ToolbarLayout toolbar) {
+        String identity = diagnosticBuildIdentity();
+        String collapsedText = "Diagnostics   " + identity;
+        SpannableString collapsed = new SpannableString(collapsedText);
+        int identityStart = collapsedText.indexOf(identity);
+        if (identityStart >= 0) {
+            collapsed.setSpan(new ForegroundColorSpan(Ui.secondaryText(Ui.isDark(this))),
+                    identityStart, collapsed.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            collapsed.setSpan(new RelativeSizeSpan(0.72f),
+                    identityStart, collapsed.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        toolbar.setTitle("Diagnostics", collapsed);
+        toolbar.setSubtitle(identity);
+        toolbar.setCollapsedSubtitle(null);
+    }
+
+    private static String diagnosticBuildIdentity() {
+        String identity = BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")";
+        String sha = BuildConfig.GIT_SHA == null ? "" : BuildConfig.GIT_SHA.trim();
+        if (!sha.isEmpty() && !"unknown".equalsIgnoreCase(sha)) {
+            identity += " · " + sha;
+        }
+        return identity;
     }
 
     @SuppressLint("FindPreferenceKeyNotFound")
@@ -252,23 +284,17 @@ public final class SettingsActivity extends AppCompatActivity {
         private void updateDiagnosticSummary() {
             if (!PAGE_DIAGNOSTICS.equals(page) || getContext() == null) return;
             DiagnosticLog.Stats stats = DiagnosticLog.stats(requireContext());
-            Preference status = findPreference("diagnostic_log_status");
-            if (status != null) {
-                status.setSummary("Always on · " + DiagnosticLog.formatBytes(stats.bytes)
-                        + (stats.files == 1 ? " in 1 file"
-                        : " across " + stats.files + " files"));
-            }
-            Preference build = findPreference("diagnostic_build_identity");
-            if (build != null) {
-                build.setSummary(BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE
-                        + ") · " + BuildConfig.GIT_SHA);
-            }
             Preference monitorHealth = findPreference("diagnostic_monitor_health");
             if (monitorHealth != null) {
                 monitorHealth.setSummary(MonitorHealthDiagnostics.summary(requireContext()));
             }
             Preference export = findPreference("export_diagnostic_logs");
-            if (export != null) export.setEnabled(stats.hasLogs());
+            if (export != null) {
+                export.setSummary("Always on · " + DiagnosticLog.formatBytes(stats.bytes)
+                        + (stats.files == 1 ? " in 1 file"
+                        : " across " + stats.files + " files"));
+                export.setEnabled(stats.hasLogs());
+            }
             Preference clear = findPreference("clear_diagnostic_logs");
             if (clear != null) clear.setEnabled(stats.hasLogs());
         }

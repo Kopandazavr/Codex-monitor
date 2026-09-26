@@ -46,6 +46,7 @@ public final class MainActivity extends AppCompatActivity {
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
+    private LinearLayout processesCard;
     private SwipeRefreshLayout swipeRefresh;
     private boolean dark;
     private boolean receiverRegistered;
@@ -75,6 +76,10 @@ public final class MainActivity extends AppCompatActivity {
                 Toast.makeText(mainActivity, stringExtra2, 1).show();
                 PhoneWearSync.pushAll(MainActivity.this);
                 MainActivity.this.rebuild();
+                return;
+            }
+            if (AppConstants.ACTION_PROCESS_UPDATED.equals(action)) {
+                MainActivity.this.refreshProcessesCard();
                 return;
             }
             if (AppConstants.ACTION_USAGE_UPDATED.equals(action)
@@ -228,6 +233,7 @@ public final class MainActivity extends AppCompatActivity {
         intentFilter.addAction(AppConstants.ACTION_OAUTH_RESULT);
         intentFilter.addAction(AppConstants.ACTION_USAGE_UPDATED);
         intentFilter.addAction(AppConstants.ACTION_RESET_CREDITS_UPDATED);
+        intentFilter.addAction(AppConstants.ACTION_PROCESS_UPDATED);
         try {
             if (Build.VERSION.SDK_INT >= 33) {
                 registerReceiver(this.authReceiver, intentFilter,
@@ -335,6 +341,7 @@ public final class MainActivity extends AppCompatActivity {
 
     public void rebuild() {
         if (this.content != null) {
+            this.processesCard = null;
             this.content.removeAllViews();
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
@@ -376,6 +383,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         if (!signedIn) {
+            addDashboardCard(column, buildProcessesCard());
             return column;
         }
         Map<String, List<UsageLimit>> limitsByKey = new LinkedHashMap<>();
@@ -426,6 +434,7 @@ public final class MainActivity extends AppCompatActivity {
             available.add(DashboardSections.RESET_CREDITS);
         }
         boolean inverted = false;
+        boolean processesAdded = false;
         for (String key : DashboardSections.resolveOrder(
                 AppPreferences.getDashboardOrder(this), available)) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
@@ -444,6 +453,8 @@ public final class MainActivity extends AppCompatActivity {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard());
+                addDashboardCard(column, buildProcessesCard());
+                processesAdded = true;
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
                 addDashboardCard(column, buildResetCreditsCard());
             } else {
@@ -467,6 +478,9 @@ public final class MainActivity extends AppCompatActivity {
                 }
             }
         }
+        if (!processesAdded) {
+            addDashboardCard(column, buildProcessesCard());
+        }
         return column;
     }
 
@@ -475,6 +489,293 @@ public final class MainActivity extends AppCompatActivity {
             Ui.addSpacer(column, 20);
         }
         column.addView(card);
+    }
+
+    private void refreshProcessesCard() {
+        LinearLayout current = this.processesCard;
+        if (current == null || !(current.getParent() instanceof LinearLayout)) {
+            rebuild();
+            return;
+        }
+        LinearLayout parent = (LinearLayout) current.getParent();
+        int index = parent.indexOfChild(current);
+        if (index < 0) {
+            rebuild();
+            return;
+        }
+        LinearLayout replacement = buildProcessesCard();
+        parent.removeViewAt(index);
+        parent.addView(replacement, index);
+    }
+
+    private LinearLayout buildProcessesCard() {
+        long now = System.currentTimeMillis();
+        List<CalendarProcess> observed = CalendarProcessReader.observed(this, now);
+        List<CalendarProcess> active = CalendarProcessReader.active(observed, now);
+        List<CalendarProcess> finished = CalendarProcessReader.recentlyFinished(observed, now);
+        List<IdleProcessState.IdleRole> idleRoles =
+                IdleProcessState.synchronize(this, active, finished, observed, now);
+
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setPadding(Ui.dp(this, 18), Ui.dp(this, 15),
+                Ui.dp(this, 14), Ui.dp(this, 15));
+        boolean expanded = AppPreferences.isDashboardProcessesExpanded(this);
+
+        LinearLayout header = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        LinearLayout heading = new LinearLayout(this);
+        heading.setOrientation(LinearLayout.VERTICAL);
+        TextView title = Ui.text(this, "Processes", 18.0f, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        heading.addView(title);
+        TextView count = Ui.text(this, processCountLabel(active.size(), idleRoles.size()),
+                12.5f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(-2, -2);
+        countParams.setMargins(0, Ui.dp(this, 2), 0, 0);
+        heading.addView(count, countParams);
+        header.addView(heading, new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+        TextView toggle = Ui.text(this, expanded ? "−" : "+", 24.0f, Ui.mainText(this.dark));
+        toggle.setGravity(Gravity.CENTER);
+        toggle.setContentDescription(expanded ? "Collapse Processes" : "Expand Processes");
+        header.addView(toggle, new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44)));
+        header.setClickable(true);
+        header.setFocusable(true);
+        header.setContentDescription(expanded ? "Collapse Processes" : "Expand Processes");
+        header.setOnClickListener(view -> {
+            AppPreferences.setDashboardProcessesExpanded(MainActivity.this, !expanded);
+            refreshProcessesCard();
+        });
+        card.addView(header);
+
+        if (active.isEmpty() && idleRoles.isEmpty()) {
+            TextView empty = Ui.text(this,
+                    "No detected agents or processes yet\nWatchdog activity will appear here.",
+                    13.0f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams emptyParams = new LinearLayout.LayoutParams(-1, -2);
+            emptyParams.setMargins(0, Ui.dp(this, 10), 0, Ui.dp(this, 2));
+            card.addView(empty, emptyParams);
+            this.processesCard = card;
+            return card;
+        }
+
+        if (!expanded) {
+            String summary;
+            if (!active.isEmpty()) {
+                CalendarProcess process = active.get(0);
+                summary = process.displayLabel() + " · Active · "
+                        + formatProcessRemaining(process.remainingMillis(now));
+            } else {
+                IdleProcessState.IdleRole idle = idleRoles.get(0);
+                summary = idle.displayLabel() + " · Idle · "
+                        + formatIdleAge(now - idle.lastFinishedMillis);
+            }
+            int extra = active.size() + idleRoles.size() - 1;
+            if (extra > 0) summary += " · +" + extra + " more";
+            TextView summaryView = Ui.text(this, summary, 13.0f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams summaryParams = new LinearLayout.LayoutParams(-1, -2);
+            summaryParams.setMargins(0, Ui.dp(this, 8), 0, 0);
+            card.addView(summaryView, summaryParams);
+            this.processesCard = card;
+            return card;
+        }
+
+        boolean first = true;
+        for (CalendarProcess process : active) {
+            if (!first) addProcessDivider(card);
+            card.addView(buildActiveProcessRow(process, now));
+            first = false;
+        }
+        for (IdleProcessState.IdleRole idle : idleRoles) {
+            if (!first) addProcessDivider(card);
+            card.addView(buildIdleProcessRow(idle, now));
+            first = false;
+        }
+
+        this.processesCard = card;
+        return card;
+    }
+
+    private View buildActiveProcessRow(CalendarProcess process, long nowMillis) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, Ui.dp(this, 9), 0, Ui.dp(this, 7));
+
+        LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView identity = Ui.text(this, process.displayLabel(), 15.0f, Ui.mainText(this.dark));
+        identity.setTypeface(Ui.mediumTypeface(this));
+        copy.addView(identity);
+        TextView state = Ui.text(this,
+                "Active · " + formatProcessRemaining(process.remainingMillis(nowMillis)),
+                12.0f, Ui.accent(this, this.dark));
+        LinearLayout.LayoutParams stateParams = new LinearLayout.LayoutParams(-2, -2);
+        stateParams.setMargins(0, Ui.dp(this, 2), 0, 0);
+        copy.addView(state, stateParams);
+        top.addView(copy, new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+        String key = IdleProcessState.roleKey(process);
+        boolean reminderEnabled = IdleProcessState.isReminderEnabled(this, key);
+        ImageView bell = processActionIcon(
+                reminderEnabled ? R.drawable.ic_bell_on : R.drawable.ic_bell_off,
+                reminderEnabled ? 0xFFFFC107 : Ui.secondaryText(this.dark),
+                reminderEnabled ? "Disable idle reminders" : "Enable idle reminders");
+        bell.setOnClickListener(view -> toggleProcessReminder(key));
+        LinearLayout.LayoutParams bellParams =
+                new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
+        bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
+        top.addView(bell, bellParams);
+        row.addView(top);
+
+        if (process.topic != null && !process.topic.isEmpty()) {
+            TextView topic = Ui.text(this, process.topic, 13.5f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-1, -2);
+            topicParams.setMargins(0, Ui.dp(this, 7), 0, 0);
+            row.addView(topic, topicParams);
+        }
+
+        ProgressBar progress = Ui.progress(this, this.dark);
+        progress.setProgress(process.elapsedPercent(nowMillis));
+        LinearLayout.LayoutParams progressParams =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 7));
+        progressParams.setMargins(0, Ui.dp(this, 10), 0, 0);
+        row.addView(progress, progressParams);
+        return row;
+    }
+
+    private View buildIdleProcessRow(IdleProcessState.IdleRole idle, long nowMillis) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(0, Ui.dp(this, 9), 0, Ui.dp(this, 7));
+
+        LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView identity = Ui.text(this, idle.displayLabel(), 15.0f, Ui.mainText(this.dark));
+        identity.setTypeface(Ui.mediumTypeface(this));
+        copy.addView(identity);
+        TextView state = Ui.text(this,
+                "Idle · " + formatIdleAge(nowMillis - idle.lastFinishedMillis),
+                12.0f, Ui.secondaryText(this.dark));
+        LinearLayout.LayoutParams stateParams = new LinearLayout.LayoutParams(-2, -2);
+        stateParams.setMargins(0, Ui.dp(this, 2), 0, 0);
+        copy.addView(state, stateParams);
+        top.addView(copy, new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+        ImageView bell = processActionIcon(
+                idle.reminderEnabled ? R.drawable.ic_bell_on : R.drawable.ic_bell_off,
+                idle.reminderEnabled ? 0xFFFFC107 : Ui.secondaryText(this.dark),
+                idle.reminderEnabled ? "Disable idle reminders" : "Enable idle reminders");
+        bell.setOnClickListener(view -> toggleProcessReminder(idle.key));
+        LinearLayout.LayoutParams bellParams =
+                new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
+        bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
+        top.addView(bell, bellParams);
+
+        ImageView trash = processActionIcon(R.drawable.ic_idle_trash, Ui.danger(this.dark),
+                "Hide this idle episode");
+        trash.setOnClickListener(view -> dismissIdleProcess(idle));
+        LinearLayout.LayoutParams trashParams =
+                new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
+        trashParams.setMargins(Ui.dp(this, 2), 0, 0, 0);
+        top.addView(trash, trashParams);
+        row.addView(top);
+
+        if (idle.topic != null && !idle.topic.isEmpty()) {
+            TextView topic = Ui.text(this, idle.topic, 13.5f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-1, -2);
+            topicParams.setMargins(0, Ui.dp(this, 7), 0, 0);
+            row.addView(topic, topicParams);
+        }
+
+        if (idle.lastStartedMillis > 0L && idle.lastFinishedMillis > idle.lastStartedMillis) {
+            TextView duration = Ui.text(this,
+                    "Last session · "
+                            + formatProcessDuration(idle.lastFinishedMillis - idle.lastStartedMillis),
+                    11.5f, Ui.secondaryText(this.dark));
+            LinearLayout.LayoutParams durationParams = new LinearLayout.LayoutParams(-1, -2);
+            durationParams.setMargins(0, Ui.dp(this, 5), 0, 0);
+            row.addView(duration, durationParams);
+        }
+        return row;
+    }
+
+    private ImageView processActionIcon(int drawable, int tint, String description) {
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(drawable);
+        icon.setImageTintList(ColorStateList.valueOf(tint));
+        icon.setContentDescription(description);
+        icon.setClickable(true);
+        icon.setFocusable(true);
+        icon.setPadding(Ui.dp(this, 9), Ui.dp(this, 9), Ui.dp(this, 9), Ui.dp(this, 9));
+        GradientDrawable background = new GradientDrawable();
+        background.setShape(GradientDrawable.OVAL);
+        background.setColor(Ui.controlSurface(this, this.dark));
+        background.setStroke(Ui.dp(this, 1), Ui.divider(this.dark));
+        icon.setBackground(background);
+        return icon;
+    }
+
+    private void toggleProcessReminder(String key) {
+        long now = System.currentTimeMillis();
+        boolean enabled = IdleProcessState.toggleReminder(this, key, now);
+        IdleReminderManager.onReminderToggled(this, key, enabled, now);
+        DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
+        DiagnosticLog.info(this, "idle_process", "dashboard_bell_toggled",
+                "key", key, "enabled", enabled);
+        refreshProcessesCard();
+    }
+
+    private void dismissIdleProcess(IdleProcessState.IdleRole idle) {
+        IdleProcessState.dismiss(this, idle.key, idle.lastFinishedMillis);
+        DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
+        DiagnosticLog.info(this, "idle_process", "dashboard_idle_row_dismissed",
+                "role", idle.displayLabel(), "finished_at", idle.lastFinishedMillis);
+        refreshProcessesCard();
+    }
+
+    private void addProcessDivider(LinearLayout card) {
+        View divider = new View(this);
+        divider.setBackgroundColor(Ui.divider(this.dark));
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 1));
+        params.setMargins(0, Ui.dp(this, 3), 0, Ui.dp(this, 3));
+        card.addView(divider, params);
+    }
+
+    private static String processCountLabel(int active, int idle) {
+        if (active > 0 && idle > 0) return active + " active · " + idle + " idle";
+        if (active > 0) return active + " active";
+        if (idle > 0) return idle + " idle";
+        return "0 active · 0 idle";
+    }
+
+    private static String formatProcessRemaining(long remainingMillis) {
+        if (remainingMillis <= 0L) return "done";
+        long minutes = Math.max(1L, (remainingMillis + 59_999L) / 60_000L);
+        if (minutes < 60L) return minutes + "m left";
+        long hours = minutes / 60L;
+        long rest = minutes % 60L;
+        return rest == 0L ? hours + "h left" : hours + "h " + rest + "m left";
+    }
+
+    private static String formatIdleAge(long idleMillis) {
+        long minutes = Math.max(1L, Math.max(0L, idleMillis) / 60_000L);
+        if (minutes < 60L) return minutes + "m";
+        long hours = minutes / 60L;
+        long rest = minutes % 60L;
+        if (hours < 24L) return rest == 0L ? hours + "h" : hours + "h " + rest + "m";
+        long days = hours / 24L;
+        long hourRest = hours % 24L;
+        return hourRest == 0L ? days + "d" : days + "d " + hourRest + "h";
+    }
+
+    private static String formatProcessDuration(long durationMillis) {
+        long minutes = Math.max(1L, Math.max(0L, durationMillis) / 60_000L);
+        if (minutes < 60L) return minutes + "m";
+        long hours = minutes / 60L;
+        long rest = minutes % 60L;
+        return rest == 0L ? hours + "h" : hours + "h " + rest + "m";
     }
 
     private LinearLayout buildMetricCard(String label, UsageSnapshot snapshot, UsageWindow window,

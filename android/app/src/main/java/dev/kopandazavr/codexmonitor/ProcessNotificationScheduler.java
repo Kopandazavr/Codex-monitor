@@ -104,6 +104,9 @@ final class ProcessNotificationScheduler {
         GoogleCalendarProcessSource.forceRefresh(app, () -> {
             long elapsed = Math.max(0L, SystemClock.elapsedRealtime() - started);
             DualUsageNotificationManager.repostForProcessChange(app);
+            Intent changed = new Intent(AppConstants.ACTION_PROCESS_UPDATED)
+                    .setPackage(app.getPackageName());
+            app.sendBroadcast(changed, AppConstants.INTERNAL_PERMISSION);
             synchronized (LOOP_LOCK) {
                 if (!loopRunning || loopContext == null || !NowBarManager.isActive(app)) {
                     loopRunning = false;

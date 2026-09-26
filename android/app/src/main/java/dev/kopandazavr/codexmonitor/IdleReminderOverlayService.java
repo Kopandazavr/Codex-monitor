@@ -42,7 +42,7 @@ public final class IdleReminderOverlayService extends Service {
     private static final String ACTION_SHOW_TEST =
             "dev.kopandazavr.codexmonitor.action.SHOW_IDLE_OVERLAY_TEST";
     private static final String TEST_ROLE_KEY = "__overlay_test__";
-    private static final String CHANNEL_ID = "codex_idle_overlay_service_v1";
+    private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final int FOREGROUND_ID = 8641;
     private static volatile IdleReminderOverlayService running;
 
@@ -437,14 +437,7 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     private void ensureChannel() {
-        NotificationManager manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        if (manager == null || manager.getNotificationChannel(CHANNEL_ID) != null) return;
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Completion overlay", NotificationManager.IMPORTANCE_MIN);
-        channel.setDescription("Temporary foreground service while a completion overlay is visible");
-        channel.setShowBadge(false);
-        channel.setSound(null, null);
-        manager.createNotificationChannel(channel);
+        AlertSoundManager.ensureChannels(this);
     }
 
     private static String formatDuration(long durationMillis) {

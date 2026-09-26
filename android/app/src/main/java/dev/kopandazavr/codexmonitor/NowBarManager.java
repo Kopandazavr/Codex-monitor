@@ -36,7 +36,7 @@ public final class NowBarManager {
     static final String ACTION_DISMISSED = "dev.kopandazavr.codexmonitor.action.NOW_BAR_DISMISSED";
     static final String ACTION_STOP = "dev.kopandazavr.codexmonitor.action.NOW_BAR_STOP";
 
-    private static final String CHANNEL_ID = "codex_live_monitor_v2";
+    private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final String EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing";
     private static final String KEY_ACTIVE = "active";
     private static final String KEY_AUTO_TRIGGER_FOCUS = "auto_trigger_focus";
@@ -484,7 +484,7 @@ public final class NowBarManager {
         NotificationManager manager = manager(context);
         if (manager == null || !canPostNotifications(context)) return false;
         try {
-            createChannel(manager);
+            AlertSoundManager.ensureChannels(context);
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "channel_create_failed", exception);
             Log.w(TAG, "Could not create live monitor notification channel", exception);
@@ -752,17 +752,6 @@ public final class NowBarManager {
         return night == Configuration.UI_MODE_NIGHT_YES
                 ? R.drawable.ic_codex_logo_dark
                 : R.drawable.ic_codex_logo;
-    }
-
-    private static void createChannel(NotificationManager manager) {
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Codex live monitor", NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription(
-                "Always-on Codex allowance and watched-process monitor");
-        channel.setSound(null, null);
-        channel.enableVibration(false);
-        channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
-        manager.createNotificationChannel(channel);
     }
 
     private static void scheduleEnd(Context context, long until) {

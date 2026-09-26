@@ -35,8 +35,8 @@ public final class AppConstants {
     public static final String REVOKE_URL = "https://auth.openai.com/oauth/revoke";
     public static final String TOKEN_URL = "https://auth.openai.com/oauth/token";
     public static final String USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
-    public static final int VERSION_CODE = 50;
-    public static final String VERSION_NAME = "2.24.0";
+    public static final int VERSION_CODE = 51;
+    public static final String VERSION_NAME = "2.25.0";
 
     private AppConstants() {
     }

@@ -2,16 +2,11 @@ package dev.kopandazavr.codexmonitor;
 
 import android.app.AlarmManager;
 import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Icon;
-import android.media.Ringtone;
-import android.media.RingtoneManager;
-import android.net.Uri;
 import android.os.Build;
 
 /**
@@ -37,9 +32,6 @@ public final class NowBarResetReminder {
     private static final String KEY_RESET_AT = "reset_at";
     private static final String KEY_WINDOW_SECONDS = "window_seconds";
     private static final String KEY_PER_METRIC_MIGRATED = "per_metric_migrated_v2";
-    private static final String CHANNEL_NOTIFY = "codex_reset_notify";
-    private static final String CHANNEL_ALARM = "codex_reset_alarm";
-    private static final String CHANNEL_SILENT = "codex_reset_silent";
     private static final int REQUEST_TOGGLE_BASE = 8621;
     private static final int REQUEST_FIRE_BASE = 8630;
     private static final long DELIVERY_GRACE_MS = 3000L;
@@ -203,10 +195,7 @@ public final class NowBarResetReminder {
                 .putLong(keyResetAt(metric), resetAt)
                 .putLong(keyWindowSeconds(metric), Math.max(0L, windowSeconds))
                 .apply();
-        try {
-            ResetNotificationManager.ensureChannel(context);
-        } catch (RuntimeException ignored) {
-        }
+        AlertSoundManager.ensureChannels(context);
         schedule(context, metric, resetAt, windowSeconds);
     }
 
@@ -290,47 +279,10 @@ public final class NowBarResetReminder {
     }
 
     private static void playResetSound(Context context, String metric) {
-        try {
-            Uri sound = configuredUsageAlertSound(context);
-            if (sound == null) {
-                sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
-            }
-            if (sound == null) {
-                DiagnosticLog.warn(context, "now_bar", "reset_sound_unavailable",
-                        "metric", metric == null ? "" : metric);
-                return;
-            }
-            Ringtone ringtone = RingtoneManager.getRingtone(context.getApplicationContext(), sound);
-            if (ringtone == null) {
-                DiagnosticLog.warn(context, "now_bar", "reset_sound_unavailable",
-                        "metric", metric == null ? "" : metric);
-                return;
-            }
-            ringtone.play();
-            DiagnosticLog.info(context, "now_bar", "reset_sound_played",
-                    "metric", metric == null ? "" : metric);
-        } catch (RuntimeException exception) {
-            DiagnosticLog.error(context, "now_bar", "reset_sound_failed", exception,
-                    "metric", metric == null ? "" : metric);
-        }
-    }
-
-    private static Uri configuredUsageAlertSound(Context context) {
-        try {
-            ResetNotificationManager.ensureChannel(context);
-            NotificationManager manager = (NotificationManager)
-                    context.getSystemService(Context.NOTIFICATION_SERVICE);
-            if (manager == null) return null;
-            String style = ResetAlertPreferences.getStyle(context);
-            String channelId = ResetAlertPreferences.STYLE_ALARM.equals(style)
-                    ? CHANNEL_ALARM
-                    : ResetAlertPreferences.STYLE_SILENT.equals(style)
-                    ? CHANNEL_SILENT : CHANNEL_NOTIFY;
-            NotificationChannel channel = manager.getNotificationChannel(channelId);
-            return channel == null ? null : channel.getSound();
-        } catch (RuntimeException ignored) {
-            return null;
-        }
+        boolean played = AlertSoundManager.playLimitsReset(context);
+        DiagnosticLog.info(context, "now_bar", "reset_sound_played",
+                "metric", metric == null ? "" : metric,
+                "played", played);
     }
 
     private static int requestToggle(String metric) {

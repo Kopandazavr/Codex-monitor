@@ -25,10 +25,10 @@ final class HomeVersionLabel {
         TextView title = findHomeTitle(toolbar);
         if (title == null) return;
         String version = BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")";
-        String suffix = "  " + version;
+        String suffix = " " + version;
         SpannableString text = new SpannableString(HOME_TITLE + suffix);
         int start = HOME_TITLE.length();
-        text.setSpan(new RelativeSizeSpan(0.56f), start, text.length(),
+        text.setSpan(new RelativeSizeSpan(0.50f), start, text.length(),
                 Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
         text.setSpan(new ForegroundColorSpan(Ui.secondaryText(Ui.isDark(activity))),
                 start, text.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);

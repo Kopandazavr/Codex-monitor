@@ -16,7 +16,6 @@ import androidx.appcompat.content.res.AppCompatResources;
 public final class UsageWaveView extends View {
     private static final long NORMAL_WAVE_DURATION_MS = 2400L;
     private static final long WARNING_WAVE_DURATION_MS = 950L;
-    private static final int FIVE_HOUR_BLUE = 0xFF4D81EF;
     private static final int WEEKLY_ORANGE = 0xFFFF9800;
     private static final int RESET_LIME = ResetProgress.RESET_LIME;
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -152,7 +151,7 @@ public final class UsageWaveView extends View {
             }
             fillPath.lineTo(0, getHeight());
             fillPath.close();
-            fillPaint.setColor(weekly ? WEEKLY_ORANGE : FIVE_HOUR_BLUE);
+            fillPaint.setColor(weekly ? WEEKLY_ORANGE : Ui.accent(getContext(), dark));
             canvas.drawPath(fillPath, fillPaint);
         }
 

@@ -4,10 +4,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
 
-grep -Fq 'versionCode = 52' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.26.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 52' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.26.0"' "$SRC/AppConstants.java"
+VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+[[ "$VERSION_CODE" -ge 52 ]]
+grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
 # Project Settings is one in-memory transaction: no per-control persistent writes.
 grep -Fq 'ProjectProfileStore.beginEdit(activity, profileId)' "$SRC/ProjectSettingsDialog.java"
@@ -31,19 +31,18 @@ grep -Fq 'String addAlias(String alias, Map<String, String> externalOwners)' "$S
 grep -Fq 'String deleteAlias(String alias)' "$SHARED/ProjectProfileEditState.java"
 grep -Fq 'static synchronized EditSession beginEdit' "$SRC/ProjectProfileStore.java"
 grep -Fq 'private static synchronized String commitEdit' "$SRC/ProjectProfileStore.java"
-grep -Fq 'Map<String, String> currentOwners = externalAliasOwners' "$SRC/ProjectProfileStore.java"
+grep -Fq 'Map<String, String> currentOwners =' "$SRC/ProjectProfileStore.java"
+grep -Fq 'externalAliasOwners(profiles, session.profileId, false)' "$SRC/ProjectProfileStore.java"
 grep -Fq 'profiles.set(index, replacement);' "$SRC/ProjectProfileStore.java"
-grep -Fq 'save(context, profiles);' "$SRC/ProjectProfileStore.java"
+grep -Fq 'save(context, profiles, routes);' "$SRC/ProjectProfileStore.java"
 
 # Incoming watchdog project names keep stable local identity even after visible alias deletion.
 grep -Fq 'KEY_ROUTES = "incoming_routes_json"' "$SRC/ProjectProfileStore.java"
 grep -Fq 'MutableProfile routed = findMutable(profiles, routes.get(normalized));' "$SRC/ProjectProfileStore.java"
 grep -Fq '"legacy_orphan_reconciled"' "$SRC/ProjectProfileStore.java"
-grep -Fq 'owner.id.startsWith("project:")' "$SRC/ProjectProfileStore.java"
-grep -Fq '"folder".equals(owner.iconKey)' "$SRC/ProjectProfileStore.java"
+grep -Fq 'isReclaimableLegacyOrphan(owner, normalized)' "$SRC/ProjectProfileStore.java"
 
-# 70% transparent = ~30% alpha same accent for both identity surfaces.
-grep -Fq 'return 0x4D000000 | (accentColor(profile) & 0x00FFFFFF);' "$SRC/ProjectProfileStore.java"
+# Identity surfaces still share one project-derived fill and the same bright accent outline.
 grep -Fq 'pillBackground.setColor(surfaceTint);' "$SRC/ProjectBadgeView.java"
 grep -Fq 'disc.setColor(surfaceTint);' "$SRC/ProjectBadgeView.java"
 grep -Fq 'pillBackground.setStroke(Ui.dp(context, 1.5f), accent);' "$SRC/ProjectBadgeView.java"

@@ -2,14 +2,12 @@ package dev.kopandazavr.codexmonitor;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -178,63 +176,26 @@ final class ProjectSettingsDialog {
 
         private void addShortName(ProjectProfileStore.Profile profile) {
             content.addView(sectionTitle(activity, "Short name override", dark));
-            LinearLayout row = new LinearLayout(activity);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-
             EditText shortName = new EditText(activity);
             shortName.setSingleLine(true);
             shortName.setText(profile.shortOverride);
             shortName.setHint(ProjectProfileStore.fallbackShort(profile, watchdogShort));
             shortName.setTextColor(Ui.mainText(dark));
             shortName.setHintTextColor(Ui.secondaryText(dark));
-            row.addView(shortName, new LinearLayout.LayoutParams(0, Ui.dp(activity, 52), 1f));
-
-            Button commit = Ui.button(activity, "✓", true, dark);
-            commit.setTextSize(18);
-            commit.setContentDescription("Apply short name");
-            commit.setVisibility(View.GONE);
-            commit.setEnabled(false);
-            LinearLayout.LayoutParams commitParams =
-                    new LinearLayout.LayoutParams(Ui.dp(activity, 48), Ui.dp(activity, 48));
-            commitParams.setMargins(Ui.dp(activity, 8), 0, 0, 0);
-            row.addView(commit, commitParams);
-
-            String persisted = ProjectProfileRules.collapseWhitespace(profile.shortOverride);
-            Runnable updateCommitState = () -> {
-                boolean focused = shortName.hasFocus();
-                String current = ProjectProfileRules.collapseWhitespace(
-                        shortName.getText() == null ? "" : shortName.getText().toString());
-                commit.setVisibility(focused ? View.VISIBLE : View.GONE);
-                commit.setEnabled(focused && !current.equals(persisted));
-            };
-            shortName.setOnFocusChangeListener((view, focused) -> updateCommitState.run());
             shortName.addTextChangedListener(new TextWatcher() {
                 @Override public void beforeTextChanged(
                         CharSequence s, int start, int count, int after) {}
                 @Override public void onTextChanged(
-                        CharSequence s, int start, int before, int count) {
-                    updateCommitState.run();
+                        CharSequence s, int start, int before, int count) {}
+                @Override public void afterTextChanged(Editable s) {
+                    edit.setShortOverride(s == null ? "" : s.toString());
                 }
-                @Override public void afterTextChanged(Editable s) {}
-            });
-            commit.setOnClickListener(view -> {
-                if (!commit.isEnabled()) return;
-                edit.setShortOverride(shortName.getText() == null
-                        ? "" : shortName.getText().toString());
-                InputMethodManager keyboard = (InputMethodManager)
-                        activity.getSystemService(Context.INPUT_METHOD_SERVICE);
-                if (keyboard != null) {
-                    keyboard.hideSoftInputFromWindow(shortName.getWindowToken(), 0);
-                }
-                shortName.clearFocus();
-                commit.setVisibility(View.GONE);
-                changed();
             });
 
-            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
-            rowParams.setMargins(0, Ui.dp(activity, 2), 0, Ui.dp(activity, 18));
-            content.addView(row, rowParams);
+            LinearLayout.LayoutParams shortParams =
+                    new LinearLayout.LayoutParams(-1, Ui.dp(activity, 52));
+            shortParams.setMargins(0, Ui.dp(activity, 2), 0, Ui.dp(activity, 18));
+            content.addView(shortName, shortParams);
         }
 
         private void addAliases(ProjectProfileStore.Profile profile) {

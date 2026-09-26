@@ -39,6 +39,15 @@ public final class ProjectProfileRulesSelfTest {
         assert "heart_filled".equals(draft.iconKey());
         assert "red".equals(draft.colorKey());
 
+        // Clearing the explicit Short Name stays empty through later draft actions. Preview may
+        // use the automatic Primary acronym, but the override itself must remain empty.
+        draft.setShortOverride("");
+        assert draft.shortOverride().isEmpty();
+        assert "CA".equals(ProjectProfileRules.effectiveShort(
+                draft.shortOverride(), "CM", draft.primaryAlias()));
+        draft.setAppearance("folder", "purple");
+        assert draft.shortOverride().isEmpty();
+
         // Cancel = discard the draft: original persisted snapshot remains untouched.
         assert "Codex Monitor".equals(original.primaryAlias());
         assert original.aliases().size() == 1;
@@ -49,6 +58,23 @@ public final class ProjectProfileRulesSelfTest {
         otherOwners.put(ProjectProfileRules.normalizeAlias("Other Project"), "Other Project");
         assert draft.addAlias("other   project", otherOwners)
                 .equals("That alias already belongs to Other Project.");
+
+        String generated = "project:11111111-1111-4111-8111-111111111111";
+        assert ProjectProfileRules.isReclaimableLegacyOrphan(
+                generated, Collections.singletonList("GGG"), "GGG", "",
+                "folder", "gray", " ggg ");
+        assert !ProjectProfileRules.isReclaimableLegacyOrphan(
+                "seed:ggg", Collections.singletonList("GGG"), "GGG", "",
+                "folder", "gray", "GGG");
+        assert !ProjectProfileRules.isReclaimableLegacyOrphan(
+                generated, Collections.singletonList("GGG"), "GGG", "G",
+                "folder", "gray", "GGG");
+        assert !ProjectProfileRules.isReclaimableLegacyOrphan(
+                generated, Collections.singletonList("GGG"), "GGG", "",
+                "terminal", "gray", "GGG");
+        assert !ProjectProfileRules.isReclaimableLegacyOrphan(
+                generated, java.util.Arrays.asList("GGG", "Real Project"), "GGG", "",
+                "folder", "gray", "GGG");
 
         System.out.println("Project profile rules + transactional draft PASS");
     }

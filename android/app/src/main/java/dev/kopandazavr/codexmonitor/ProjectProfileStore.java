@@ -153,7 +153,8 @@ final class ProjectProfileStore {
         ProjectProfileEditState state = new ProjectProfileEditState(
                 target.id, target.aliases, target.primaryAlias, target.shortOverride,
                 target.iconKey, target.colorKey);
-        return new EditSession(target.id, state, externalAliasOwners(profiles, target.id));
+        return new EditSession(target.id, state,
+                externalAliasOwners(profiles, target.id, true));
     }
 
     private static synchronized String commitEdit(Context context, EditSession session) {
@@ -167,12 +168,25 @@ final class ProjectProfileStore {
         List<MutableProfile> profiles = loadAndSeed(context);
         MutableProfile target = findMutable(profiles, session.profileId);
         if (target == null) return "Project profile not found.";
-        Map<String, String> currentOwners = externalAliasOwners(profiles, session.profileId);
+        Map<String, String> currentOwners =
+                externalAliasOwners(profiles, session.profileId, false);
+        Map<String, String> routes = loadRoutes(context);
         for (String alias : session.state.aliases()) {
-            String owner = currentOwners.get(ProjectProfileRules.normalizeAlias(alias));
-            if (owner != null && !owner.isEmpty()) {
+            String normalized = ProjectProfileRules.normalizeAlias(alias);
+            String owner = currentOwners.get(normalized);
+            if (owner == null || owner.isEmpty()) continue;
+
+            MutableProfile externalOwner = findAliasOwner(profiles, normalized);
+            if (!isReclaimableLegacyOrphan(externalOwner, normalized)) {
                 return "That alias already belongs to " + owner + ".";
             }
+
+            String orphanId = externalOwner.id;
+            profiles.remove(externalOwner);
+            removeRoutesOwnedBy(routes, orphanId);
+            routes.put(normalized, session.profileId);
+            DiagnosticLog.info(context, "project_profile", "legacy_orphan_reclaimed",
+                    "alias", alias, "profile_id", session.profileId);
         }
         MutableProfile replacement = new MutableProfile(
                 session.profileId, session.state.primaryAlias(), session.state.shortOverride(),
@@ -180,7 +194,7 @@ final class ProjectProfileStore {
         replacement.aliases.addAll(session.state.aliases());
         int index = profiles.indexOf(target);
         profiles.set(index, replacement);
-        save(context, profiles);
+        save(context, profiles, routes);
         return "";
     }
 
@@ -205,8 +219,12 @@ final class ProjectProfileStore {
     }
 
     static int surfaceTintColor(Profile profile) {
-        // 70% transparent means ~30% opacity, not 70% opacity.
-        return 0x4D000000 | (accentColor(profile) & 0x00FFFFFF);
+        // Opaque same-hue identity surface at roughly 40% of the bright outline intensity.
+        int accent = accentColor(profile);
+        int red = Math.round(((accent >> 16) & 0xFF) * 0.40f);
+        int green = Math.round(((accent >> 8) & 0xFF) * 0.40f);
+        int blue = Math.round((accent & 0xFF) * 0.40f);
+        return 0xFF000000 | (red << 16) | (green << 8) | blue;
     }
 
     static int discColor(Profile profile) { return surfaceTintColor(profile); }
@@ -362,15 +380,28 @@ final class ProjectProfileStore {
     }
 
     private static Map<String, String> externalAliasOwners(
-            List<MutableProfile> profiles, String excludedId) {
+            List<MutableProfile> profiles, String excludedId,
+            boolean omitReclaimableLegacyOrphans) {
         Map<String, String> owners = new HashMap<>();
         for (MutableProfile profile : profiles) {
             if (profile.id.equals(excludedId)) continue;
             for (String alias : profile.aliases) {
-                owners.put(ProjectProfileRules.normalizeAlias(alias), profile.primaryAlias);
+                String normalized = ProjectProfileRules.normalizeAlias(alias);
+                if (omitReclaimableLegacyOrphans
+                        && isReclaimableLegacyOrphan(profile, normalized)) {
+                    continue;
+                }
+                owners.put(normalized, profile.primaryAlias);
             }
         }
         return owners;
+    }
+
+    private static void removeRoutesOwnedBy(Map<String, String> routes, String profileId) {
+        Iterator<Map.Entry<String, String>> iterator = routes.entrySet().iterator();
+        while (iterator.hasNext()) {
+            if (profileId.equals(iterator.next().getValue())) iterator.remove();
+        }
     }
 
     private static MutableProfile findAliasOwner(
@@ -381,16 +412,18 @@ final class ProjectProfileStore {
 
     private static MutableProfile legacySeedTarget(List<MutableProfile> profiles,
             MutableProfile owner, String normalized) {
-        if (owner == null || !owner.id.startsWith("project:")
-                || owner.aliases.size() != 1 || !owner.shortOverride.isEmpty()
-                || !"folder".equals(owner.iconKey) || !COLOR_GRAY.equals(owner.colorKey)
-                || !ProjectProfileRules.normalizeAlias(owner.primaryAlias).equals(normalized)) {
-            return null;
-        }
+        if (!isReclaimableLegacyOrphan(owner, normalized)) return null;
         String seedId = seedIdForCanonicalAlias(normalized);
         if (seedId.isEmpty()) return null;
         MutableProfile seed = findMutable(profiles, seedId);
         return seed == owner ? null : seed;
+    }
+
+    private static boolean isReclaimableLegacyOrphan(
+            MutableProfile profile, String normalized) {
+        return profile != null && ProjectProfileRules.isReclaimableLegacyOrphan(
+                profile.id, profile.aliases, profile.primaryAlias, profile.shortOverride,
+                profile.iconKey, profile.colorKey, normalized);
     }
 
     private static String seedIdForCanonicalAlias(String normalized) {

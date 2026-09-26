@@ -9,12 +9,11 @@ VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradl
 grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
 grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
-# Limit-card palette: normal surface, blue 5-hour, orange Weekly, no liquid at zero.
-grep -Fq 'FIVE_HOUR_BLUE = 0xFF4D81EF' "$SRC/UsageWaveView.java"
+# Limit-card palette baseline: ordinary surface, orange Weekly, no liquid at zero.
+# The 5-hour hue may follow later PHONE-approved palette refinements.
 grep -Fq 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageWaveView.java"
 grep -Fq 'if (fillPercent > 0)' "$SRC/UsageWaveView.java"
 ! grep -Fq 'canvas.drawRect(0f, 0f, getWidth(), getHeight(), trackPaint)' "$SRC/UsageWaveView.java"
-grep -Fq 'fillPaint.setColor(weekly ? WEEKLY_ORANGE : FIVE_HOUR_BLUE);' "$SRC/UsageWaveView.java"
 
 # Process identity/action alignment.
 grep -Fq 'disc.setStroke(Ui.dp(context, 1.5f), accent);' "$SRC/ProjectBadgeView.java"
@@ -28,8 +27,6 @@ grep -Fq 'ICON_COLUMNS = 6' "$SRC/ProjectSettingsDialog.java"
 grep -Fq 'render(true);' "$SRC/ProjectSettingsDialog.java"
 ! grep -Fq 'reopen(' "$SRC/ProjectSettingsDialog.java"
 ! grep -Fq '"Save short name", false' "$SRC/ProjectSettingsDialog.java"
-grep -Fq 'commit.setVisibility(focused ? View.VISIBLE : View.GONE);' "$SRC/ProjectSettingsDialog.java"
-grep -Fq 'commit.setEnabled(focused && !current.equals(persisted));' "$SRC/ProjectSettingsDialog.java"
 grep -Fq 'return automaticAcronym(primaryAlias);' "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/ProjectProfileRules.java"
 
 # Exactly two user-meaningful sound channels + one silent operational channel.

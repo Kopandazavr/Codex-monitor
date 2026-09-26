@@ -102,13 +102,21 @@ jobs:
         run: |
           set -euo pipefail
           ./run-tests.sh
+          echo "SOURCE CONTRACT: idle-reminders"
           bash ./tests/idle-reminders-source-test.sh
+          echo "SOURCE CONTRACT: identity"
           bash ./tests/codex-monitor-identity-source-test.sh
+          echo "SOURCE CONTRACT: 2.9.4"
           bash ./tests/patch-2.9.4-stability-source-test.sh
+          echo "SOURCE CONTRACT: 2.10.0"
           bash ./tests/patch-2.10.0-direct-controls-source-test.sh
+          echo "SOURCE CONTRACT: 2.20.0"
           bash ./tests/patch-2.20.0-source-test.sh
+          echo "SOURCE CONTRACT: 2.21.0"
           bash ./tests/patch-2.21.0-source-test.sh
+          echo "SOURCE CONTRACT: 2.22.0"
           bash ./tests/patch-2.22.0-source-test.sh
+          echo "SOURCE CONTRACT: 2.23.0"
           bash ./tests/patch-2.23.0-source-test.sh
 
       - name: Run Android lint

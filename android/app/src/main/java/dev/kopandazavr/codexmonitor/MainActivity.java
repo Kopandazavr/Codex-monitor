@@ -44,6 +44,9 @@ public final class MainActivity extends AppCompatActivity {
     private static final int MENU_PERMISSIONS = 8100;
     private static final int MENU_SETTINGS = 8101;
     private static final int PROCESS_ACTION_GUTTER_DP = 42;
+    private static final int PROCESS_ACTION_VISIBLE_DP = 36;
+    // Old 42dp controls translated -2dp had center Y=19dp. 36dp +1dp preserves that center.
+    private static final int PROCESS_ACTION_CENTER_OFFSET_DP = 1;
     private String appliedTheme;
     private boolean appliedMaterialYou;
     private LinearLayout content;
@@ -600,9 +603,11 @@ public final class MainActivity extends AppCompatActivity {
                 reminderEnabled ? "Disable idle reminders" : "Enable idle reminders");
         bell.setOnClickListener(view -> toggleProcessReminder(key));
         LinearLayout.LayoutParams bellParams =
-                new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
+                new LinearLayout.LayoutParams(
+                        Ui.dp(this, PROCESS_ACTION_VISIBLE_DP),
+                        Ui.dp(this, PROCESS_ACTION_VISIBLE_DP));
         bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
-        bell.setTranslationY(-Ui.dp(this, 2));
+        bell.setTranslationY(Ui.dp(this, PROCESS_ACTION_CENTER_OFFSET_DP));
         top.addView(bell, bellParams);
         body.addView(top);
 
@@ -666,9 +671,11 @@ public final class MainActivity extends AppCompatActivity {
                 idle.reminderEnabled ? "Disable idle reminders" : "Enable idle reminders");
         bell.setOnClickListener(view -> toggleProcessReminder(idle.key));
         LinearLayout.LayoutParams bellParams =
-                new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
+                new LinearLayout.LayoutParams(
+                        Ui.dp(this, PROCESS_ACTION_VISIBLE_DP),
+                        Ui.dp(this, PROCESS_ACTION_VISIBLE_DP));
         bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
-        bell.setTranslationY(-Ui.dp(this, 2));
+        bell.setTranslationY(Ui.dp(this, PROCESS_ACTION_CENTER_OFFSET_DP));
         top.addView(bell, bellParams);
         body.addView(top);
 
@@ -698,10 +705,11 @@ public final class MainActivity extends AppCompatActivity {
     private void addProcessActionGutter(LinearLayout row, View action) {
         FrameLayout gutter = new FrameLayout(this);
         if (action != null) {
-            action.setTranslationY(-Ui.dp(this, 2));
+            action.setTranslationY(Ui.dp(this, PROCESS_ACTION_CENTER_OFFSET_DP));
             FrameLayout.LayoutParams actionParams = new FrameLayout.LayoutParams(
-                    Ui.dp(this, PROCESS_ACTION_GUTTER_DP),
-                    Ui.dp(this, PROCESS_ACTION_GUTTER_DP), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+                    Ui.dp(this, PROCESS_ACTION_VISIBLE_DP),
+                    Ui.dp(this, PROCESS_ACTION_VISIBLE_DP),
+                    Gravity.TOP | Gravity.CENTER_HORIZONTAL);
             gutter.addView(action, actionParams);
         }
         row.addView(gutter, new LinearLayout.LayoutParams(
@@ -715,7 +723,7 @@ public final class MainActivity extends AppCompatActivity {
         icon.setContentDescription(description);
         icon.setClickable(true);
         icon.setFocusable(true);
-        icon.setPadding(Ui.dp(this, 9), Ui.dp(this, 9), Ui.dp(this, 9), Ui.dp(this, 9));
+        icon.setPadding(Ui.dp(this, 7), Ui.dp(this, 7), Ui.dp(this, 7), Ui.dp(this, 7));
         GradientDrawable background = new GradientDrawable();
         background.setShape(GradientDrawable.OVAL);
         background.setColor(Ui.controlSurface(this, this.dark));

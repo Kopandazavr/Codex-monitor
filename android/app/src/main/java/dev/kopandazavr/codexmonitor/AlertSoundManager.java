@@ -12,6 +12,7 @@ import android.media.MediaPlayer;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.net.Uri;
+import android.os.Build;
 import java.io.IOException;
 
 /**
@@ -142,6 +143,11 @@ final class AlertSoundManager {
 
     private static boolean playViaPreferredSpeaker(Context context, Uri sound,
             AudioAttributes attributes, String event) {
+        if (Build.VERSION.SDK_INT < 28) {
+            DiagnosticLog.info(context, "notification", "speaker_route_fallback",
+                    "event", event, "reason", "api_below_28");
+            return false;
+        }
         AudioManager audio = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         AudioDeviceInfo speaker = null;
         if (audio != null) {

@@ -42,8 +42,8 @@ final class ProjectBadgeView extends FrameLayout {
         GradientDrawable disc = new GradientDrawable();
         disc.setShape(GradientDrawable.OVAL);
         disc.setColor(ProjectProfileStore.discColor(profile));
+        disc.setStroke(Ui.dp(context, 1.5f), accent);
         icon.setBackground(disc);
-        icon.setTranslationY(-Ui.dp(context, 2));
         addView(icon, new LayoutParams(Ui.dp(context, 36), Ui.dp(context, 36),
                 Gravity.START | Gravity.CENTER_VERTICAL));
 

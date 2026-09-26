@@ -14,7 +14,7 @@ grep -Fq 'ProjectProfileStore.beginEdit(activity, profileId)' "$SRC/ProjectSetti
 grep -Fq '.setNegativeButton("Cancel", null)' "$SRC/ProjectSettingsDialog.java"
 grep -Fq '.setPositiveButton("Done", null)' "$SRC/ProjectSettingsDialog.java"
 grep -Fq 'String error = edit.commit(activity);' "$SRC/ProjectSettingsDialog.java"
-grep -Fq 'if (onChanged != null) onChanged.run();' "$SRC/ProjectSettingsDialog.java"
+[[ "$(grep -Fc 'if (onChanged != null) onChanged.run();' "$SRC/ProjectSettingsDialog.java")" -eq 1 ]]
 grep -Fq 'private void changed()' "$SRC/ProjectSettingsDialog.java"
 ! grep -Fq 'ProjectProfileStore.setAppearance' "$SRC/ProjectSettingsDialog.java"
 ! grep -Fq 'ProjectProfileStore.setShortOverride' "$SRC/ProjectSettingsDialog.java"

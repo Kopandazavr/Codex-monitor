@@ -19,25 +19,22 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** Project-local appearance, short-name and alias editor. */
+/** Transactional project-local appearance, short-name and alias editor. */
 final class ProjectSettingsDialog {
     private ProjectSettingsDialog() {}
 
     static void show(Activity activity, String profileId, String watchdogShort, Runnable onChanged) {
         if (activity == null || activity.isFinishing()) return;
-        if (ProjectProfileStore.findById(activity, profileId) == null) return;
-        new Controller(activity, profileId, watchdogShort, onChanged).show();
+        ProjectProfileStore.EditSession edit = ProjectProfileStore.beginEdit(activity, profileId);
+        if (edit == null) return;
+        new Controller(activity, edit, watchdogShort, onChanged).show();
     }
 
-    /**
-     * Keeps one dialog/window alive for the whole editing session. Individual edits only rebuild
-     * the content tree in place, preserving scroll instead of dismissing/reopening the dialog.
-     */
+    /** One live dialog, one in-memory draft; Done persists, Cancel discards. */
     private static final class Controller {
         private static final int ICON_COLUMNS = 6;
-
         private final Activity activity;
-        private final String profileId;
+        private final ProjectProfileStore.EditSession edit;
         private final String watchdogShort;
         private final Runnable onChanged;
         private final boolean dark;
@@ -45,9 +42,10 @@ final class ProjectSettingsDialog {
         private final LinearLayout content;
         private AlertDialog dialog;
 
-        Controller(Activity activity, String profileId, String watchdogShort, Runnable onChanged) {
+        Controller(Activity activity, ProjectProfileStore.EditSession edit,
+                String watchdogShort, Runnable onChanged) {
             this.activity = activity;
-            this.profileId = profileId;
+            this.edit = edit;
             this.watchdogShort = watchdogShort;
             this.onChanged = onChanged;
             this.dark = Ui.isDark(activity);
@@ -64,18 +62,27 @@ final class ProjectSettingsDialog {
             dialog = new AlertDialog.Builder(activity)
                     .setTitle("Project settings")
                     .setView(scroll)
-                    .setNegativeButton("Done", null)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Done", null)
                     .create();
+            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(view -> commitAndClose()));
             dialog.show();
+        }
+
+        private void commitAndClose() {
+            String error = edit.commit(activity);
+            if (!error.isEmpty()) {
+                Toast.makeText(activity, error, Toast.LENGTH_LONG).show();
+                return;
+            }
+            dialog.dismiss();
+            if (onChanged != null) onChanged.run();
         }
 
         private void render(boolean preserveScroll) {
             int scrollY = preserveScroll ? scroll.getScrollY() : 0;
-            ProjectProfileStore.Profile profile = ProjectProfileStore.findById(activity, profileId);
-            if (profile == null) {
-                if (dialog != null) dialog.dismiss();
-                return;
-            }
+            ProjectProfileStore.Profile profile = edit.profile();
             content.removeAllViews();
 
             content.addView(sectionTitle(activity, "Preview", dark));
@@ -89,9 +96,7 @@ final class ProjectSettingsDialog {
             addShortName(profile);
             addAliases(profile);
 
-            if (preserveScroll) {
-                scroll.post(() -> scroll.scrollTo(0, scrollY));
-            }
+            if (preserveScroll) scroll.post(() -> scroll.scrollTo(0, scrollY));
         }
 
         private void addColors(ProjectProfileStore.Profile profile) {
@@ -113,10 +118,7 @@ final class ProjectSettingsDialog {
                 circle.setClickable(true);
                 circle.setFocusable(true);
                 circle.setOnClickListener(view -> {
-                    if (ProjectProfileStore.setAppearance(
-                            activity, profile.id, profile.iconKey, colorKey)) {
-                        changed();
-                    }
+                    if (edit.setAppearance(profile.iconKey, colorKey)) changed();
                 });
                 slot.addView(circle, new FrameLayout.LayoutParams(
                         Ui.dp(activity, 28), Ui.dp(activity, 28), Gravity.CENTER));
@@ -160,16 +162,12 @@ final class ProjectSettingsDialog {
                         icon.setClickable(true);
                         icon.setFocusable(true);
                         icon.setOnClickListener(view -> {
-                            if (ProjectProfileStore.setAppearance(
-                                    activity, profile.id, iconKey, profile.colorKey)) {
-                                changed();
-                            }
+                            if (edit.setAppearance(iconKey, profile.colorKey)) changed();
                         });
                         slot.addView(icon, new FrameLayout.LayoutParams(
                                 Ui.dp(activity, 42), Ui.dp(activity, 42), Gravity.CENTER));
                     }
-                    row.addView(slot, new LinearLayout.LayoutParams(
-                            0, Ui.dp(activity, 48), 1f));
+                    row.addView(slot, new LinearLayout.LayoutParams(0, Ui.dp(activity, 48), 1f));
                 }
                 iconGrid.addView(row, new LinearLayout.LayoutParams(-1, -2));
             }
@@ -190,12 +188,11 @@ final class ProjectSettingsDialog {
             shortName.setHint(ProjectProfileStore.fallbackShort(profile, watchdogShort));
             shortName.setTextColor(Ui.mainText(dark));
             shortName.setHintTextColor(Ui.secondaryText(dark));
-            row.addView(shortName, new LinearLayout.LayoutParams(
-                    0, Ui.dp(activity, 52), 1f));
+            row.addView(shortName, new LinearLayout.LayoutParams(0, Ui.dp(activity, 52), 1f));
 
             Button commit = Ui.button(activity, "✓", true, dark);
             commit.setTextSize(18);
-            commit.setContentDescription("Save short name");
+            commit.setContentDescription("Apply short name");
             commit.setVisibility(View.GONE);
             commit.setEnabled(false);
             LinearLayout.LayoutParams commitParams =
@@ -203,26 +200,28 @@ final class ProjectSettingsDialog {
             commitParams.setMargins(Ui.dp(activity, 8), 0, 0, 0);
             row.addView(commit, commitParams);
 
-            String persisted = ProjectProfileRules.collapseWhitespace(profile.shortOverride);
+            String applied = ProjectProfileRules.collapseWhitespace(profile.shortOverride);
             Runnable updateCommitState = () -> {
                 boolean focused = shortName.hasFocus();
                 String current = ProjectProfileRules.collapseWhitespace(
                         shortName.getText() == null ? "" : shortName.getText().toString());
                 commit.setVisibility(focused ? View.VISIBLE : View.GONE);
-                commit.setEnabled(focused && !current.equals(persisted));
+                commit.setEnabled(focused && !current.equals(applied));
             };
             shortName.setOnFocusChangeListener((view, focused) -> updateCommitState.run());
             shortName.addTextChangedListener(new TextWatcher() {
-                @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-                @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                @Override public void beforeTextChanged(
+                        CharSequence s, int start, int count, int after) {}
+                @Override public void onTextChanged(
+                        CharSequence s, int start, int before, int count) {
                     updateCommitState.run();
                 }
                 @Override public void afterTextChanged(Editable s) {}
             });
             commit.setOnClickListener(view -> {
                 if (!commit.isEnabled()) return;
-                ProjectProfileStore.setShortOverride(activity, profile.id,
-                        shortName.getText() == null ? "" : shortName.getText().toString());
+                edit.setShortOverride(shortName.getText() == null
+                        ? "" : shortName.getText().toString());
                 InputMethodManager keyboard = (InputMethodManager)
                         activity.getSystemService(Context.INPUT_METHOD_SERVICE);
                 if (keyboard != null) {
@@ -252,7 +251,7 @@ final class ProjectSettingsDialog {
                 if (!primary) {
                     Button makePrimary = miniButton(activity, "Make Primary");
                     makePrimary.setOnClickListener(view -> {
-                        String error = ProjectProfileStore.makePrimary(activity, profile.id, alias);
+                        String error = edit.makePrimary(alias);
                         if (!error.isEmpty()) {
                             Toast.makeText(activity, error, Toast.LENGTH_LONG).show();
                             return;
@@ -263,7 +262,7 @@ final class ProjectSettingsDialog {
                             new LinearLayout.LayoutParams(-2, Ui.dp(activity, 38)));
                     Button delete = miniButton(activity, "Delete");
                     delete.setOnClickListener(view -> {
-                        String error = ProjectProfileStore.deleteAlias(activity, profile.id, alias);
+                        String error = edit.deleteAlias(alias);
                         if (!error.isEmpty()) {
                             Toast.makeText(activity, error, Toast.LENGTH_LONG).show();
                             return;
@@ -305,7 +304,7 @@ final class ProjectSettingsDialog {
                     .create();
             child.setOnShowListener(ignored -> child.getButton(AlertDialog.BUTTON_POSITIVE)
                     .setOnClickListener(view -> {
-                        String error = ProjectProfileStore.addAlias(activity, profileId,
+                        String error = edit.addAlias(
                                 input.getText() == null ? "" : input.getText().toString());
                         if (!error.isEmpty()) {
                             input.setError(error);
@@ -319,7 +318,6 @@ final class ProjectSettingsDialog {
 
         private void changed() {
             render(true);
-            if (onChanged != null) onChanged.run();
         }
     }
 

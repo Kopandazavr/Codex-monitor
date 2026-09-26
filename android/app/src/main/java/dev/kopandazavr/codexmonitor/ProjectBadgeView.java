@@ -9,11 +9,12 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-/** Project icon-disc + transparent outlined identity pill. */
+/** Project icon-disc + outlined identity pill with the same translucent project accent. */
 final class ProjectBadgeView extends FrameLayout {
     ProjectBadgeView(Context context, ProjectProfileStore.Profile profile, String watchdogShort) {
         super(context);
         int accent = ProjectProfileStore.accentColor(profile);
+        int surfaceTint = ProjectProfileStore.surfaceTintColor(profile);
         setMinimumHeight(Ui.dp(context, 38));
         setFocusable(true);
 
@@ -24,7 +25,7 @@ final class ProjectBadgeView extends FrameLayout {
         pill.setPadding(Ui.dp(context, 23), Ui.dp(context, 5),
                 Ui.dp(context, 10), Ui.dp(context, 5));
         GradientDrawable pillBackground = new GradientDrawable();
-        pillBackground.setColor(Color.TRANSPARENT);
+        pillBackground.setColor(surfaceTint);
         pillBackground.setCornerRadius(Ui.dp(context, 14));
         pillBackground.setStroke(Ui.dp(context, 1.5f), accent);
         pill.setBackground(pillBackground);
@@ -41,7 +42,7 @@ final class ProjectBadgeView extends FrameLayout {
                 Ui.dp(context, 8), Ui.dp(context, 8));
         GradientDrawable disc = new GradientDrawable();
         disc.setShape(GradientDrawable.OVAL);
-        disc.setColor(ProjectProfileStore.discColor(profile));
+        disc.setColor(surfaceTint);
         disc.setStroke(Ui.dp(context, 1.5f), accent);
         icon.setBackground(disc);
         addView(icon, new LayoutParams(Ui.dp(context, 36), Ui.dp(context, 36),

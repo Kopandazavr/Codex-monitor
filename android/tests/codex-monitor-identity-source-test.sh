@@ -33,9 +33,11 @@ grep -Fq 'private static final String PRODUCT_NAME = "Codex Monitor"' "$BRANDING
 grep -Fq 'Branding.apply(activity);' "$APP_CLASS"
 grep -Fq 'private static final String HOME_TITLE = "Codex Monitor"' "$HOME_VERSION"
 
-# Current supported phone candidate identity.
-grep -Fq 'versionName = "2.21.0"' "$APP_GRADLE"
-grep -Fq 'versionCode = 47' "$APP_GRADLE"
+# Current supported phone candidate identity stays synchronized with the newest bounded scope.
+APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$APP_GRADLE")"
+APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$APP_GRADLE")"
+grep -Fq "VERSION_NAME = \"$APP_VERSION_NAME\"" "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
+grep -Fq "VERSION_CODE = $APP_VERSION_CODE" "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/AppConstants.java"
 grep -Fq 'rootProject.name = "Codex-Monitor"' "$ROOT/settings.gradle.kts"
 grep -Fq 'play-services-auth:22.0.0' "$APP_GRADLE"
 grep -Fq 'codex-monitor-local.p12' "$APP_GRADLE"

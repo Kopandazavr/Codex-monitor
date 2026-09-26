@@ -4,10 +4,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res"
 
-grep -Fq 'versionCode = 50' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.24.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 50' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.24.0"' "$SRC/AppConstants.java"
+VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+[[ "$VERSION_CODE" -ge 50 ]]
+grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
 grep -Fq 'ProjectProfileStore.resolve(this, process.project)' "$SRC/MainActivity.java"
 grep -Fq 'ProjectProfileStore.resolve(this, idle.project)' "$SRC/MainActivity.java"

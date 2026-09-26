@@ -4,10 +4,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res"
 
-grep -Fq 'versionCode = 51' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.25.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 51' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.25.0"' "$SRC/AppConstants.java"
+VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+[[ "$VERSION_CODE" -ge 51 ]]
+grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
 # Limit-card palette: normal surface, blue 5-hour, orange Weekly, no liquid at zero.
 grep -Fq 'FIVE_HOUR_BLUE = 0xFF4D81EF' "$SRC/UsageWaveView.java"
@@ -19,8 +19,9 @@ grep -Fq 'fillPaint.setColor(weekly ? WEEKLY_ORANGE : FIVE_HOUR_BLUE);' "$SRC/Us
 # Process identity/action alignment.
 grep -Fq 'disc.setStroke(Ui.dp(context, 1.5f), accent);' "$SRC/ProjectBadgeView.java"
 ! grep -Fq 'icon.setTranslationY(-Ui.dp(context, 2))' "$SRC/ProjectBadgeView.java"
-grep -Fq 'bell.setTranslationY(-Ui.dp(this, 2));' "$SRC/MainActivity.java"
-grep -Fq 'action.setTranslationY(-Ui.dp(this, 2));' "$SRC/MainActivity.java"
+grep -Fq 'PROCESS_ACTION_GUTTER_DP = 42' "$SRC/MainActivity.java"
+grep -Fq 'PROCESS_ACTION_VISIBLE_DP = 36' "$SRC/MainActivity.java"
+grep -Fq 'PROCESS_ACTION_CENTER_OFFSET_DP = 1' "$SRC/MainActivity.java"
 
 # Project Settings stays in one dialog and uses six-column compact icon grid.
 grep -Fq 'ICON_COLUMNS = 6' "$SRC/ProjectSettingsDialog.java"

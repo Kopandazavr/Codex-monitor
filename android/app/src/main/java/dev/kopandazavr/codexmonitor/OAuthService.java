@@ -35,7 +35,7 @@ public final class OAuthService extends Service {
     public static final String ACTION_START = "dev.kopandazavr.codexmonitor.oauth.START";
     public static final String ACTION_CANCEL = "dev.kopandazavr.codexmonitor.oauth.CANCEL";
     public static final String ACTION_CANCEL_SILENT = "dev.kopandazavr.codexmonitor.oauth.CANCEL_SILENT";
-    private static final String CHANNEL_ID = "oauth_sign_in";
+    private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final int NOTIFICATION_ID = 7301;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -365,12 +365,7 @@ public final class OAuthService extends Service {
     }
 
     private void createChannel() {
-        NotificationChannel channel = new NotificationChannel(
-                CHANNEL_ID, getString(R.string.oauth_channel_name), NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription(getString(R.string.oauth_channel_description));
-        channel.setShowBadge(false);
-        NotificationManager manager = getSystemService(NotificationManager.class);
-        if (manager != null) manager.createNotificationChannel(channel);
+        AlertSoundManager.ensureChannels(this);
     }
 
     private Notification buildNotification(String text, String authUrl) {

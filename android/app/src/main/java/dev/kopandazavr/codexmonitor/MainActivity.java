@@ -569,7 +569,7 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
         ProjectProfileStore.Profile projectProfile =
@@ -602,6 +602,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams bellParams =
                 new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
         bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
+        bell.setTranslationY(-Ui.dp(this, 2));
         top.addView(bell, bellParams);
         body.addView(top);
 
@@ -636,7 +637,7 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        LinearLayout top = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
         ProjectProfileStore.Profile projectProfile =
@@ -667,6 +668,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout.LayoutParams bellParams =
                 new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42));
         bellParams.setMargins(Ui.dp(this, 6), 0, 0, 0);
+        bell.setTranslationY(-Ui.dp(this, 2));
         top.addView(bell, bellParams);
         body.addView(top);
 
@@ -696,6 +698,7 @@ public final class MainActivity extends AppCompatActivity {
     private void addProcessActionGutter(LinearLayout row, View action) {
         FrameLayout gutter = new FrameLayout(this);
         if (action != null) {
+            action.setTranslationY(-Ui.dp(this, 2));
             FrameLayout.LayoutParams actionParams = new FrameLayout.LayoutParams(
                     Ui.dp(this, PROCESS_ACTION_GUTTER_DP),
                     Ui.dp(this, PROCESS_ACTION_GUTTER_DP), Gravity.TOP | Gravity.CENTER_HORIZONTAL);

@@ -34,8 +34,7 @@ final class IdleReminderManager {
     private static final long COMPLETION_FRESH_MS = 3L * 60_000L;
     private static final long COMPLETION_ATTENTION_DELAY_MS = 1_100L;
     private static final long COMPLETION_OVERLAY_ALARM_DELAY_MS = 250L;
-    private static final String CHANNEL_ID = "codex_idle_reminders_v2";
-    private static final String LEGACY_CHANNEL_ID = "codex_idle_reminders_v1";
+    private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     // Legacy separate reminder IDs are retained only so old cards can be cleaned up.
     private static final int NOTIFICATION_BASE = 31000;
     private static final int REQUEST_BASE = 41000;
@@ -124,7 +123,7 @@ final class IdleReminderManager {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         boolean persistentSurfaceAlerted = false;
         if (manager != null) {
-            ensureChannel(manager);
+            AlertSoundManager.ensureChannels(context);
             persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
                     context, idle, CHANNEL_ID, now);
             // Restore the canonical live/process channel after the attention event; the ID stays
@@ -176,16 +175,10 @@ final class IdleReminderManager {
             IdleProcessState.IdleRole idle, long nowMillis, boolean overlayScheduled) {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
+        boolean soundPlayed = AlertSoundManager.playProcessCompletion(context);
         boolean persistentSurfaceAlerted = false;
         if (manager != null) {
-            ensureChannel(manager);
-            NotificationChannel attentionChannel = manager.getNotificationChannel(CHANNEL_ID);
-            DiagnosticLog.info(context, "idle_process", "completion_attention_channel",
-                    "channel", CHANNEL_ID,
-                    "importance", attentionChannel == null ? -1 : attentionChannel.getImportance(),
-                    "sound_configured",
-                    attentionChannel != null && attentionChannel.getSound() != null,
-                    "vibration", attentionChannel != null && attentionChannel.shouldVibrate());
+            AlertSoundManager.ensureChannels(context);
             persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
                     context, idle, CHANNEL_ID, nowMillis);
             if (persistentSurfaceAlerted) {
@@ -196,6 +189,7 @@ final class IdleReminderManager {
                 "role", idle.displayLabel(),
                 "finished_at", idle.lastFinishedMillis,
                 "overlay_scheduled", overlayScheduled,
+                "sound_played", soundPlayed,
                 "persistent_surface_alerted", persistentSurfaceAlerted);
     }
 
@@ -380,37 +374,6 @@ final class IdleReminderManager {
 
     private static SharedPreferences preferences(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-    }
-
-    private static void ensureChannel(NotificationManager manager) {
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return;
-        NotificationChannel legacy = manager.getNotificationChannel(LEGACY_CHANNEL_ID);
-        int importance = legacy == null
-                ? NotificationManager.IMPORTANCE_DEFAULT : legacy.getImportance();
-        if (importance == NotificationManager.IMPORTANCE_UNSPECIFIED) {
-            importance = NotificationManager.IMPORTANCE_DEFAULT;
-        }
-        NotificationChannel channel = new NotificationChannel(CHANNEL_ID,
-                "Idle process reminders", importance);
-        channel.setDescription("Reminders when a watched GPT role has become idle");
-        channel.setShowBadge(false);
-        android.net.Uri sound = legacy == null
-                ? RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                : legacy.getSound();
-        AudioAttributes attributes = legacy == null ? null : legacy.getAudioAttributes();
-        if (sound != null) {
-            if (attributes == null) {
-                attributes = new AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                        .build();
-            }
-            channel.setSound(sound, attributes);
-        } else {
-            channel.setSound(null, null);
-        }
-        if (legacy != null) channel.enableVibration(legacy.shouldVibrate());
-        manager.createNotificationChannel(channel);
     }
 
     private static Set<String> enabledKeys(Context context) {

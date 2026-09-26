@@ -8,8 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.media.AudioAttributes;
-import android.media.RingtoneManager;
 import android.os.Build;
 import java.util.HashSet;
 import java.util.Locale;
@@ -17,9 +15,6 @@ import java.util.Set;
 
 /** Posts and deduplicates Codex usage, reset-time, and reset-credit notifications. */
 public final class ResetNotificationManager {
-    private static final String CHANNEL_ALARM = "codex_reset_alarm";
-    private static final String CHANNEL_NOTIFY = "codex_reset_notify";
-    private static final String CHANNEL_SILENT = "codex_reset_silent";
     private static final String PREFS = "codex_monitor_notification_state_v1";
     private static final String KEY_FIVE_HOUR_WINDOW = "low_five_hour_window";
     private static final String KEY_WEEKLY_WINDOW = "low_weekly_window";
@@ -216,8 +211,7 @@ public final class ResetNotificationManager {
 
     public static void ensureChannel(Context context) {
         if (context == null) return;
-        NotificationManager manager = manager(context);
-        if (manager != null) createChannel(manager, ResetAlertPreferences.getStyle(context));
+        AlertSoundManager.ensureChannels(context);
     }
 
     public static void clearState(Context context) {
@@ -372,7 +366,7 @@ public final class ResetNotificationManager {
             boolean onlyAlertOnce) {
         NotificationManager manager = manager(context);
         if (manager == null) return false;
-        String channel = createChannel(manager, ResetAlertPreferences.getStyle(context));
+        String channel = createOperationalChannel(context, manager);
         if (!canPost(context, manager, channel)) return false;
 
         // While the live monitor owns the usage/limits surface, attention must update/re-alert that
@@ -408,7 +402,7 @@ public final class ResetNotificationManager {
             String text) {
         NotificationManager manager = manager(context);
         if (manager == null) return false;
-        String channel = createChannel(manager, ResetAlertPreferences.getStyle(context));
+        String channel = createOperationalChannel(context, manager);
         if (!canPost(context, manager, channel)) return false;
         Intent detailsIntent = new Intent(context, ResetCreditActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -458,34 +452,8 @@ public final class ResetNotificationManager {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
-    private static String createChannel(NotificationManager manager, String style) {
-        if (ResetAlertPreferences.STYLE_SILENT.equals(style)) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_SILENT,
-                    "Codex usage alerts", NotificationManager.IMPORTANCE_LOW);
-            channel.setDescription("Low usage, scheduled resets, surprise refills, and reset credits");
-            channel.setSound(null, null);
-            channel.enableVibration(false);
-            manager.createNotificationChannel(channel);
-            return CHANNEL_SILENT;
-        }
-        if (ResetAlertPreferences.STYLE_ALARM.equals(style)) {
-            NotificationChannel channel = new NotificationChannel(CHANNEL_ALARM,
-                    "Codex usage alarms", NotificationManager.IMPORTANCE_HIGH);
-            channel.setDescription("Low usage, scheduled resets, surprise refills, and reset credits");
-            channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
-                    new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
-            channel.enableVibration(true);
-            manager.createNotificationChannel(channel);
-            return CHANNEL_ALARM;
-        }
-        NotificationChannel channel = new NotificationChannel(CHANNEL_NOTIFY,
-                "Codex usage alerts", NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription("Low usage, scheduled resets, surprise refills, and reset credits");
-        channel.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
-                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
-        manager.createNotificationChannel(channel);
-        return CHANNEL_NOTIFY;
+    private static String createOperationalChannel(Context context, NotificationManager manager) {
+        AlertSoundManager.ensureChannels(context);
+        return AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     }
 }

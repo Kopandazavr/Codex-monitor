@@ -111,7 +111,7 @@ grep -Fq 'CalendarProcess.displayIdentity(role, project, projectShort, topic)' "
 grep -Fq 'json.put("project_short", projectShort)' "$IDLE_STATE"
 grep -Fq 'json.optString("project_short", "")' "$IDLE_STATE"
 grep -Fq 'CalendarProcess.isCanonicalIdentity(process.project, process.role)' "$IDLE_STATE"
-grep -Fq 'process.displayLabel()' "$PROCESS_NOTIF"
+grep -Fq 'ProjectProfileStore.effectiveShort(profile)' "$PROCESS_NOTIF"
 
 # Two-card ordering remains structural: common group + stable keys, with both surfaces in STATUS
 # ranking class so Samsung cannot promote Processes just because it was CATEGORY_PROGRESS.

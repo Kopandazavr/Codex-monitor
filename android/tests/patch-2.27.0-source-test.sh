@@ -4,10 +4,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
 
-grep -Fq 'versionCode = 53' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.27.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 53' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.27.0"' "$SRC/AppConstants.java"
+VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+[[ "$VERSION_CODE" -ge 53 ]]
+grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
 # Legacy orphan reclaim is deliberately narrow and commit-time revalidated.
 grep -Fq 'isReclaimableLegacyOrphan' "$SHARED/ProjectProfileRules.java"

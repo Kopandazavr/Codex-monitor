@@ -4,9 +4,11 @@ import android.content.Context;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -46,15 +48,21 @@ final class ProjectProfileStore {
         final String shortOverride;
         final String iconKey;
         final String colorKey;
+        final Set<String> calendarAliases;
 
         Profile(String id, List<String> aliases, String primaryAlias, String shortOverride,
-                String iconKey, String colorKey) {
+                String iconKey, String colorKey, Set<String> calendarAliases) {
             this.id = id;
             this.aliases = Collections.unmodifiableList(new ArrayList<>(aliases));
             this.primaryAlias = primaryAlias;
             this.shortOverride = shortOverride;
             this.iconKey = iconKey;
             this.colorKey = colorKey;
+            this.calendarAliases = Collections.unmodifiableSet(new HashSet<>(calendarAliases));
+        }
+
+        boolean isCalendarAlias(String alias) {
+            return calendarAliases.contains(ProjectProfileRules.normalizeAlias(alias));
         }
     }
 
@@ -62,17 +70,20 @@ final class ProjectProfileStore {
         private final String profileId;
         private final ProjectProfileEditState state;
         private final Map<String, String> externalOwners;
+        private final Map<String, String> externalShortOwners;
 
         EditSession(String profileId, ProjectProfileEditState state,
-                Map<String, String> externalOwners) {
+                Map<String, String> externalOwners, Map<String, String> externalShortOwners) {
             this.profileId = profileId;
             this.state = state;
             this.externalOwners = new HashMap<>(externalOwners);
+            this.externalShortOwners = new HashMap<>(externalShortOwners);
         }
 
         Profile profile() {
             return new Profile(profileId, state.aliases(), state.primaryAlias(),
-                    state.shortOverride(), state.iconKey(), state.colorKey());
+                    state.shortOverride(), state.iconKey(), state.colorKey(),
+                    state.calendarAliases());
         }
 
         boolean setAppearance(String iconKey, String colorKey) {
@@ -85,7 +96,19 @@ final class ProjectProfileStore {
             state.setShortOverride(value);
         }
 
+        String shortOverrideError() {
+            String normalized = ProjectProfileRules.normalizeShort(state.shortOverride());
+            if (normalized.isEmpty()) return "";
+            String owner = externalShortOwners.get(normalized);
+            return owner == null || owner.isEmpty()
+                    ? "" : "That Short Name already belongs to " + owner + ".";
+        }
+
+        boolean isCalendarAlias(String alias) { return state.isCalendarAlias(alias); }
         String addAlias(String alias) { return state.addAlias(alias, externalOwners); }
+        String editAlias(String alias, String replacement) {
+            return state.editAlias(alias, replacement, externalOwners);
+        }
         String makePrimary(String alias) { return state.makePrimary(alias); }
         String deleteAlias(String alias) { return state.deleteAlias(alias); }
         String commit(Context context) { return commitEdit(context, this); }
@@ -103,7 +126,11 @@ final class ProjectProfileStore {
         MutableProfile aliasOwner = findAliasOwner(profiles, normalized);
         MutableProfile recovered = legacySeedTarget(profiles, aliasOwner, normalized);
         if (recovered != null) {
+            String orphanId = aliasOwner.id;
             profiles.remove(aliasOwner);
+            removeRoutesOwnedBy(routes, orphanId);
+            if (!recovered.hasAlias(normalized)) recovered.aliases.add(raw);
+            recovered.calendarAliases.add(normalized);
             routes.put(normalized, recovered.id);
             save(context, profiles, routes);
             DiagnosticLog.info(context, "project_profile", "legacy_orphan_reconciled",
@@ -112,17 +139,32 @@ final class ProjectProfileStore {
         }
 
         if (aliasOwner != null) {
-            bindRoute(context, routes, normalized, aliasOwner.id);
+            boolean changed = aliasOwner.calendarAliases.add(normalized);
+            if (!aliasOwner.id.equals(routes.get(normalized))) {
+                routes.put(normalized, aliasOwner.id);
+                changed = true;
+            }
+            if (changed) save(context, profiles, routes);
             return aliasOwner.freeze();
         }
 
         MutableProfile routed = findMutable(profiles, routes.get(normalized));
-        if (routed != null) return routed.freeze();
+        if (routed != null) {
+            boolean changed = false;
+            if (!routed.hasAlias(normalized)) {
+                routed.aliases.add(raw);
+                changed = true;
+            }
+            changed |= routed.calendarAliases.add(normalized);
+            if (changed) save(context, profiles, routes);
+            return routed.freeze();
+        }
         routes.remove(normalized);
 
         MutableProfile created = new MutableProfile(
                 "project:" + UUID.randomUUID(), raw, "", "folder", COLOR_GRAY);
         created.aliases.add(raw);
+        created.calendarAliases.add(normalized);
         profiles.add(created);
         routes.put(normalized, created.id);
         save(context, profiles, routes);
@@ -146,15 +188,23 @@ final class ProjectProfileStore {
                 profile.shortOverride, watchdogShort, profile.primaryAlias);
     }
 
+    static String effectiveShort(Profile profile) {
+        return profile == null ? "" : ProjectProfileRules.effectiveShort(
+                profile.shortOverride, "", profile.primaryAlias);
+    }
+
     static synchronized EditSession beginEdit(Context context, String id) {
         List<MutableProfile> profiles = loadAndSeed(context);
         MutableProfile target = findMutable(profiles, id);
         if (target == null) return null;
         ProjectProfileEditState state = new ProjectProfileEditState(
                 target.id, target.aliases, target.primaryAlias, target.shortOverride,
-                target.iconKey, target.colorKey);
-        return new EditSession(target.id, state,
-                externalAliasOwners(profiles, target.id, true));
+                target.iconKey, target.colorKey, target.calendarAliases);
+        Map<String, String> routes = loadRoutes(context);
+        Map<String, String> externalOwners = externalAliasOwners(profiles, target.id, true);
+        omitReclaimableStaleGhostOwners(externalOwners, profiles, routes, target.id);
+        return new EditSession(target.id, state, externalOwners,
+                externalShortOwners(profiles, target.id));
     }
 
     private static synchronized String commitEdit(Context context, EditSession session) {
@@ -171,13 +221,20 @@ final class ProjectProfileStore {
         Map<String, String> currentOwners =
                 externalAliasOwners(profiles, session.profileId, false);
         Map<String, String> routes = loadRoutes(context);
+        String shortKey = ProjectProfileRules.normalizeShort(session.state.shortOverride());
+        if (!shortKey.isEmpty()) {
+            String shortOwner = externalShortOwners(profiles, session.profileId).get(shortKey);
+            if (shortOwner != null && !shortOwner.isEmpty()) {
+                return "That Short Name already belongs to " + shortOwner + ".";
+            }
+        }
         for (String alias : session.state.aliases()) {
             String normalized = ProjectProfileRules.normalizeAlias(alias);
             String owner = currentOwners.get(normalized);
             if (owner == null || owner.isEmpty()) continue;
 
             MutableProfile externalOwner = findAliasOwner(profiles, normalized);
-            if (!isReclaimableLegacyOrphan(externalOwner, normalized)) {
+            if (!isReclaimableStaleGhost(externalOwner, routes, normalized)) {
                 return "That alias already belongs to " + owner + ".";
             }
 
@@ -192,6 +249,10 @@ final class ProjectProfileStore {
                 session.profileId, session.state.primaryAlias(), session.state.shortOverride(),
                 session.state.iconKey(), session.state.colorKey());
         replacement.aliases.addAll(session.state.aliases());
+        replacement.calendarAliases.addAll(session.state.calendarAliases());
+        for (String calendarAlias : target.calendarAliases) {
+            if (replacement.hasAlias(calendarAlias)) replacement.calendarAliases.add(calendarAlias);
+        }
         int index = profiles.indexOf(target);
         profiles.set(index, replacement);
         save(context, profiles, routes);
@@ -379,6 +440,30 @@ final class ProjectProfileStore {
                 .edit().putString(KEY_ROUTES, routesJson(routes)).apply();
     }
 
+    private static Map<String, String> externalShortOwners(
+            List<MutableProfile> profiles, String excludedId) {
+        Map<String, String> owners = new HashMap<>();
+        for (MutableProfile profile : profiles) {
+            if (profile.id.equals(excludedId)) continue;
+            String normalized = ProjectProfileRules.normalizeShort(profile.shortOverride);
+            if (!normalized.isEmpty()) owners.put(normalized, profile.primaryAlias);
+        }
+        return owners;
+    }
+
+    private static void omitReclaimableStaleGhostOwners(Map<String, String> owners,
+            List<MutableProfile> profiles, Map<String, String> routes, String excludedId) {
+        for (MutableProfile profile : profiles) {
+            if (profile.id.equals(excludedId)) continue;
+            for (String alias : profile.aliases) {
+                String normalized = ProjectProfileRules.normalizeAlias(alias);
+                if (isReclaimableStaleGhost(profile, routes, normalized)) {
+                    owners.remove(normalized);
+                }
+            }
+        }
+    }
+
     private static Map<String, String> externalAliasOwners(
             List<MutableProfile> profiles, String excludedId,
             boolean omitReclaimableLegacyOrphans) {
@@ -402,6 +487,24 @@ final class ProjectProfileStore {
         while (iterator.hasNext()) {
             if (profileId.equals(iterator.next().getValue())) iterator.remove();
         }
+    }
+
+    private static boolean isReclaimableStaleGhost(
+            MutableProfile profile, Map<String, String> routes, String normalized) {
+        if (profile == null) return false;
+        boolean hasStableRoute = false;
+        for (String ownerId : routes.values()) {
+            if (profile.id.equals(ownerId)) {
+                hasStableRoute = true;
+                break;
+            }
+        }
+        boolean calendarObserved = !profile.calendarAliases.isEmpty();
+        if (hasStableRoute || calendarObserved) return false;
+        return isReclaimableLegacyOrphan(profile, normalized)
+                || ProjectProfileRules.isReclaimableUnroutedLegacyGhost(
+                profile.id, profile.aliases, profile.primaryAlias, profile.shortOverride,
+                profile.iconKey, profile.colorKey, normalized, false, false);
     }
 
     private static MutableProfile findAliasOwner(
@@ -455,12 +558,13 @@ final class ProjectProfileStore {
         String shortOverride;
         String iconKey;
         String colorKey;
+        final Set<String> calendarAliases = new HashSet<>();
 
         MutableProfile(String id, String primaryAlias, String shortOverride,
                 String iconKey, String colorKey) {
             this.id = id == null ? "" : id;
             this.primaryAlias = ProjectProfileRules.collapseWhitespace(primaryAlias);
-            this.shortOverride = ProjectProfileRules.collapseWhitespace(shortOverride);
+            this.shortOverride = ProjectProfileRules.normalizeShort(shortOverride);
             this.iconKey = contains(ICON_KEYS, iconKey) ? iconKey : "folder";
             this.colorKey = contains(COLOR_KEYS, colorKey) ? colorKey : COLOR_GRAY;
         }
@@ -475,7 +579,8 @@ final class ProjectProfileStore {
         }
 
         Profile freeze() {
-            return new Profile(id, aliases, primaryAlias, shortOverride, iconKey, colorKey);
+            return new Profile(id, aliases, primaryAlias, shortOverride, iconKey, colorKey,
+                    calendarAliases);
         }
 
         JSONObject toJson() {
@@ -489,6 +594,9 @@ final class ProjectProfileStore {
                 JSONArray aliasArray = new JSONArray();
                 for (String alias : aliases) aliasArray.put(alias);
                 json.put("aliases", aliasArray);
+                JSONArray calendarArray = new JSONArray();
+                for (String alias : calendarAliases) calendarArray.put(alias);
+                json.put("calendar_aliases", calendarArray);
             } catch (JSONException ignored) {}
             return json;
         }
@@ -510,6 +618,16 @@ final class ProjectProfileStore {
             }
             if (profile.aliases.isEmpty() && !profile.primaryAlias.isEmpty()) {
                 profile.aliases.add(profile.primaryAlias);
+            }
+            JSONArray calendarArray = json.optJSONArray("calendar_aliases");
+            if (calendarArray != null) {
+                for (int i = 0; i < calendarArray.length(); i++) {
+                    String normalized = ProjectProfileRules.normalizeAlias(
+                            calendarArray.optString(i, ""));
+                    if (!normalized.isEmpty() && !profile.aliasFor(normalized).isEmpty()) {
+                        profile.calendarAliases.add(normalized);
+                    }
+                }
             }
             String primary = profile.aliasFor(
                     ProjectProfileRules.normalizeAlias(profile.primaryAlias));

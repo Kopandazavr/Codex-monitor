@@ -107,22 +107,19 @@ public final class SettingsActivity extends AppCompatActivity {
 
     private void configureDiagnosticsToolbar(ToolbarLayout toolbar) {
         String compactIdentity = diagnosticBuildIdentity();
-        String collapsedText = "Diagnostics   " + compactIdentity;
-        SpannableString collapsed = new SpannableString(collapsedText);
-        int identityStart = collapsedText.indexOf(compactIdentity);
-        if (identityStart >= 0) {
-            collapsed.setSpan(new ForegroundColorSpan(Ui.secondaryText(Ui.isDark(this))),
-                    identityStart, collapsed.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-            collapsed.setSpan(new RelativeSizeSpan(0.72f),
-                    identityStart, collapsed.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        }
         SpannableString expandedSubtitle = new SpannableString(
                 "Version " + BuildConfig.VERSION_NAME + " · Build " + BuildConfig.VERSION_CODE);
         expandedSubtitle.setSpan(new ForegroundColorSpan(Ui.secondaryText(Ui.isDark(this))),
                 0, expandedSubtitle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        toolbar.setTitle("Diagnostics", collapsed);
+        SpannableString collapsedSubtitle = new SpannableString(compactIdentity);
+        collapsedSubtitle.setSpan(new ForegroundColorSpan(Ui.secondaryText(Ui.isDark(this))),
+                0, collapsedSubtitle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        collapsedSubtitle.setSpan(new RelativeSizeSpan(0.88f),
+                0, collapsedSubtitle.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+        toolbar.setTitle("Diagnostics", "Diagnostics");
         toolbar.setSubtitle(expandedSubtitle);
-        toolbar.setCollapsedSubtitle(null);
+        toolbar.setCollapsedSubtitle(collapsedSubtitle);
     }
 
     private static String diagnosticBuildIdentity() {

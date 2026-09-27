@@ -17,6 +17,10 @@ final class ProjectProfileRules {
         return collapseWhitespace(value).toLowerCase(Locale.ROOT);
     }
 
+    static String normalizeShort(String value) {
+        return collapseWhitespace(value).toUpperCase(Locale.ROOT);
+    }
+
     static String automaticAcronym(String fullName) {
         String clean = collapseWhitespace(fullName);
         if (clean.isEmpty()) return "";
@@ -35,7 +39,7 @@ final class ProjectProfileRules {
     }
 
     static String effectiveShort(String localOverride, String watchdogShort, String primaryAlias) {
-        String local = collapseWhitespace(localOverride);
+        String local = normalizeShort(localOverride);
         return local.isEmpty() ? fallbackShort(watchdogShort, primaryAlias) : local;
     }
 
@@ -43,6 +47,27 @@ final class ProjectProfileRules {
         String full = collapseWhitespace(primaryAlias);
         String shortName = effectiveShort(localOverride, watchdogShort, full);
         return shortName.isEmpty() ? full : "[" + shortName + "] " + full;
+    }
+
+    /**
+     * A generated profile can survive a legacy alias delete without any stable route.
+     * Reclaim only that conservative migration shape: one alias, generated id, default
+     * appearance, no current route/provenance, and at most an automatic short name.
+     */
+    static boolean isReclaimableUnroutedLegacyGhost(String profileId, List<String> aliases,
+            String primaryAlias, String shortOverride, String iconKey, String colorKey,
+            String requestedAlias, boolean hasStableRoute, boolean calendarObserved) {
+        String normalized = normalizeAlias(requestedAlias);
+        if (normalized.isEmpty() || hasStableRoute || calendarObserved
+                || profileId == null || !profileId.startsWith("project:")
+                || aliases == null || aliases.size() != 1
+                || !"folder".equals(iconKey) || !"gray".equals(colorKey)
+                || !normalizeAlias(primaryAlias).equals(normalized)
+                || !normalizeAlias(aliases.get(0)).equals(normalized)) {
+            return false;
+        }
+        String storedShort = normalizeShort(shortOverride);
+        return storedShort.isEmpty() || storedShort.equals(automaticAcronym(primaryAlias));
     }
 
     /**

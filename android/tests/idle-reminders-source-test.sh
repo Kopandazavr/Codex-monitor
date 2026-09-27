@@ -122,7 +122,8 @@ grep -q 'IdleProcessState.isRoleActive' "$SRC/IdleReminderManager.java"
 grep -q 'cancelAlarm(context, key)' "$SRC/IdleReminderManager.java"
 
 # Idle rows expose dismiss + bell actions, while overlay taps have explicit strong haptics.
-grep -q 'notification_process_dismiss' "$ROOT/app/src/main/res/layout/notification_process_row.xml"
+! grep -q 'notification_process_dismiss' "$ROOT/app/src/main/res/layout/notification_process_row.xml"
+grep -q 'R.drawable.ic_idle_trash' "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/MainActivity.java"
 grep -q 'notification_process_reminder' "$ROOT/app/src/main/res/layout/notification_process_row.xml"
 grep -q 'DiagonalStripeDrawable' "$SRC/IdleReminderOverlayService.java"
 grep -q 'vibrate(160L)' "$SRC/IdleReminderOverlayService.java"

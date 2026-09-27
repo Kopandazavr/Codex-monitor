@@ -257,7 +257,7 @@ final class DualUsageNotificationManager {
 
         if (layoutId == R.layout.notification_usage_dual_bars) {
             String processSummary = ProcessNotificationMode.COMBINED.equals(processMode)
-                    ? ProcessNotificationManager.collapsedSummary(processes, idleRoles, now)
+                    ? ProcessNotificationManager.collapsedSummary(context, processes, idleRoles, now)
                     : "";
             views.setViewVisibility(R.id.notification_process_summary,
                     processSummary.isEmpty() ? View.GONE : View.VISIBLE);

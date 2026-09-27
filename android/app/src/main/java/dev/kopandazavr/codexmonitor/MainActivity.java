@@ -580,7 +580,7 @@ public final class MainActivity extends AppCompatActivity {
         ProjectBadgeView projectBadge =
                 new ProjectBadgeView(this, projectProfile, process.projectShort);
         projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
-                this, projectProfile.id, process.projectShort, this::refreshProcessesCard));
+                this, projectProfile.id, process.projectShort, this::onProjectProfileChanged));
         copy.addView(projectBadge);
         TextView role = Ui.text(this, process.role, 14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
@@ -650,7 +650,7 @@ public final class MainActivity extends AppCompatActivity {
         ProjectBadgeView projectBadge =
                 new ProjectBadgeView(this, projectProfile, idle.projectShort);
         projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
-                this, projectProfile.id, idle.projectShort, this::refreshProcessesCard));
+                this, projectProfile.id, idle.projectShort, this::onProjectProfileChanged));
         copy.addView(projectBadge);
         TextView role = Ui.text(this, idle.role, 14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
@@ -730,6 +730,11 @@ public final class MainActivity extends AppCompatActivity {
         background.setStroke(Ui.dp(this, 1), Ui.divider(this.dark));
         icon.setBackground(background);
         return icon;
+    }
+
+    private void onProjectProfileChanged() {
+        refreshProcessesCard();
+        DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
     }
 
     private void toggleProcessReminder(String key) {

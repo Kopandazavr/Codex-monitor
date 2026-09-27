@@ -5,6 +5,7 @@ import android.app.AlertDialog;
 import android.content.res.ColorStateList;
 import android.graphics.drawable.GradientDrawable;
 import android.text.Editable;
+import android.text.InputFilter;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
@@ -178,6 +179,7 @@ final class ProjectSettingsDialog {
             content.addView(sectionTitle(activity, "Short name override", dark));
             EditText shortName = new EditText(activity);
             shortName.setSingleLine(true);
+            shortName.setFilters(new InputFilter[] { new InputFilter.AllCaps() });
             shortName.setText(profile.shortOverride);
             shortName.setHint(ProjectProfileStore.fallbackShort(profile, watchdogShort));
             shortName.setTextColor(Ui.mainText(dark));
@@ -189,6 +191,8 @@ final class ProjectSettingsDialog {
                         CharSequence s, int start, int before, int count) {}
                 @Override public void afterTextChanged(Editable s) {
                     edit.setShortOverride(s == null ? "" : s.toString());
+                    String error = edit.shortOverrideError();
+                    shortName.setError(error.isEmpty() ? null : error);
                 }
             });
 
@@ -203,12 +207,28 @@ final class ProjectSettingsDialog {
             for (String alias : profile.aliases) {
                 boolean primary = ProjectProfileRules.normalizeAlias(alias).equals(
                         ProjectProfileRules.normalizeAlias(profile.primaryAlias));
+                boolean calendar = edit.isCalendarAlias(alias);
                 LinearLayout row = new LinearLayout(activity);
                 row.setOrientation(LinearLayout.HORIZONTAL);
                 row.setGravity(Gravity.CENTER_VERTICAL);
+
+                ImageView provenance = miniIconButton(activity,
+                        calendar ? R.drawable.ic_alias_calendar : R.drawable.ic_project_pencil,
+                        calendar ? "Calendar alias: copy to edit" : "Manual alias: edit");
+                provenance.setImageTintList(ColorStateList.valueOf(Ui.secondaryText(dark)));
+                provenance.setOnClickListener(view -> showEditAlias(alias));
+                row.addView(provenance,
+                        new LinearLayout.LayoutParams(Ui.dp(activity, 30), Ui.dp(activity, 30)));
+
                 TextView aliasText = Ui.text(activity,
                         alias + (primary ? " · Primary" : ""), 13.5f, Ui.mainText(dark));
-                row.addView(aliasText, new LinearLayout.LayoutParams(0, -2, 1f));
+                aliasText.setClickable(true);
+                aliasText.setFocusable(true);
+                aliasText.setOnClickListener(view -> showEditAlias(alias));
+                LinearLayout.LayoutParams aliasParams = new LinearLayout.LayoutParams(0, -2, 1f);
+                aliasParams.setMargins(Ui.dp(activity, 5), 0, 0, 0);
+                row.addView(aliasText, aliasParams);
+
                 if (!primary) {
                     Button makePrimary = miniButton(activity, "Make Primary");
                     makePrimary.setOnClickListener(view -> {
@@ -221,7 +241,10 @@ final class ProjectSettingsDialog {
                     });
                     row.addView(makePrimary,
                             new LinearLayout.LayoutParams(-2, Ui.dp(activity, 38)));
-                    Button delete = miniButton(activity, "Delete");
+
+                    ImageView delete = miniIconButton(activity, R.drawable.ic_idle_trash,
+                            "Delete alias");
+                    delete.setImageTintList(ColorStateList.valueOf(Ui.secondaryText(dark)));
                     delete.setOnClickListener(view -> {
                         String error = edit.deleteAlias(alias);
                         if (!error.isEmpty()) {
@@ -231,8 +254,8 @@ final class ProjectSettingsDialog {
                         changed();
                     });
                     LinearLayout.LayoutParams deleteParams =
-                            new LinearLayout.LayoutParams(-2, Ui.dp(activity, 38));
-                    deleteParams.setMargins(Ui.dp(activity, 6), 0, 0, 0);
+                            new LinearLayout.LayoutParams(Ui.dp(activity, 32), Ui.dp(activity, 32));
+                    deleteParams.setMargins(Ui.dp(activity, 4), 0, 0, 0);
                     row.addView(delete, deleteParams);
                 }
                 LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(-1, -2);
@@ -247,6 +270,35 @@ final class ProjectSettingsDialog {
                     new LinearLayout.LayoutParams(-1, Ui.dp(activity, 48));
             params.setMargins(0, Ui.dp(activity, 10), 0, 0);
             content.addView(addAlias, params);
+        }
+
+        private void showEditAlias(String alias) {
+            EditText input = new EditText(activity);
+            input.setSingleLine(true);
+            input.setText(alias);
+            input.setSelection(input.getText().length());
+            FrameLayout frame = new FrameLayout(activity);
+            int pad = Ui.dp(activity, 20);
+            frame.setPadding(pad, 0, pad, 0);
+            frame.addView(input, new FrameLayout.LayoutParams(-1, Ui.dp(activity, 54)));
+            AlertDialog child = new AlertDialog.Builder(activity)
+                    .setTitle("Edit alias")
+                    .setView(frame)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("OK", null)
+                    .create();
+            child.setOnShowListener(ignored -> child.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(view -> {
+                        String error = edit.editAlias(alias,
+                                input.getText() == null ? "" : input.getText().toString());
+                        if (!error.isEmpty()) {
+                            input.setError(error);
+                            return;
+                        }
+                        child.dismiss();
+                        changed();
+                    }));
+            child.show();
         }
 
         private void showAddAlias() {
@@ -286,6 +338,17 @@ final class ProjectSettingsDialog {
         TextView title = Ui.text(activity, text, 13.0f, Ui.secondaryText(dark));
         title.setTypeface(Ui.mediumTypeface(activity));
         return title;
+    }
+
+    private static ImageView miniIconButton(Activity activity, int drawable, String description) {
+        ImageView icon = new ImageView(activity);
+        icon.setImageResource(drawable);
+        icon.setContentDescription(description);
+        icon.setClickable(true);
+        icon.setFocusable(true);
+        icon.setPadding(Ui.dp(activity, 6), Ui.dp(activity, 6),
+                Ui.dp(activity, 6), Ui.dp(activity, 6));
+        return icon;
     }
 
     private static Button miniButton(Activity activity, String text) {

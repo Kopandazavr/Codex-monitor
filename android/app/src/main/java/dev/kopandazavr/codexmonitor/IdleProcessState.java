@@ -22,6 +22,50 @@ final class IdleProcessState {
     private IdleProcessState() {
     }
 
+    static final class SessionRecord {
+        final String project;
+        final String projectShort;
+        final String role;
+        final String topic;
+        final long eventId;
+        final long startedMillis;
+        final long finishedMillis;
+
+        SessionRecord(String project, String projectShort, String role, String topic,
+                long eventId, long startedMillis, long finishedMillis) {
+            this.project = clean(project);
+            this.projectShort = clean(projectShort);
+            this.role = clean(role);
+            this.topic = clean(topic);
+            this.eventId = eventId;
+            this.startedMillis = Math.max(0L, Math.min(startedMillis, finishedMillis));
+            this.finishedMillis = Math.max(0L, finishedMillis);
+        }
+
+        JSONObject toJson() {
+            JSONObject json = new JSONObject();
+            try {
+                json.put("project", project);
+                json.put("project_short", projectShort);
+                json.put("role", role);
+                json.put("topic", topic);
+                json.put("event_id", eventId);
+                json.put("started", startedMillis);
+                json.put("finished", finishedMillis);
+            } catch (JSONException ignored) {
+            }
+            return json;
+        }
+
+        static SessionRecord fromJson(JSONObject json) {
+            return new SessionRecord(
+                    json.optString("project", ""), json.optString("project_short", ""),
+                    json.optString("role", ""), json.optString("topic", ""),
+                    json.optLong("event_id", 0L), json.optLong("started", 0L),
+                    json.optLong("finished", 0L));
+        }
+    }
+
     static final class IdleRole {
         final String key;
         final String project;
@@ -140,6 +184,15 @@ final class IdleProcessState {
         return row == null || row.lastFinishedMillis <= 0L ? null : row.freeze();
     }
 
+    static List<SessionRecord> history(Context context, String key) {
+        MutableRole row = load(context).get(clean(key));
+        if (row == null || row.history.isEmpty()) return Collections.emptyList();
+        List<SessionRecord> newestFirst = new ArrayList<>(row.history);
+        newestFirst.sort(Comparator.comparingLong(
+                (SessionRecord record) -> record.finishedMillis).reversed());
+        return Collections.unmodifiableList(newestFirst);
+    }
+
     static boolean isReminderEnabled(Context context, String key) {
         MutableRole row = load(context).get(clean(key));
         return row != null && row.reminderEnabled;
@@ -229,6 +282,8 @@ final class IdleProcessState {
             String role, String topic, long eventId, long startedMillis, long finishedMillis,
             Context context) {
         if (finishedMillis <= row.lastFinishedMillis) return;
+        appendHistory(row, project, projectShort, role, topic, eventId,
+                startedMillis, finishedMillis);
         row.project = clean(project);
         row.projectShort = clean(projectShort);
         row.role = clean(role);
@@ -238,6 +293,16 @@ final class IdleProcessState {
         row.lastFinishedMillis = finishedMillis;
         row.nextReminderAtMillis = row.reminderEnabled
                 ? finishedMillis + cadenceMillis(context) : 0L;
+    }
+
+    private static void appendHistory(MutableRole row, String project, String projectShort,
+            String role, String topic, long eventId, long startedMillis, long finishedMillis) {
+        if (row == null || finishedMillis <= 0L) return;
+        for (SessionRecord record : row.history) {
+            if (record.eventId == eventId && record.finishedMillis == finishedMillis) return;
+        }
+        row.history.add(new SessionRecord(project, projectShort, role, topic, eventId,
+                startedMillis, finishedMillis));
     }
 
     private static Map<String, MutableRole> load(Context context) {
@@ -295,6 +360,7 @@ final class IdleProcessState {
         long pendingEndMillis;
         long pendingEventId;
         boolean pendingDirectSource;
+        final List<SessionRecord> history = new ArrayList<>();
 
         MutableRole(String key) { this.key = clean(key); }
 
@@ -321,6 +387,9 @@ final class IdleProcessState {
                 json.put("pending_end", pendingEndMillis);
                 json.put("pending_event", pendingEventId);
                 json.put("pending_direct", pendingDirectSource);
+                JSONArray historyArray = new JSONArray();
+                for (SessionRecord record : history) historyArray.put(record.toJson());
+                json.put("history", historyArray);
             } catch (JSONException ignored) {
             }
             return json;
@@ -342,6 +411,21 @@ final class IdleProcessState {
             row.pendingEndMillis = json.optLong("pending_end", 0L);
             row.pendingEventId = json.optLong("pending_event", 0L);
             row.pendingDirectSource = json.optBoolean("pending_direct", false);
+            JSONArray historyArray = json.optJSONArray("history");
+            if (historyArray != null) {
+                for (int i = 0; i < historyArray.length(); i++) {
+                    JSONObject item = historyArray.optJSONObject(i);
+                    if (item == null) continue;
+                    SessionRecord record = SessionRecord.fromJson(item);
+                    if (record.finishedMillis > 0L) row.history.add(record);
+                }
+            }
+            if (row.history.isEmpty() && row.lastFinishedMillis > 0L) {
+                // One-time non-destructive migration of the pre-2.28 latest-session fields.
+                row.history.add(new SessionRecord(
+                        row.project, row.projectShort, row.role, row.topic, row.eventId,
+                        row.lastStartedMillis, row.lastFinishedMillis));
+            }
             return row;
         }
     }

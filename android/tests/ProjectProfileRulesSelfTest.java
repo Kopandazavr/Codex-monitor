@@ -104,7 +104,7 @@ public final class ProjectProfileRulesSelfTest {
                 generated, java.util.Arrays.asList("GGG", "Real Project"), "GGG", "",
                 "folder", "gray", "GGG");
         assert ProjectProfileRules.isReclaimableUnroutedLegacyGhost(
-                "project:legacy-generated", Collections.singletonList("GGG"), "GGG", "ggg",
+                "project:legacy-generated", Collections.singletonList("GGG"), "GGG", "g",
                 "folder", "gray", "GGG", false, false);
         assert !ProjectProfileRules.isReclaimableUnroutedLegacyGhost(
                 "project:legacy-generated", Collections.singletonList("GGG"), "GGG", "GGG",

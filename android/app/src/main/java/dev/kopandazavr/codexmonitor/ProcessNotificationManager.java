@@ -24,6 +24,8 @@ final class ProcessNotificationManager {
     private static final int PROCESS_NOTIFICATION_RANGE = 12000;
     private static final int IDLE_NOTIFICATION_BASE = 24000;
     private static final int REQUEST_CONTENT = 9780;
+    private static final int COMPLETION_NOTIFICATION_BASE = 52000;
+    private static final int COMPLETION_NOTIFICATION_RANGE = 10000;
     private static final String PREFS = "codex_process_notification_state_v1";
     private static final String KEY_ACTIVE_IDS = "active_ids";
 
@@ -97,6 +99,63 @@ final class ProcessNotificationManager {
                     exception, "role", idle.displayLabel());
             return false;
         }
+    }
+
+    /**
+     * Posts one fresh completion notification on the user-controlled completion channel.
+     *
+     * <p>Do not recycle an already-posted operational notification ID for this attention edge:
+     * Samsung can treat that as a silent update even when the replacement names an audible
+     * channel. The durable idle/process surface stays on the operational channel; this event
+     * notification is the single completion alert and is deduped by IdleReminderManager.</p>
+     */
+    static boolean postCompletionAlert(Context context, IdleProcessState.IdleRole idle,
+            long nowMillis) {
+        if (context == null || idle == null) return false;
+        NotificationManager manager = (NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return false;
+        AlertSoundManager.ensureChannels(context);
+
+        Intent open = new Intent(context, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        String identity = notificationIdentity(
+                context, idle.project, idle.role, idle.topic, false);
+        Notification notification = new Notification.Builder(
+                context, AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
+                .setContentTitle(identity + " finished")
+                .setContentText("Watched process completed")
+                .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(false)
+                .setCategory(Notification.CATEGORY_EVENT)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setColor(Color.rgb(3, 129, 254))
+                .setWhen(idle.lastFinishedMillis > 0L ? idle.lastFinishedMillis : nowMillis)
+                .setShowWhen(true)
+                .build();
+        try {
+            int notificationId = completionNotificationId(idle.key);
+            manager.notify(notificationId, notification);
+            DiagnosticLog.info(context, "notification", "completion_notification_posted",
+                    "role", idle.displayLabel(),
+                    "notification_id", notificationId,
+                    "channel", AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID);
+            return true;
+        } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "notification", "completion_notification_failed",
+                    exception, "role", idle.displayLabel());
+            return false;
+        }
+    }
+
+    private static int completionNotificationId(String key) {
+        int hash = key == null ? 0 : key.hashCode();
+        return COMPLETION_NOTIFICATION_BASE
+                + Math.floorMod(hash, COMPLETION_NOTIFICATION_RANGE);
     }
 
     static void clearAll(Context context) {

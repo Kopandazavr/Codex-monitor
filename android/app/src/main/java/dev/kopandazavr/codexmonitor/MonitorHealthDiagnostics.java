@@ -1,6 +1,7 @@
 package dev.kopandazavr.codexmonitor;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
@@ -32,6 +33,7 @@ final class MonitorHealthDiagnostics {
                     "previous_failure_category", previousFailure,
                     "watchdogs", Math.max(0, watchdogCount), "source", "direct_api");
         }
+        notifyHealthChanged(context);
     }
 
     static void recordPollFailure(Context context, Throwable error) {
@@ -50,6 +52,7 @@ final class MonitorHealthDiagnostics {
                     "previous_failure_category", previous,
                     "failure_category", normalized,
                     "source", clean(p.getString(KEY_CURRENT_SOURCE, "")));
+            notifyHealthChanged(context);
         }
     }
 
@@ -64,6 +67,7 @@ final class MonitorHealthDiagnostics {
                 .putString(KEY_CURRENT_SOURCE, normalized).apply();
         DiagnosticLog.info(context, "calendar_process", "observation_source_changed",
                 "previous_source", current, "source", normalized);
+        notifyHealthChanged(context);
     }
 
     static void recordCounts(Context context, int activeCount, int idleCount) {
@@ -81,6 +85,47 @@ final class MonitorHealthDiagnostics {
         if (context == null) return;
         prefs(context).edit().putString(KEY_LAST_REJECTION,
                 clean(source) + ":" + eventId + ":" + clean(reason)).apply();
+    }
+
+    static boolean isDirectHealthy(Context context) {
+        if (context == null || !GoogleCalendarAuthorization.isConnected(context)) return false;
+        if (!GoogleCalendarProcessSource.hasFreshCache(context, System.currentTimeMillis())) {
+            return false;
+        }
+        SharedPreferences p = prefs(context);
+        String source = clean(p.getString(KEY_CURRENT_SOURCE, ""));
+        String failure = clean(p.getString(KEY_FAILURE, ""));
+        return "direct_api".equals(source) && failure.isEmpty();
+    }
+
+    static boolean isProviderFallbackActive(Context context) {
+        if (context == null) return false;
+        return "calendar_provider_fallback".equals(
+                clean(prefs(context).getString(KEY_CURRENT_SOURCE, "")));
+    }
+
+    static String userFacingSummary(Context context) {
+        if (context == null) return "Direct Google Calendar health is unavailable.";
+        SharedPreferences p = prefs(context);
+        String source = clean(p.getString(KEY_CURRENT_SOURCE, ""));
+        String failure = clean(p.getString(KEY_FAILURE, ""));
+        long success = p.getLong(KEY_LAST_DIRECT_SUCCESS, 0L);
+
+        StringBuilder out = new StringBuilder(
+                "Direct Google Calendar access is degraded.\n\n");
+        if (isProviderFallbackActive(context)) {
+            out.append("Current source: CalendarProvider fallback (active).");
+        } else if ("direct_api".equals(source)) {
+            out.append("Current source: direct API cache is stale or the latest poll failed.");
+        } else {
+            out.append("Current source: direct API unavailable.");
+        }
+        if (!failure.isEmpty()) {
+            out.append("\nLatest direct failure: ").append(failure);
+        }
+        out.append("\nLast successful direct poll: ").append(age(success));
+        out.append("\nAuthorization: ").append(GoogleCalendarAuthorization.statusSummary(context));
+        return out.toString();
     }
 
     static String summary(Context context) {
@@ -131,6 +176,13 @@ final class MonitorHealthDiagnostics {
             return Math.max(1L, delta / TimeUnit.MINUTES.toMillis(1)) + "m ago";
         }
         return Math.max(1L, delta / TimeUnit.HOURS.toMillis(1)) + "h ago";
+    }
+
+    private static void notifyHealthChanged(Context context) {
+        if (context == null) return;
+        Intent intent = new Intent(AppConstants.ACTION_CALENDAR_HEALTH_CHANGED)
+                .setPackage(context.getPackageName());
+        context.sendBroadcast(intent, AppConstants.INTERNAL_PERMISSION);
     }
 
     private static SharedPreferences prefs(Context context) {

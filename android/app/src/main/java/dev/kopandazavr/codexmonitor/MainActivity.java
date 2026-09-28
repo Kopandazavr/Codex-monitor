@@ -41,6 +41,7 @@ import dev.kopandazavr.codexmonitor.wear.PhoneWearSync;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class MainActivity extends AppCompatActivity {
+    private static final int MENU_CALENDAR_HEALTH = 8099;
     private static final int MENU_PERMISSIONS = 8100;
     private static final int MENU_SETTINGS = 8101;
     private static final int PROCESS_ACTION_GUTTER_DP = 42;
@@ -82,6 +83,10 @@ public final class MainActivity extends AppCompatActivity {
                 MainActivity.this.rebuild();
                 return;
             }
+            if (AppConstants.ACTION_CALENDAR_HEALTH_CHANGED.equals(action)) {
+                MainActivity.this.invalidateOptionsMenu();
+                return;
+            }
             if (AppConstants.ACTION_PROCESS_UPDATED.equals(action)) {
                 MainActivity.this.refreshProcessesCard();
                 return;
@@ -120,12 +125,18 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        MenuItem permissions = menu.add(Menu.NONE, MENU_PERMISSIONS, 0,
+        MenuItem calendarHealth = menu.add(Menu.NONE, MENU_CALENDAR_HEALTH, 0,
+                "Direct Calendar health");
+        calendarHealth.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        calendarHealth.setActionView(buildCalendarHealthActionView());
+        calendarHealth.setVisible(!MonitorHealthDiagnostics.isDirectHealthy(this));
+
+        MenuItem permissions = menu.add(Menu.NONE, MENU_PERMISSIONS, 1,
                 "Permissions & connections");
         permissions.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         permissions.setActionView(buildPermissionsActionView());
 
-        menu.add(Menu.NONE, MENU_SETTINGS, 1, "Settings")
+        menu.add(Menu.NONE, MENU_SETTINGS, 2, "Settings")
                 .setIcon(R.drawable.ic_oui_settings_outline)
                 .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
         return true;
@@ -133,6 +144,12 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem calendarHealth = menu.findItem(MENU_CALENDAR_HEALTH);
+        if (calendarHealth != null) {
+            boolean degraded = !MonitorHealthDiagnostics.isDirectHealthy(this);
+            calendarHealth.setVisible(degraded);
+            if (degraded) calendarHealth.setActionView(buildCalendarHealthActionView());
+        }
         MenuItem permissions = menu.findItem(MENU_PERMISSIONS);
         if (permissions != null) permissions.setActionView(buildPermissionsActionView());
         return super.onPrepareOptionsMenu(menu);
@@ -140,6 +157,10 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == MENU_CALENDAR_HEALTH) {
+            showCalendarHealthDialog();
+            return true;
+        }
         if (item.getItemId() == MENU_PERMISSIONS) {
             openPermissionsConnections();
             return true;
@@ -150,6 +171,57 @@ public final class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private View buildCalendarHealthActionView() {
+        int red = this.dark ? 0xFFFF6B6B : 0xFFD32F2F;
+        FrameLayout root = new FrameLayout(this);
+        root.setContentDescription("Direct Calendar degraded");
+        root.setClickable(true);
+        root.setFocusable(true);
+        root.setPadding(Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8), Ui.dp(this, 8));
+        root.setOnClickListener(view -> showCalendarHealthDialog());
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_oui_calendar_week);
+        icon.setImageTintList(ColorStateList.valueOf(red));
+        root.addView(icon, new FrameLayout.LayoutParams(
+                Ui.dp(this, 25), Ui.dp(this, 25), Gravity.CENTER));
+        root.setMinimumWidth(Ui.dp(this, 48));
+        root.setMinimumHeight(Ui.dp(this, 48));
+        return root;
+    }
+
+    private void showCalendarHealthDialog() {
+        boolean connected = GoogleCalendarAuthorization.isConnected(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
+                .setTitle("Direct Calendar degraded")
+                .setMessage(MonitorHealthDiagnostics.userFacingSummary(this))
+                .setNegativeButton("Close", null);
+        if (connected) {
+            builder.setPositiveButton("Retry now",
+                    (dialog, which) -> retryDirectCalendarNow());
+            builder.setNeutralButton("Connections",
+                    (dialog, which) -> openPermissionsConnections());
+        } else {
+            builder.setPositiveButton("Reconnect",
+                    (dialog, which) -> openPermissionsConnections());
+        }
+        builder.show();
+    }
+
+    private void retryDirectCalendarNow() {
+        DiagnosticLog.info(this, "calendar_api", "health_retry_requested",
+                "source", "dashboard");
+        Toast.makeText(this, "Retrying Direct Calendar…", Toast.LENGTH_SHORT).show();
+        GoogleCalendarProcessSource.forceRefresh(this, () -> runOnUiThread(() -> {
+            invalidateOptionsMenu();
+            boolean healthy = MonitorHealthDiagnostics.isDirectHealthy(this);
+            Toast.makeText(this,
+                    healthy ? "Direct Calendar recovered."
+                            : "Direct Calendar is still degraded.",
+                    healthy ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
+        }));
     }
 
     private View buildPermissionsActionView() {
@@ -238,6 +310,7 @@ public final class MainActivity extends AppCompatActivity {
         intentFilter.addAction(AppConstants.ACTION_USAGE_UPDATED);
         intentFilter.addAction(AppConstants.ACTION_RESET_CREDITS_UPDATED);
         intentFilter.addAction(AppConstants.ACTION_PROCESS_UPDATED);
+        intentFilter.addAction(AppConstants.ACTION_CALENDAR_HEALTH_CHANGED);
         try {
             if (Build.VERSION.SDK_INT >= 33) {
                 registerReceiver(this.authReceiver, intentFilter,
@@ -902,25 +975,7 @@ public final class MainActivity extends AppCompatActivity {
         }
         frame.addView(chart, new FrameLayout.LayoutParams(-1, Ui.dp(this, 126)));
 
-        TextView zoomOut = Ui.text(this, "−", 28, Ui.mainText(this.dark));
-        zoomOut.setGravity(Gravity.CENTER);
-        zoomOut.setContentDescription("Zoom Out");
-        zoomOut.setClickable(true);
-        zoomOut.setFocusable(true);
-        GradientDrawable background = new GradientDrawable();
-        background.setShape(GradientDrawable.OVAL);
-        background.setColor(Ui.controlSurface(this, this.dark));
-        background.setStroke(Ui.dp(this, 1), Ui.divider(this.dark));
-        zoomOut.setBackground(background);
-        FrameLayout.LayoutParams zoomParams =
-                new FrameLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48),
-                        Gravity.TOP | Gravity.END);
-        zoomParams.setMargins(0, Ui.dp(this, 26), Ui.dp(this, 8), 0);
-        frame.addView(zoomOut, zoomParams);
-        zoomOut.setVisibility(chart.isZoomed() ? View.VISIBLE : View.GONE);
-        zoomOut.setOnClickListener(view -> chart.zoomOut());
         chart.setOnZoomChangedListener(zoomed -> {
-            zoomOut.setVisibility(zoomed ? View.VISIBLE : View.GONE);
             if (zoomed) {
                 long start = chart.viewportStartMillis();
                 long end = chart.viewportEndMillis();

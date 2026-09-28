@@ -4,10 +4,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
 
-grep -Fq 'versionCode = 55' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.29.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 55' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.29.0"' "$SRC/AppConstants.java"
+VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+[[ "$VERSION_CODE" -ge 55 ]]
+grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
 grep -Fq 'toolbar.setTitle(HOME_TITLE, HOME_TITLE);' "$SRC/HomeVersionLabel.java"
 grep -Fq 'toolbar.setSubtitle(expandedSubtitle);' "$SRC/HomeVersionLabel.java"

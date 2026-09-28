@@ -35,6 +35,16 @@ final class GoogleCalendarProcessSource {
     private GoogleCalendarProcessSource() {
     }
 
+    private static final class CalendarHttpException extends Exception {
+        final int status;
+
+        CalendarHttpException(int status) {
+            super("Calendar API HTTP " + status);
+            this.status = status;
+        }
+    }
+
+
     static boolean hasFreshCache(Context context, long nowMillis) {
         if (context == null || !GoogleCalendarAuthorization.isConnected(context)) return false;
         long refreshed = prefs(context).getLong(KEY_LAST_REFRESH, 0L);
@@ -118,7 +128,10 @@ final class GoogleCalendarProcessSource {
             if (refreshInFlight) return;
             refreshInFlight = true;
         }
+        requestAndFetch(app, false);
+    }
 
+    private static void requestAndFetch(Context app, boolean retriedUnauthorized) {
         GoogleCalendarAuthorization.accessToken(app, token -> {
             if (token == null || token.isEmpty()) {
                 MonitorHealthDiagnostics.recordPollFailure(app,
@@ -132,9 +145,25 @@ final class GoogleCalendarProcessSource {
                             fetch(app, token, System.currentTimeMillis());
                     store(app, processes, System.currentTimeMillis());
                     MonitorHealthDiagnostics.recordDirectPollSuccess(app, processes.size());
+                    if (retriedUnauthorized) {
+                        DiagnosticLog.info(app, "calendar_api",
+                                "calendar_http_401_recovered_after_token_refresh",
+                                "events", processes.size());
+                    }
+                    finishRefresh();
+                } catch (CalendarHttpException exception) {
+                    if (exception.status == 401 && !retriedUnauthorized) {
+                        GoogleCalendarAuthorization.invalidateCachedToken(
+                                app, "calendar_http_401");
+                        DiagnosticLog.warn(app, "calendar_api",
+                                "calendar_http_401_retrying_with_fresh_token");
+                        requestAndFetch(app, true);
+                        return;
+                    }
+                    MonitorHealthDiagnostics.recordPollFailure(app, exception);
+                    finishRefresh();
                 } catch (Exception exception) {
                     MonitorHealthDiagnostics.recordPollFailure(app, exception);
-                } finally {
                     finishRefresh();
                 }
             }, "codex-calendar-api").start();
@@ -167,7 +196,7 @@ final class GoogleCalendarProcessSource {
         String body = read(stream);
         connection.disconnect();
         if (status < 200 || status >= 300) {
-            throw new IllegalStateException("Calendar API HTTP " + status);
+            throw new CalendarHttpException(status);
         }
 
         List<CalendarProcess> result = new ArrayList<>();

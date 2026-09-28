@@ -37,8 +37,8 @@ grep -Fq 'Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM' "$SRC/OnboardingActivity
 grep -Fq 'confirmSignOut()' "$SRC/OnboardingActivity.java"
 grep -Fq '0xFFFF3B30' "$SRC/OnboardingActivity.java"
 
-grep -Fq 'overlayShownHaptic();' "$SRC/IdleReminderOverlayService.java"
-grep -Fq 'vibrate(330L)' "$SRC/IdleReminderOverlayService.java"
+! grep -Fq 'overlayShownHaptic();' "$SRC/IdleReminderOverlayService.java"
+! grep -Fq 'vibrate(330L)' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'M32,11 C18,11 11,18 11,32' "$RES/drawable/ic_notification_codex_monitor.xml"
 ! grep -Fq 'A43,43' "$RES/drawable/ic_notification_codex_monitor.xml"
 

@@ -273,7 +273,7 @@ final class IdleReminderManager {
                 cancelAlarm(context, key);
                 continue;
             }
-            if (IdleProcessState.isRoleActive(active, key)) {
+            if (IdleProcessState.isRoleActive(context, active, key)) {
                 cancelAlarm(context, key);
             } else {
                 schedule(context, idle, now);

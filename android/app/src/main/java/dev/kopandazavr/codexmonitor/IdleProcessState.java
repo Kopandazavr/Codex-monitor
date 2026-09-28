@@ -67,7 +67,7 @@ final class IdleProcessState {
     }
 
     static final class IdleRole {
-        String key;
+        final String key;
         final String project;
         final String projectShort;
         final String role;
@@ -406,7 +406,7 @@ final class IdleProcessState {
     }
 
     private static final class MutableRole {
-        final String key;
+        String key;
         String project = "";
         String projectShort = "";
         String role = "";

@@ -12,8 +12,9 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.List;
 
-/** Role/Agent Settings: live status + stable aliases. Session history intentionally stays out. */
+/** Role/Agent Settings: live status, stable aliases, and durable completed-session history. */
 final class RoleSettingsDialog {
     private RoleSettingsDialog() {}
 
@@ -66,6 +67,8 @@ final class RoleSettingsDialog {
         final boolean dark;
         final ScrollView scroll;
         final LinearLayout content;
+        int historyVisibleCount = RoleSessionHistory.PAGE_SIZE;
+        boolean loadingMoreHistory;
         AlertDialog dialog;
 
         Controller(Activity activity, RoleProfileStore.EditSession edit,
@@ -86,6 +89,8 @@ final class RoleSettingsDialog {
                     .setNegativeButton("Cancel",null).setPositiveButton("Done",null).create();
             dialog.setOnShowListener(x -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                     .setOnClickListener(v -> commitAndClose()));
+            scroll.setOnScrollChangeListener((view, scrollX, scrollY, oldScrollX, oldScrollY) ->
+                    maybeLoadMoreHistory(scrollY, oldScrollY));
             dialog.show();
         }
 
@@ -102,6 +107,7 @@ final class RoleSettingsDialog {
             content.removeAllViews();
             addStatus(profile);
             addAliases(profile);
+            addHistory(profile);
             if(preserveScroll) scroll.post(() -> scroll.scrollTo(0,scrollY));
         }
 
@@ -169,6 +175,66 @@ final class RoleSettingsDialog {
             add.setOnClickListener(v -> addAlias());
             LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,Ui.dp(activity,48));
             p.setMargins(0,Ui.dp(activity,10),0,0); content.addView(add,p);
+        }
+
+        void addHistory(RoleProfileStore.Profile profile) {
+            content.addView(sectionTitle("Session history"));
+            List<IdleProcessState.SessionRecord> history =
+                    IdleProcessState.history(activity, profile.id);
+            if (history.isEmpty()) {
+                TextView empty=Ui.text(activity,"No completed sessions yet",13f,
+                        Ui.secondaryText(dark));
+                LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,-2);
+                ep.setMargins(0,Ui.dp(activity,8),0,0);
+                content.addView(empty,ep);
+                return;
+            }
+            int visible=Math.min(historyVisibleCount,history.size());
+            for(int i=0;i<visible;i++) {
+                IdleProcessState.SessionRecord record=history.get(i);
+                LinearLayout card=Ui.card(activity,dark);
+                card.setPadding(Ui.dp(activity,16),Ui.dp(activity,12),
+                        Ui.dp(activity,16),Ui.dp(activity,12));
+                String task=record.topic.isEmpty()?"Session":record.topic;
+                TextView taskView=Ui.text(activity,task,14f,Ui.mainText(dark));
+                taskView.setTypeface(Ui.mediumTypeface(activity));
+                taskView.setSingleLine(false);
+                card.addView(taskView,new LinearLayout.LayoutParams(-1,-2));
+
+                String timing=RoleSessionHistory.formatTiming(
+                        record.startedMillis,record.finishedMillis);
+                if(!timing.isEmpty()) addMeta(card,timing,6);
+                String length=RoleSessionHistory.formatLength(
+                        record.startedMillis,record.finishedMillis);
+                if(!length.isEmpty()) addMeta(card,length,3);
+
+                LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);
+                cp.setMargins(0,Ui.dp(activity,7),0,0);
+                content.addView(card,cp);
+            }
+            if(visible<history.size()) {
+                TextView more=Ui.text(activity,"Scroll for 10 more",12f,
+                        Ui.secondaryText(dark));
+                more.setGravity(Gravity.CENTER);
+                LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);
+                mp.setMargins(0,Ui.dp(activity,8),0,0);
+                content.addView(more,mp);
+            }
+        }
+
+        void maybeLoadMoreHistory(int scrollY,int oldScrollY) {
+            if(loadingMoreHistory || scrollY<=oldScrollY || scroll.getChildCount()==0) return;
+            android.view.View child=scroll.getChildAt(0);
+            int remaining=child.getBottom()-(scroll.getHeight()+scrollY);
+            if(remaining>Ui.dp(activity,24)) return;
+            List<IdleProcessState.SessionRecord> history =
+                    IdleProcessState.history(activity,edit.profile().id);
+            int next=RoleSessionHistory.nextVisibleCount(historyVisibleCount,history.size());
+            if(next<=historyVisibleCount) return;
+            historyVisibleCount=next;
+            loadingMoreHistory=true;
+            render(true);
+            scroll.post(() -> loadingMoreHistory=false);
         }
 
         boolean showError(String error){

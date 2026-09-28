@@ -25,14 +25,15 @@ import java.io.IOException;
  */
 final class AlertSoundManager {
     static final String OPERATIONAL_CHANNEL_ID = "codex_operational_v1";
-    static final String PROCESS_COMPLETION_CHANNEL_ID = "codex_process_completion_v1";
+    static final String PROCESS_COMPLETION_CHANNEL_ID = "codex_process_completion_v2";
     static final String LIMITS_RESET_CHANNEL_ID = "codex_limits_reset_v1";
 
     private static final String PREFS = "codex_alert_sound_settings_v1";
     private static final String KEY_PHONE_SPEAKER = "phone_speaker";
-    private static final String KEY_CHANNEL_MIGRATED = "channel_migrated_v1";
+    private static final String KEY_CHANNEL_MIGRATED = "channel_migrated_v2";
 
     private static final String[] LEGACY_CHANNEL_IDS = {
+            "codex_process_completion_v1",
             "codex_live_monitor_v2",
             "codex_live_monitor_v1",
             "codex_live_monitor",
@@ -57,7 +58,8 @@ final class AlertSoundManager {
         SharedPreferences prefs = preferences(context);
         boolean migrating = !prefs.getBoolean(KEY_CHANNEL_MIGRATED, false);
         NotificationChannel oldCompletion = migrating
-                ? firstChannel(manager, "codex_idle_reminders_v2", "codex_idle_reminders_v1")
+                ? firstChannel(manager, "codex_process_completion_v1",
+                        "codex_idle_reminders_v2", "codex_idle_reminders_v1")
                 : null;
         NotificationChannel oldLimits = migrating
                 ? firstChannel(manager, "codex_reset_notify", "codex_reset_alarm",
@@ -66,7 +68,7 @@ final class AlertSoundManager {
 
         ensureOperational(manager);
         ensureSemantic(manager, PROCESS_COMPLETION_CHANNEL_ID, "Process completion",
-                "Sound played once when a watched process completes",
+                "Sound and vibration for one watched-process completion notification",
                 oldCompletion, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
         ensureSemantic(manager, LIMITS_RESET_CHANNEL_ID, "Limits reset",
                 "Shared sound for 5-hour and Weekly limit resets",
@@ -240,8 +242,9 @@ final class AlertSoundManager {
     private static void ensureSemantic(NotificationManager manager, String id, String name,
             String description, NotificationChannel legacy, Uri defaultSound) {
         if (manager.getNotificationChannel(id) != null) return;
-        NotificationChannel channel = new NotificationChannel(
-                id, name, NotificationManager.IMPORTANCE_DEFAULT);
+        int importance = legacy == null
+                ? NotificationManager.IMPORTANCE_DEFAULT : legacy.getImportance();
+        NotificationChannel channel = new NotificationChannel(id, name, importance);
         channel.setDescription(description);
         channel.setShowBadge(false);
         Uri sound = legacy == null ? defaultSound : legacy.getSound();
@@ -251,7 +254,16 @@ final class AlertSoundManager {
         } else {
             channel.setSound(null, null);
         }
-        channel.enableVibration(legacy != null && legacy.shouldVibrate());
+        if (legacy != null && legacy.shouldVibrate()) {
+            long[] pattern = legacy.getVibrationPattern();
+            if (pattern != null && pattern.length > 0) {
+                channel.setVibrationPattern(pattern);
+            } else {
+                channel.enableVibration(true);
+            }
+        } else {
+            channel.enableVibration(false);
+        }
         manager.createNotificationChannel(channel);
     }
 

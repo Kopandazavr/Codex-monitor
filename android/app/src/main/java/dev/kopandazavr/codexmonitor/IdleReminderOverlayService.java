@@ -42,6 +42,8 @@ public final class IdleReminderOverlayService extends Service {
     private static final String ACTION_SHOW_TEST =
             "dev.kopandazavr.codexmonitor.action.SHOW_IDLE_OVERLAY_TEST";
     private static final String TEST_ROLE_KEY = "__overlay_test__";
+    private static final String EXTRA_POST_COMPLETION_NOTIFICATION =
+            "post_completion_notification";
     private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final int FOREGROUND_ID = 8641;
     private static volatile IdleReminderOverlayService running;
@@ -56,18 +58,29 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     static boolean show(Context context, IdleProcessState.IdleRole idle) {
+        return start(context, idle, false);
+    }
+
+    static boolean showCompletion(Context context, IdleProcessState.IdleRole idle) {
+        return start(context, idle, true);
+    }
+
+    private static boolean start(Context context, IdleProcessState.IdleRole idle,
+            boolean postCompletionNotification) {
         if (context == null || idle == null || !canDraw(context)) return false;
         Intent intent = new Intent(context, IdleReminderOverlayService.class)
                 .setAction(ACTION_SHOW)
                 .putExtra(IdleReminderManager.EXTRA_ROLE_KEY, idle.key)
-                .putExtra(IdleReminderManager.EXTRA_FINISHED_AT, idle.lastFinishedMillis);
+                .putExtra(IdleReminderManager.EXTRA_FINISHED_AT, idle.lastFinishedMillis)
+                .putExtra(EXTRA_POST_COMPLETION_NOTIFICATION, postCompletionNotification);
         try {
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent);
             else context.startService(intent);
             return true;
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(context, "idle_process", "overlay_start_failed",
-                    "error", exception.getClass().getSimpleName());
+                    "error", exception.getClass().getSimpleName(),
+                    "completion_notification_delegated", postCompletionNotification);
             return false;
         }
     }
@@ -126,7 +139,19 @@ public final class IdleReminderOverlayService extends Service {
             stopSelfIfEmpty();
             return START_NOT_STICKY;
         }
-        showRole(idle);
+        boolean overlayVisible = showRole(idle);
+        if (intent.getBooleanExtra(EXTRA_POST_COMPLETION_NOTIFICATION, false)) {
+            // The exact-alarm receiver is the Android background-FGS exemption. Publish the
+            // audible completion notification only after WindowManager.addView() has completed,
+            // so SystemUI sound cannot postpone the overlay alarm/window behind the alert tone.
+            boolean posted = ProcessNotificationManager.postCompletionAlert(
+                    this, idle, System.currentTimeMillis());
+            DiagnosticLog.info(this, "idle_process",
+                    "completion_notification_after_overlay",
+                    "role", idle.displayLabel(),
+                    "overlay_visible", overlayVisible,
+                    "notification_posted", posted);
+        }
         return START_NOT_STICKY;
     }
 
@@ -143,11 +168,12 @@ public final class IdleReminderOverlayService extends Service {
         return null;
     }
 
-    private void showRole(IdleProcessState.IdleRole idle) {
-        if (windowManager == null) return;
+    private boolean showRole(IdleProcessState.IdleRole idle) {
+        if (windowManager == null) return false;
         roles.put(idle.key, idle);
         ensureRoot();
         rebuildEntries();
+        return overlayRoot != null;
     }
 
     private void ensureRoot() {

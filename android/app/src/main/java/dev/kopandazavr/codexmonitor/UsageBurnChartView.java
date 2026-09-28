@@ -196,9 +196,19 @@ public final class UsageBurnChartView extends View {
             return;
         }
         if (!isMeasuredInteractionX(touchX)) {
-            DiagnosticLog.info(getContext(), "usage_history", "chart_tap_outside_domain",
-                    "label", label,
-                    "zoomed", false);
+            int endpointSide = measuredEndpointSide(touchX);
+            if (endpointSide == 0) {
+                DiagnosticLog.info(getContext(), "usage_history", "chart_tap_outside_domain",
+                        "label", label,
+                        "zoomed", false);
+                return;
+            }
+            if (zoomToMeasuredEndpoint(endpointSide < 0)) {
+                lastTapToggleUptimeMillis = now;
+                DiagnosticLog.info(getContext(), "usage_history", "chart_tap_endpoint_snap",
+                        "label", label,
+                        "side", endpointSide < 0 ? "start" : "end");
+            }
             return;
         }
         if (zoomAt(touchX)) {
@@ -233,6 +243,29 @@ public final class UsageBurnChartView extends View {
         long center = full[0] + Math.round(ratio * (full[1] - full[0]));
         center = Math.max(measuredStart, Math.min(center, measuredEnd));
         long start = center - zoomSpan / 2L;
+        long maxStart = measuredEnd - zoomSpan;
+        start = Math.max(measuredStart, Math.min(start, maxStart));
+        viewportStartMillis = start;
+        viewportEndMillis = start + zoomSpan;
+        zoomed = true;
+        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+        if (zoomChangedListener != null) zoomChangedListener.onZoomChanged(true);
+        invalidate();
+        return true;
+    }
+
+    private boolean zoomToMeasuredEndpoint(boolean startSide) {
+        long measuredStart = measuredStartMillis();
+        long measuredEnd = measuredEndMillis();
+        if (defaultAxis() == null || measuredStart == Long.MAX_VALUE
+                || measuredEnd <= measuredStart) {
+            return false;
+        }
+        long measuredSpan = measuredEnd - measuredStart;
+        long zoomSpan = Math.min(
+                isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS, measuredSpan);
+        if (zoomSpan <= 0L) return false;
+        long start = startSide ? measuredStart : measuredEnd - zoomSpan;
         long maxStart = measuredEnd - zoomSpan;
         start = Math.max(measuredStart, Math.min(start, maxStart));
         viewportStartMillis = start;
@@ -530,6 +563,21 @@ public final class UsageBurnChartView extends View {
         float measuredLeft = x(measuredStart, full[0], full[1], chartLeft(), chartRight());
         float measuredRight = x(measuredEnd, full[0], full[1], chartLeft(), chartRight());
         return touchX >= measuredLeft && touchX <= measuredRight;
+    }
+
+    private int measuredEndpointSide(float touchX) {
+        if (!isChartInteractionX(touchX)) return 0;
+        long[] full = defaultAxis();
+        long measuredStart = measuredStartMillis();
+        long measuredEnd = measuredEndMillis();
+        if (full == null || measuredStart == Long.MAX_VALUE || measuredEnd < measuredStart) {
+            return 0;
+        }
+        float measuredLeft = x(measuredStart, full[0], full[1], chartLeft(), chartRight());
+        float measuredRight = x(measuredEnd, full[0], full[1], chartLeft(), chartRight());
+        if (touchX < measuredLeft) return -1;
+        if (touchX > measuredRight) return 1;
+        return 0;
     }
 
     private String resetLabel(long nowMillis) {

@@ -28,6 +28,7 @@ final class ProcessNotificationManager {
     private static final int COMPLETION_NOTIFICATION_RANGE = 10000;
     private static final String PREFS = "codex_process_notification_state_v1";
     private static final String KEY_ACTIVE_IDS = "active_ids";
+    private static final String KEY_COMPLETION_POSTED_PREFIX = "completion_posted:";
 
     private ProcessNotificationManager() {
     }
@@ -109,9 +110,18 @@ final class ProcessNotificationManager {
      * channel. The durable idle/process surface stays on the operational channel; this event
      * notification is the single completion alert and is deduped by IdleReminderManager.</p>
      */
-    static boolean postCompletionAlert(Context context, IdleProcessState.IdleRole idle,
-            long nowMillis) {
+    static synchronized boolean postCompletionAlert(Context context,
+            IdleProcessState.IdleRole idle, long nowMillis) {
         if (context == null || idle == null) return false;
+        SharedPreferences state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String postedKey = KEY_COMPLETION_POSTED_PREFIX + idle.key;
+        if (idle.lastFinishedMillis > 0L
+                && state.getLong(postedKey, 0L) == idle.lastFinishedMillis) {
+            DiagnosticLog.info(context, "notification", "completion_notification_deduped",
+                    "role", idle.displayLabel(),
+                    "finished_at", idle.lastFinishedMillis);
+            return true;
+        }
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return false;
@@ -140,6 +150,9 @@ final class ProcessNotificationManager {
         try {
             int notificationId = completionNotificationId(idle.key);
             manager.notify(notificationId, notification);
+            if (idle.lastFinishedMillis > 0L) {
+                state.edit().putLong(postedKey, idle.lastFinishedMillis).apply();
+            }
             DiagnosticLog.info(context, "notification", "completion_notification_posted",
                     "role", idle.displayLabel(),
                     "notification_id", notificationId,

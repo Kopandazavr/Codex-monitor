@@ -67,7 +67,7 @@ final class IdleProcessState {
     }
 
     static final class IdleRole {
-        final String key;
+        String key;
         final String project;
         final String projectShort;
         final String role;
@@ -118,55 +118,48 @@ final class IdleProcessState {
 
         if (observed != null) {
             for (CalendarProcess process : observed) {
-                String key = roleKey(process);
-                if (key.isEmpty()) continue;
-                MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
-                rememberObserved(row, process);
+                if (process == null || process.beginMillis <= nowMillis) continue;
+                MutableRole row = rowForProcess(context, rows, process);
+                if (row != null) rememberObserved(row, process);
             }
         }
-
         if (active != null) {
             for (CalendarProcess process : active) {
-                String key = roleKey(process);
-                if (key.isEmpty()) continue;
-                activeKeys.add(key);
-                MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
+                MutableRole row = rowForProcess(context, rows, process);
+                if (row == null) continue;
+                activeKeys.add(row.key);
                 rememberObserved(row, process);
             }
         }
         if (recentlyFinished != null) {
             for (CalendarProcess process : recentlyFinished) {
-                if (process.endMillis > nowMillis) continue;
-                String key = roleKey(process);
-                if (key.isEmpty()) continue;
-                MutableRole row = rows.computeIfAbsent(key, MutableRole::new);
-                promoteFinished(row, process.project, process.projectShort,
-                        process.role, process.topic, process.eventId,
-                        process.workStartMillis(), process.endMillis, context);
+                if (process == null || process.beginMillis > nowMillis) continue;
+                String key = roleKey(context, process);
+                MutableRole row = rows.get(key);
+                if (row == null || row.pendingEventId != process.eventId
+                        || row.pendingDeadlineMillis <= 0L) continue;
+                promoteFinished(row, process.project, process.projectShort, process.role,
+                        process.topic, process.eventId, row.pendingStartMillis,
+                        row.pendingDeadlineMillis, context);
+                clearPending(row);
             }
         }
         for (MutableRole row : rows.values()) {
-            if (activeKeys.contains(row.key) || row.pendingEndMillis <= 0L) continue;
-            boolean scheduledEndReached = row.pendingEndMillis <= nowMillis;
-            boolean watchedEventDeleted = !scheduledEndReached && row.pendingEventId > 0L
+            if (activeKeys.contains(row.key) || row.pendingDeadlineMillis <= 0L) continue;
+            boolean deadlineReached = row.pendingDeadlineMillis <= nowMillis;
+            boolean watchedEventDeleted = !deadlineReached && row.pendingEventId > 0L
                     && !CalendarProcessReader.eventExists(
                     context, row.pendingEventId, row.pendingDirectSource);
-            if (!scheduledEndReached && !watchedEventDeleted) continue;
-
-            long finishedAt = watchedEventDeleted ? nowMillis : row.pendingEndMillis;
+            if (!deadlineReached && !watchedEventDeleted) continue;
+            long finishedAt = watchedEventDeleted ? nowMillis : row.pendingDeadlineMillis;
             promoteFinished(row, row.project, row.projectShort, row.role, row.topic,
                     row.pendingEventId, row.pendingStartMillis, finishedAt, context);
-            if (watchedEventDeleted) {
-                DiagnosticLog.info(context, "idle_process", "watchdog_deleted_early",
-                        "event_id", row.pendingEventId,
-                        "role", row.role,
-                        "scheduled_end", row.pendingEndMillis,
-                        "finished_at", finishedAt);
-            }
-            row.pendingStartMillis = 0L;
-            row.pendingEndMillis = 0L;
-            row.pendingEventId = 0L;
-            row.pendingDirectSource = false;
+            DiagnosticLog.info(context, "idle_process",
+                    watchedEventDeleted ? "watchdog_deleted_before_deadline"
+                            : "watchdog_deadline_reached",
+                    "event_id", row.pendingEventId, "role", row.role,
+                    "deadline", row.pendingDeadlineMillis, "finished_at", finishedAt);
+            clearPending(row);
         }
         save(context, rows);
         List<IdleRole> visible = new ArrayList<>();
@@ -241,27 +234,95 @@ final class IdleProcessState {
         return DEFAULT_CADENCE_MINUTES * 60_000L;
     }
 
+    static String roleKey(Context context, CalendarProcess process) {
+        if (process == null
+                || !CalendarProcess.isCanonicalIdentity(process.project, process.role)) return "";
+        RoleProfileStore.Profile profile = RoleProfileStore.resolve(context, process.role);
+        return profile == null ? roleKey(process) : profile.id;
+    }
+
+    /** Legacy 2.28 raw-role key, retained only for non-destructive migration. */
     static String roleKey(CalendarProcess process) {
         if (process == null
-                || !CalendarProcess.isCanonicalIdentity(process.project, process.role)) {
-            return "";
-        }
+                || !CalendarProcess.isCanonicalIdentity(process.project, process.role)) return "";
         return "role:" + clean(process.role);
     }
 
-    static boolean isRoleActive(List<CalendarProcess> active, String key) {
+    static boolean isRoleActive(Context context, List<CalendarProcess> active, String key) {
         if (active == null) return false;
         for (CalendarProcess process : active) {
-            if (clean(key).equals(roleKey(process))) return true;
+            if (clean(key).equals(roleKey(context, process))) return true;
         }
         return false;
     }
 
+    private static MutableRole rowForProcess(Context context, Map<String, MutableRole> rows,
+            CalendarProcess process) {
+        String stableKey = roleKey(context, process);
+        if (stableKey.isEmpty()) return null;
+        MutableRole target = rows.get(stableKey);
+        if (target == null) target = new MutableRole(stableKey);
+        List<String> migrations = new ArrayList<>();
+        for (Map.Entry<String, MutableRole> entry : rows.entrySet()) {
+            if (stableKey.equals(entry.getKey())) continue;
+            RoleProfileStore.Profile profile =
+                    RoleProfileStore.findByAlias(context, entry.getValue().role);
+            if (profile != null && stableKey.equals(profile.id)) migrations.add(entry.getKey());
+        }
+        String directLegacy = roleKey(process);
+        if (!directLegacy.isEmpty() && rows.containsKey(directLegacy)
+                && !migrations.contains(directLegacy)) migrations.add(directLegacy);
+        for (String oldKey : migrations) {
+            MutableRole legacy = rows.remove(oldKey);
+            if (legacy != null) mergeMutable(target, legacy);
+        }
+        target.key = stableKey;
+        rows.put(stableKey, target);
+        return target;
+    }
+
+    private static void mergeMutable(MutableRole target, MutableRole source) {
+        if (target == null || source == null || target == source) return;
+        target.dismissedThroughMillis = Math.max(target.dismissedThroughMillis,
+                source.dismissedThroughMillis);
+        target.reminderEnabled |= source.reminderEnabled;
+        target.nextReminderAtMillis = Math.max(target.nextReminderAtMillis,
+                source.nextReminderAtMillis);
+        if (source.lastFinishedMillis > target.lastFinishedMillis) {
+            target.project=source.project;target.projectShort=source.projectShort;
+            target.role=source.role;target.topic=source.topic;
+            target.lastStartedMillis=source.lastStartedMillis;
+            target.lastFinishedMillis=source.lastFinishedMillis;target.eventId=source.eventId;
+        }
+        if (source.pendingDeadlineMillis > target.pendingDeadlineMillis) {
+            target.pendingStartMillis=source.pendingStartMillis;
+            target.pendingDeadlineMillis=source.pendingDeadlineMillis;
+            target.pendingEventId=source.pendingEventId;
+            target.pendingDirectSource=source.pendingDirectSource;
+            target.project=source.project;target.projectShort=source.projectShort;
+            target.role=source.role;target.topic=source.topic;
+        }
+        for (SessionRecord record : source.history) {
+            boolean duplicate=false;
+            for (SessionRecord existing : target.history) {
+                if (existing.eventId==record.eventId
+                        && existing.finishedMillis==record.finishedMillis){duplicate=true;break;}
+            }
+            if(!duplicate)target.history.add(record);
+        }
+    }
+
+    private static void clearPending(MutableRole row) {
+        row.pendingStartMillis=0L;row.pendingDeadlineMillis=0L;row.pendingEventId=0L;
+        row.pendingDirectSource=false;
+    }
+
     private static void rememberObserved(MutableRole row, CalendarProcess process) {
         if (row == null || process == null) return;
-        if (process.endMillis < row.pendingEndMillis) return;
+        if (row.pendingEventId != 0L && row.pendingEventId != process.eventId
+                && process.beginMillis < row.pendingDeadlineMillis) return;
         row.pendingStartMillis = process.workStartMillis();
-        row.pendingEndMillis = process.endMillis;
+        row.pendingDeadlineMillis = process.beginMillis;
         row.pendingEventId = process.eventId;
         row.pendingDirectSource = process.directSource;
         row.project = clean(process.project);
@@ -357,7 +418,7 @@ final class IdleProcessState {
         boolean reminderEnabled;
         long nextReminderAtMillis;
         long pendingStartMillis;
-        long pendingEndMillis;
+        long pendingDeadlineMillis;
         long pendingEventId;
         boolean pendingDirectSource;
         final List<SessionRecord> history = new ArrayList<>();
@@ -384,7 +445,7 @@ final class IdleProcessState {
                 json.put("reminder", reminderEnabled);
                 json.put("next_reminder", nextReminderAtMillis);
                 json.put("pending_start", pendingStartMillis);
-                json.put("pending_end", pendingEndMillis);
+                json.put("pending_deadline", pendingDeadlineMillis);
                 json.put("pending_event", pendingEventId);
                 json.put("pending_direct", pendingDirectSource);
                 JSONArray historyArray = new JSONArray();
@@ -408,7 +469,13 @@ final class IdleProcessState {
             row.reminderEnabled = json.optBoolean("reminder", false);
             row.nextReminderAtMillis = json.optLong("next_reminder", 0L);
             row.pendingStartMillis = json.optLong("pending_start", 0L);
-            row.pendingEndMillis = json.optLong("pending_end", 0L);
+            if (json.has("pending_deadline")) {
+                row.pendingDeadlineMillis = json.optLong("pending_deadline", 0L);
+            } else {
+                long legacyCarrierEnd = json.optLong("pending_end", 0L);
+                row.pendingDeadlineMillis = legacyCarrierEnd <= 0L ? 0L
+                        : Math.max(row.pendingStartMillis, legacyCarrierEnd - 60_000L);
+            }
             row.pendingEventId = json.optLong("pending_event", 0L);
             row.pendingDirectSource = json.optBoolean("pending_direct", false);
             JSONArray historyArray = json.optJSONArray("history");

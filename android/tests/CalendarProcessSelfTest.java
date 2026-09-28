@@ -17,6 +17,7 @@ public final class CalendarProcessSelfTest {
         testUnsupportedMetadataRejected();
         testOptionalFieldsMayBeMissing();
         testDirectSourceProvenance();
+        testProviderUpdatedMarker();
         testCanonicalWorkWindow();
         System.out.println("CalendarProcess strict metadata/display/timing self-test passed.");
     }
@@ -166,6 +167,15 @@ public final class CalendarProcessSelfTest {
                 "direct watchdog keeps direct provenance");
     }
 
+    private static void testProviderUpdatedMarker() {
+        CalendarProcess direct = CalendarProcess.fromDirectEvent(
+                460L, "GPT_WATCHDOG|urgent|Codex Monitor",
+                "codex_monitor_watchdog=v1 project=Codex Monitor role=Main Agent",
+                20_000L, 21_000L, 19_500L);
+        require(direct != null && direct.providerUpdatedMillis == 19_500L,
+                "direct source keeps provider updated marker");
+    }
+
     private static void testCanonicalWorkWindow() {
         long begin = CalendarProcess.ACTIVE_WORK_WINDOW_MS;
         long end = begin + 5L * 60_000L;
@@ -183,12 +193,11 @@ public final class CalendarProcessSelfTest {
         require(process.remainingPercent(begin / 2L) == 50, "work midpoint is 50 percent remaining");
         require(process.remainingMillis(begin / 2L) == begin / 2L,
                 "work remaining targets BEGIN");
-        require(process.isWatchdogActive(begin), "BEGIN enters watchdog window");
-        require(process.remainingPercent(begin) == 100,
-                "watchdog fallback window retains its own progress semantics");
-        require(process.remainingMillis(begin) == end - begin,
-                "post-BEGIN remaining targets END");
-        require(!process.isVisibleActive(end), "process is no longer active at END");
+        require(!process.isWatchdogActive(begin), "BEGIN is the watchdog expiry boundary");
+        require(process.remainingPercent(begin) == 0, "BEGIN has zero percent remaining");
+        require(process.remainingMillis(begin) == 0L, "carrier tail never extends runtime");
+        require(!process.isVisibleActive(begin), "process leaves active state at BEGIN");
+        require(process.elapsedPercent(begin) == 100, "progress is complete at BEGIN");
     }
 
     private static void require(boolean condition, String label) {

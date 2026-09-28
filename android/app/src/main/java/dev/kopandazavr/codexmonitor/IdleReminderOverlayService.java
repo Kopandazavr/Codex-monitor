@@ -210,11 +210,8 @@ public final class IdleReminderOverlayService extends Service {
         params.gravity = Gravity.TOP | Gravity.START;
         try {
             windowManager.addView(overlayRoot, params);
-            overlayShownHaptic();
             DiagnosticLog.info(this, "idle_process", "overlay_window_added",
                     "entries", roles.size());
-            DiagnosticLog.info(this, "idle_process", "overlay_haptic",
-                    "duration_ms", 330);
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(this, "idle_process", "overlay_add_failed",
                     "error", exception.getClass().getSimpleName());
@@ -247,7 +244,8 @@ public final class IdleReminderOverlayService extends Service {
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
 
-        String role = idle.role == null || idle.role.isEmpty() ? "Watched role" : idle.role;
+        String primaryRole = RoleProfileStore.displayNameById(this, idle.key, idle.role);
+        String role = primaryRole == null || primaryRole.isEmpty() ? "Watched role" : primaryRole;
         TextView roleView = text(role, 20f, Color.WHITE);
         copy.addView(roleView, matchWrap());
 
@@ -398,10 +396,6 @@ public final class IdleReminderOverlayService extends Service {
 
     private void strongHaptic() {
         vibrate(160L);
-    }
-
-    private void overlayShownHaptic() {
-        vibrate(330L);
     }
 
     private void vibrate(long durationMillis) {

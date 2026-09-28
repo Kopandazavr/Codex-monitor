@@ -572,6 +572,10 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
+        body.setClickable(true);
+        body.setFocusable(true);
+        body.setOnClickListener(view ->
+                RoleSettingsDialog.show(this, process, this::onRoleProfileChanged));
         LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -582,7 +586,8 @@ public final class MainActivity extends AppCompatActivity {
         projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
                 this, projectProfile.id, process.projectShort, this::onProjectProfileChanged));
         copy.addView(projectBadge);
-        TextView role = Ui.text(this, process.role, 14.0f, Ui.mainText(this.dark));
+        TextView role = Ui.text(this, RoleProfileStore.displayName(this, process.role),
+                14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
         LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-1, -2);
         roleParams.setMargins(0, Ui.dp(this, 5), 0, 0);
@@ -595,7 +600,7 @@ public final class MainActivity extends AppCompatActivity {
         copy.addView(state, stateParams);
         top.addView(copy, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
-        String key = IdleProcessState.roleKey(process);
+        String key = IdleProcessState.roleKey(this, process);
         boolean reminderEnabled = IdleProcessState.isReminderEnabled(this, key);
         ImageView bell = processActionIcon(
                 reminderEnabled ? R.drawable.ic_bell_on : R.drawable.ic_bell_off,
@@ -642,6 +647,10 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
+        body.setClickable(true);
+        body.setFocusable(true);
+        body.setOnClickListener(view ->
+                RoleSettingsDialog.show(this, idle, this::onRoleProfileChanged));
         LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -652,7 +661,9 @@ public final class MainActivity extends AppCompatActivity {
         projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
                 this, projectProfile.id, idle.projectShort, this::onProjectProfileChanged));
         copy.addView(projectBadge);
-        TextView role = Ui.text(this, idle.role, 14.0f, Ui.mainText(this.dark));
+        TextView role = Ui.text(this,
+                RoleProfileStore.displayNameById(this, idle.key, idle.role),
+                14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
         LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-1, -2);
         roleParams.setMargins(0, Ui.dp(this, 5), 0, 0);
@@ -733,6 +744,11 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void onProjectProfileChanged() {
+        refreshProcessesCard();
+        DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
+    }
+
+    private void onRoleProfileChanged() {
         refreshProcessesCard();
         DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
     }

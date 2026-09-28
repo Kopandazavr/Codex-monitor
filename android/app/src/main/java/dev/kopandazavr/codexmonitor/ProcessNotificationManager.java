@@ -67,7 +67,7 @@ final class ProcessNotificationManager {
         String mode = ProcessNotificationMode.current(context);
         if (ProcessNotificationMode.COMBINED.equals(mode)) {
             return DualUsageNotificationManager.realertUsageSurface(context, alertChannelId,
-                    idle.displayLabel() + " is idle",
+                    notificationIdentity(context, idle.project, idle.role, "", false) + " is idle",
                     "Idle reminder · " + formatIdle(nowMillis - idle.lastFinishedMillis));
         }
         NotificationManager manager = (NotificationManager)
@@ -86,7 +86,9 @@ final class ProcessNotificationManager {
             } else {
                 manager.notify(idleNotificationId(idle.key),
                         buildNotification(context, Collections.emptyList(),
-                                Collections.singletonList(idle), idle.displayLabel(), nowMillis,
+                                Collections.singletonList(idle),
+                                notificationIdentity(context, idle.project, idle.role, "", false),
+                                nowMillis,
                                 alertChannelId, NotificationSurfaceContract.sortRole(idle.key), false));
             }
             return true;
@@ -161,9 +163,9 @@ final class ProcessNotificationManager {
         Set<String> nextIds = new HashSet<>();
         if (processes != null) {
             for (CalendarProcess process : processes) {
-                int id = notificationId(process);
+                int id = notificationId(context, process);
                 nextIds.add(String.valueOf(id));
-                String key = IdleProcessState.roleKey(process);
+                String key = IdleProcessState.roleKey(context, process);
                 manager.notify(id, buildNotification(context,
                         Collections.singletonList(process), Collections.emptyList(),
                         notificationIdentity(context, process.project, process.role,
@@ -279,7 +281,7 @@ final class ProcessNotificationManager {
         row.setViewVisibility(R.id.notification_process_project,
                 projectIdentity.isEmpty() ? View.GONE : View.VISIBLE);
 
-        String roleAndTopic = clean(process.role);
+        String roleAndTopic = RoleProfileStore.displayName(context, process.role);
         if (!clean(process.topic).isEmpty()) {
             roleAndTopic = roleAndTopic.isEmpty()
                     ? clean(process.topic) : roleAndTopic + " · " + clean(process.topic);
@@ -293,7 +295,7 @@ final class ProcessNotificationManager {
                 process.elapsedPercent(nowMillis), false);
         row.setViewVisibility(R.id.notification_process_progress, View.VISIBLE);
         if (showReminder) {
-            String key = IdleProcessState.roleKey(process);
+            String key = IdleProcessState.roleKey(context, process);
             boolean reminderEnabled = IdleProcessState.isReminderEnabled(context, key);
             row.setViewVisibility(R.id.notification_process_reminder, View.VISIBLE);
             row.setImageViewResource(R.id.notification_process_reminder,
@@ -319,7 +321,8 @@ final class ProcessNotificationManager {
                 ProjectProfileStore.accentColor(profile));
         row.setViewVisibility(R.id.notification_process_project,
                 projectIdentity.isEmpty() ? View.GONE : View.VISIBLE);
-        row.setTextViewText(R.id.notification_process_title, clean(idle.role));
+        row.setTextViewText(R.id.notification_process_title,
+                RoleProfileStore.displayNameById(context, idle.key, idle.role));
         row.setTextColor(R.id.notification_process_title, textColor);
         row.setTextViewText(R.id.notification_process_remaining,
                 "idle " + formatIdle(nowMillis - idle.lastFinishedMillis));
@@ -340,15 +343,18 @@ final class ProcessNotificationManager {
         ProjectProfileStore.Profile profile = ProjectProfileStore.resolve(context, project);
         String compactProject = ProjectProfileStore.effectiveShort(profile);
         StringBuilder value = new StringBuilder(compactProject);
-        String cleanRole = clean(role);
+        String cleanRole = RoleProfileStore.displayName(context, role);
         if (!cleanRole.isEmpty()) appendSummaryPart(value, cleanRole);
         String cleanTopic = clean(topic);
         if (includeTopic && !cleanTopic.isEmpty()) appendSummaryPart(value, cleanTopic);
         return value.length() == 0 ? "Process" : value.toString();
     }
 
-    private static int notificationId(CalendarProcess process) {
-        int hash = process.identity().hashCode() & 0x7fffffff;
+    private static int notificationId(Context context, CalendarProcess process) {
+        String stableRole = IdleProcessState.roleKey(context, process);
+        String identity = stableRole.isEmpty() ? process.identity()
+                : stableRole + ":" + process.eventId;
+        int hash = identity.hashCode() & 0x7fffffff;
         return PROCESS_NOTIFICATION_BASE + (hash % PROCESS_NOTIFICATION_RANGE);
     }
 

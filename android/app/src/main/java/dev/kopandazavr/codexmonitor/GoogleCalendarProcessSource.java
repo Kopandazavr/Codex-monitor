@@ -56,8 +56,9 @@ final class GoogleCalendarProcessSource {
                 String description = row.optString("description", "");
                 long begin = row.optLong("begin", 0L);
                 long end = row.optLong("end", 0L);
+                long providerUpdated = row.optLong("provider_updated", 0L);
                 CalendarProcess process = CalendarProcess.fromDirectEvent(
-                        eventId, title, description, begin, end);
+                        eventId, title, description, begin, end, providerUpdated);
                 if (process != null) {
                     WatchdogObservationDiagnostics.recordIdentity(context, eventId,
                             "direct_api", "direct_cache", description, process);
@@ -181,10 +182,11 @@ final class GoogleCalendarProcessSource {
             String description = item.optString("description", "");
             long begin = eventMillis(item.optJSONObject("start"));
             long end = eventMillis(item.optJSONObject("end"));
+            long providerUpdated = timestampMillis(item.optString("updated", ""));
             if (begin <= 0L || end <= begin) continue;
             long eventId = stableEventId(remoteId);
             CalendarProcess process = CalendarProcess.fromDirectEvent(
-                    eventId, title, description, begin, end);
+                    eventId, title, description, begin, end, providerUpdated);
             if (process != null) {
                 WatchdogObservationDiagnostics.recordIdentity(context, eventId,
                         "direct_api", "remote_fetch", description, process);
@@ -221,6 +223,7 @@ final class GoogleCalendarProcessSource {
                     row.put("description", metadata.toString());
                     row.put("begin", process.beginMillis);
                     row.put("end", process.endMillis);
+                    row.put("provider_updated", process.providerUpdatedMillis);
                     rows.put(row);
                 } catch (Exception ignored) {
                 }
@@ -245,6 +248,13 @@ final class GoogleCalendarProcessSource {
                 return 0L;
             }
         }
+    }
+
+    private static long timestampMillis(String value) {
+        if(value==null||value.isEmpty())return 0L;
+        try{return OffsetDateTime.parse(value).toInstant().toEpochMilli();}
+        catch(Exception ignored){try{return Instant.parse(value).toEpochMilli();}
+        catch(Exception ignoredAgain){return 0L;}}
     }
 
     private static long stableEventId(String remoteId) {

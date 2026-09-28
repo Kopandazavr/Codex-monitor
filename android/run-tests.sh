@@ -62,6 +62,9 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarCopy.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/ProjectProfileRules.java" \
   "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/ProjectProfileEditState.java" \
+  "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/RoleProfileEditState.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CalendarProcess.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/WatchdogCanonicalizer.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageParser.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CelebrationDetector.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RateLimitResetCredit.java" \
@@ -74,9 +77,15 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OAuthBrowserPage.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/DiagnosticSanitizer.java" \
   "$FILTERED_TEST" \
-  "$ROOT/tests/ProjectProfileRulesSelfTest.java"
+  "$ROOT/tests/ProjectProfileRulesSelfTest.java" \
+  "$ROOT/tests/CalendarProcessSelfTest.java" \
+  "$ROOT/tests/WatchdogCanonicalizerSelfTest.java" \
+  "$ROOT/tests/RoleProfileEditStateSelfTest.java"
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarProcessSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.WatchdogCanonicalizerSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleProfileEditStateSelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
@@ -151,9 +160,9 @@ grep -q 'new DiagonalStripeDrawable(' "$SRC/IdleReminderOverlayService.java"
 grep -q '0xE61B1B1F, 0xE6222226' "$SRC/IdleReminderOverlayService.java"
 grep -q 'canvas.rotate(-45.0f' "$SRC/IdleReminderOverlayService.java"
 grep -q 'stripeWidth \* 2.0f' "$SRC/IdleReminderOverlayService.java"
-grep -q 'COMPLETION_ATTENTION_DELAY_MS = 1_100L' "$SRC/IdleReminderManager.java"
-grep -q 'CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID' "$SRC/IdleReminderManager.java"
-grep -q 'AlertSoundManager.playProcessCompletion(context)' "$SRC/IdleReminderManager.java"
+grep -q 'COMPLETION_OVERLAY_ALARM_DELAY_MS = 1L' "$SRC/IdleReminderManager.java"
+grep -q 'PROCESS_COMPLETION_CHANNEL_ID' "$SRC/IdleReminderManager.java"
+! grep -q 'AlertSoundManager.playProcessCompletion(context)' "$SRC/IdleReminderManager.java"
 grep -q 'installStaticLayout()' "$SRC/OnboardingActivity.java"
 grep -q 'doneButton' "$SRC/OnboardingActivity.java"
 ! grep -q 'Ui.installPage(this, "Quick setup"' "$SRC/OnboardingActivity.java"

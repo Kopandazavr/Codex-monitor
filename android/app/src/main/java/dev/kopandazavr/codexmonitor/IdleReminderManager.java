@@ -10,8 +10,6 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
-import android.os.Handler;
-import android.os.Looper;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -32,8 +30,7 @@ final class IdleReminderManager {
     // Preserve the existing preference key so upgrades retain completion dedupe state.
     private static final String KEY_COMPLETION_DELIVERED_PREFIX = "overlay_finished:";
     private static final long COMPLETION_FRESH_MS = 3L * 60_000L;
-    private static final long COMPLETION_ATTENTION_DELAY_MS = 1_100L;
-    private static final long COMPLETION_OVERLAY_ALARM_DELAY_MS = 250L;
+    private static final long COMPLETION_OVERLAY_ALARM_DELAY_MS = 1L;
     private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     // Legacy separate reminder IDs are retained only so old cards can be cleaned up.
     private static final int NOTIFICATION_BASE = 31000;
@@ -69,7 +66,10 @@ final class IdleReminderManager {
         if (enabled) {
             keys.add(key);
             IdleProcessState.IdleRole idle = IdleProcessState.find(context, key);
-            if (idle != null) schedule(context, idle, nowMillis);
+            if (idle != null) {
+                markCompletionBaseline(context, idle);
+                schedule(context, idle, nowMillis);
+            }
         } else {
             keys.remove(key);
             cancelAlarm(context, key);
@@ -110,7 +110,7 @@ final class IdleReminderManager {
         }
         long now = System.currentTimeMillis();
         List<CalendarProcess> active = CalendarProcessReader.active(context, now);
-        if (IdleProcessState.isRoleActive(active, key)) {
+        if (IdleProcessState.isRoleActive(context, active, key)) {
             cancelAlarm(context, key);
             dismissSurface(context, key);
             return;
@@ -162,35 +162,28 @@ final class IdleReminderManager {
         // through a user-enabled exact alarm instead; an exact-alarm delivery is an explicit
         // background-FGS exemption and keeps the actual overlay service short-lived.
         boolean overlayScheduled = scheduleCompletionOverlay(context, idle);
-        Context app = context.getApplicationContext();
-        DiagnosticLog.info(context, "idle_process", "completion_attention_scheduled",
-                "delay_ms", COMPLETION_ATTENTION_DELAY_MS,
-                "overlay_scheduled", overlayScheduled);
-        new Handler(Looper.getMainLooper()).postDelayed(() ->
-                deliverCompletionAttention(app, idle, nowMillis, overlayScheduled),
-                COMPLETION_ATTENTION_DELAY_MS);
-    }
-
-    private static void deliverCompletionAttention(Context context,
-            IdleProcessState.IdleRole idle, long nowMillis, boolean overlayScheduled) {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        boolean soundPlayed = AlertSoundManager.playProcessCompletion(context);
         boolean persistentSurfaceAlerted = false;
         if (manager != null) {
             AlertSoundManager.ensureChannels(context);
             persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
-                    context, idle, CHANNEL_ID, nowMillis);
+                    context, idle, AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID, nowMillis);
             if (persistentSurfaceAlerted) {
                 DualUsageNotificationManager.repostForProcessChangeDelayed(context, 5_000L);
             }
         }
-        DiagnosticLog.info(context, "idle_process", "completion_delivered",
-                "role", idle.displayLabel(),
-                "finished_at", idle.lastFinishedMillis,
+        DiagnosticLog.info(context, "idle_process", "completion_dispatched",
+                "role", idle.displayLabel(), "finished_at", idle.lastFinishedMillis,
                 "overlay_scheduled", overlayScheduled,
-                "sound_played", soundPlayed,
                 "persistent_surface_alerted", persistentSurfaceAlerted);
+    }
+
+    private static void markCompletionBaseline(Context context, IdleProcessState.IdleRole idle) {
+        if (context == null || idle == null || idle.lastFinishedMillis <= 0L) return;
+        preferences(context).edit()
+                .putLong(KEY_COMPLETION_DELIVERED_PREFIX + idle.key, idle.lastFinishedMillis)
+                .apply();
     }
 
 

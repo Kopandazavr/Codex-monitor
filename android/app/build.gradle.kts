@@ -11,8 +11,8 @@ android {
         applicationId = "dev.kopandazavr.codexmonitor"
         minSdk = 26
         targetSdk = 36
-        versionCode = 54
-        versionName = "2.28.0"
+        versionCode = 55
+        versionName = "2.29.0"
         providers.gradleProperty("demoVersionCode").orNull?.toIntOrNull()?.let {
             versionCode = it
         }

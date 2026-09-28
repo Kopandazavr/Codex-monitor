@@ -195,7 +195,7 @@ grep -q 'calendar_http_401_retrying_with_fresh_token' "$SRC/GoogleCalendarProces
 grep -q '"authorization_retry_scheduled"' "$SRC/GoogleCalendarAuthorizationActivity.java"
 grep -q 'eventExists(' "$SRC/IdleProcessState.java"
 grep -q 'IdleProcessState.history(activity,profile.id)' "$SRC/RoleSettingsDialog.java"
-grep -q 'new ListView(a)' "$SRC/RoleSettingsDialog.java"
+grep -q 'new ListView(activity)' "$SRC/RoleSettingsDialog.java"
 grep -q 'RoleSessionHistory.buildRows' "$SRC/RoleSettingsDialog.java"
 ! grep -q 'maybeLoadMoreHistory' "$SRC/RoleSettingsDialog.java"
 ! grep -Fq 'Scroll for 10 more' "$SRC/RoleSettingsDialog.java"

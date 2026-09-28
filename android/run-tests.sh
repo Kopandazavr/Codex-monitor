@@ -77,18 +77,21 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OAuthBrowserPage.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RoleSessionHistory.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageHistoryTickGrid.java" \
   "$FILTERED_TEST" \
   "$ROOT/tests/ProjectProfileRulesSelfTest.java" \
   "$ROOT/tests/CalendarProcessSelfTest.java" \
   "$ROOT/tests/WatchdogCanonicalizerSelfTest.java" \
   "$ROOT/tests/RoleProfileEditStateSelfTest.java" \
-  "$ROOT/tests/RoleSessionHistorySelfTest.java"
+  "$ROOT/tests/RoleSessionHistorySelfTest.java" \
+  "$ROOT/tests/UsageHistoryTickGridSelfTest.java"
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarProcessSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.WatchdogCanonicalizerSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleProfileEditStateSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleSessionHistorySelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryTickGridSelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
@@ -114,7 +117,9 @@ grep -q 'USAGE_HISTORY = "usage_history"' "$ROOT/shared/src/main/java/dev/kopand
 ! grep -q 'drawScrub' "$SRC/UsageBurnChartView.java"
 grep -q 'FIVE_HOUR_ZOOM_MS = TimeUnit.HOURS.toMillis(1)' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1)' "$SRC/UsageBurnChartView.java"
-grep -q 'FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(5)' "$SRC/UsageBurnChartView.java"
+grep -q 'FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(10)' "$SRC/UsageBurnChartView.java"
+grep -q 'UsageHistoryTickGrid.firstZoomTick' "$SRC/UsageBurnChartView.java"
+grep -q 'UsageHistoryTickGrid.nextZoomTick' "$SRC/UsageBurnChartView.java"
 grep -q 'reset > 0L ? reset : System.currentTimeMillis()' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageBurnChartView.java"
 grep -q 'return 100d - used;' "$SRC/UsageBurnChartView.java"
@@ -189,9 +194,11 @@ grep -q 'exception.status == 401 && !retriedUnauthorized' "$SRC/GoogleCalendarPr
 grep -q 'calendar_http_401_retrying_with_fresh_token' "$SRC/GoogleCalendarProcessSource.java"
 grep -q '"authorization_retry_scheduled"' "$SRC/GoogleCalendarAuthorizationActivity.java"
 grep -q 'eventExists(' "$SRC/IdleProcessState.java"
-grep -q 'IdleProcessState.history(activity, profile.id)' "$SRC/RoleSettingsDialog.java"
-grep -q 'RoleSessionHistory.PAGE_SIZE' "$SRC/RoleSettingsDialog.java"
-grep -q 'maybeLoadMoreHistory' "$SRC/RoleSettingsDialog.java"
+grep -q 'IdleProcessState.history(activity,profile.id)' "$SRC/RoleSettingsDialog.java"
+grep -q 'new ListView(a)' "$SRC/RoleSettingsDialog.java"
+grep -q 'RoleSessionHistory.buildRows' "$SRC/RoleSettingsDialog.java"
+! grep -q 'maybeLoadMoreHistory' "$SRC/RoleSettingsDialog.java"
+! grep -Fq 'Scroll for 10 more' "$SRC/RoleSettingsDialog.java"
 ! grep -q 'history.clear()' "$SRC/IdleProcessState.java"
 grep -q '"direct_cache_not_fresh"' "$SRC/CalendarProcessReader.java"
 

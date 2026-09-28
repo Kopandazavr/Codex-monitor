@@ -4,14 +4,18 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.ColorStateList;
 import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ScrollView;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.util.Collections;
 import java.util.List;
 
 /** Role/Agent Settings: live status, stable aliases, and durable completed-session history. */
@@ -65,32 +69,35 @@ final class RoleSettingsDialog {
         final Status status;
         final Runnable onChanged;
         final boolean dark;
-        final ScrollView scroll;
+        final ListView list;
         final LinearLayout content;
-        int historyVisibleCount = RoleSessionHistory.PAGE_SIZE;
-        boolean loadingMoreHistory;
+        final HistoryAdapter historyAdapter;
         AlertDialog dialog;
 
         Controller(Activity activity, RoleProfileStore.EditSession edit,
                 Status status, Runnable onChanged) {
             this.activity=activity; this.edit=edit; this.status=status; this.onChanged=onChanged;
             this.dark=Ui.isDark(activity);
-            this.scroll=new ScrollView(activity);
+            this.list=new ListView(activity);
             this.content=new LinearLayout(activity);
             content.setOrientation(LinearLayout.VERTICAL);
             content.setPadding(Ui.dp(activity,20),Ui.dp(activity,8),
-                    Ui.dp(activity,20),Ui.dp(activity,16));
-            scroll.addView(content,new ScrollView.LayoutParams(-1,-2));
+                    Ui.dp(activity,20),0);
+            list.setDivider(null);
+            list.setDividerHeight(0);
+            list.setClipToPadding(false);
+            list.setPadding(0,0,0,Ui.dp(activity,16));
+            list.addHeaderView(content,null,false);
+            this.historyAdapter=new HistoryAdapter();
+            list.setAdapter(historyAdapter);
         }
 
         void show() {
             render(false);
-            dialog=new AlertDialog.Builder(activity).setTitle("Role settings").setView(scroll)
+            dialog=new AlertDialog.Builder(activity).setTitle("Role settings").setView(list)
                     .setNegativeButton("Cancel",null).setPositiveButton("Done",null).create();
             dialog.setOnShowListener(x -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
                     .setOnClickListener(v -> commitAndClose()));
-            scroll.setOnScrollChangeListener((view, scrollX, scrollY, oldScrollX, oldScrollY) ->
-                    maybeLoadMoreHistory(scrollY, oldScrollY));
             dialog.show();
         }
 
@@ -102,13 +109,16 @@ final class RoleSettingsDialog {
         }
 
         void render(boolean preserveScroll) {
-            int scrollY=preserveScroll?scroll.getScrollY():0;
+            int firstPosition=preserveScroll?list.getFirstVisiblePosition():0;
+            View firstChild=preserveScroll?list.getChildAt(0):null;
+            int firstTop=firstChild==null?0:firstChild.getTop();
             RoleProfileStore.Profile profile=edit.profile();
             content.removeAllViews();
             addStatus(profile);
             addAliases(profile);
-            addHistory(profile);
-            if(preserveScroll) scroll.post(() -> scroll.scrollTo(0,scrollY));
+            content.addView(sectionTitle("Session history"));
+            historyAdapter.setHistory(IdleProcessState.history(activity,profile.id));
+            if(preserveScroll) list.post(() -> list.setSelectionFromTop(firstPosition,firstTop));
         }
 
         void addStatus(RoleProfileStore.Profile profile) {
@@ -177,64 +187,85 @@ final class RoleSettingsDialog {
             p.setMargins(0,Ui.dp(activity,10),0,0); content.addView(add,p);
         }
 
-        void addHistory(RoleProfileStore.Profile profile) {
-            content.addView(sectionTitle("Session history"));
-            List<IdleProcessState.SessionRecord> history =
-                    IdleProcessState.history(activity, profile.id);
-            if (history.isEmpty()) {
-                TextView empty=Ui.text(activity,"No completed sessions yet",13f,
-                        Ui.secondaryText(dark));
-                LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(-1,-2);
-                ep.setMargins(0,Ui.dp(activity,8),0,0);
-                content.addView(empty,ep);
-                return;
+        final class HistoryAdapter extends BaseAdapter {
+            private static final int TYPE_DAY = 0;
+            private static final int TYPE_SESSION = 1;
+            private static final int TYPE_EMPTY = 2;
+            private List<IdleProcessState.SessionRecord> history=Collections.emptyList();
+            private List<RoleSessionHistory.RowSpec> rows=Collections.emptyList();
+
+            void setHistory(List<IdleProcessState.SessionRecord> value) {
+                history=value==null?Collections.emptyList():value;
+                long[] finished=new long[history.size()];
+                for(int i=0;i<history.size();i++) finished[i]=history.get(i).finishedMillis;
+                rows=RoleSessionHistory.buildRows(finished);
+                notifyDataSetChanged();
             }
-            int visible=Math.min(historyVisibleCount,history.size());
-            for(int i=0;i<visible;i++) {
-                IdleProcessState.SessionRecord record=history.get(i);
-                LinearLayout card=Ui.card(activity,dark);
+
+            @Override public int getCount(){ return history.isEmpty()?1:rows.size(); }
+            @Override public Object getItem(int position){
+                return history.isEmpty()?null:rows.get(position);
+            }
+            @Override public long getItemId(int position){ return position; }
+            @Override public boolean isEnabled(int position){ return false; }
+            @Override public int getViewTypeCount(){ return 3; }
+            @Override public int getItemViewType(int position){
+                if(history.isEmpty()) return TYPE_EMPTY;
+                return rows.get(position).dayHeader?TYPE_DAY:TYPE_SESSION;
+            }
+
+            @Override
+            public View getView(int position,View convertView,ViewGroup parent) {
+                int type=getItemViewType(position);
+                if(type==TYPE_EMPTY) {
+                    TextView empty=convertView instanceof TextView?(TextView)convertView:
+                            Ui.text(activity,"",13f,Ui.secondaryText(dark));
+                    empty.setText("No completed sessions yet");
+                    empty.setTextColor(Ui.secondaryText(dark));
+                    empty.setPadding(Ui.dp(activity,20),Ui.dp(activity,8),
+                            Ui.dp(activity,20),Ui.dp(activity,16));
+                    return empty;
+                }
+                RoleSessionHistory.RowSpec row=rows.get(position);
+                if(type==TYPE_DAY) {
+                    TextView day=convertView instanceof TextView?(TextView)convertView:
+                            Ui.text(activity,"",12.5f,Ui.secondaryText(dark));
+                    day.setTypeface(Ui.mediumTypeface(activity));
+                    day.setTextColor(Ui.secondaryText(dark));
+                    day.setText(RoleSessionHistory.formatDayHeader(row.dayStartMillis));
+                    day.setPadding(Ui.dp(activity,20),Ui.dp(activity,12),
+                            Ui.dp(activity,20),Ui.dp(activity,2));
+                    return day;
+                }
+                FrameLayout wrapper=convertView instanceof FrameLayout
+                        ?(FrameLayout)convertView:new FrameLayout(activity);
+                LinearLayout card;
+                if(wrapper.getChildCount()==1 && wrapper.getChildAt(0) instanceof LinearLayout) {
+                    card=(LinearLayout)wrapper.getChildAt(0);
+                    card.removeAllViews();
+                } else {
+                    wrapper.removeAllViews();
+                    card=Ui.card(activity,dark);
+                    wrapper.addView(card,new FrameLayout.LayoutParams(-1,-2));
+                }
+                wrapper.setPadding(Ui.dp(activity,20),Ui.dp(activity,7),
+                        Ui.dp(activity,20),0);
                 card.setPadding(Ui.dp(activity,16),Ui.dp(activity,12),
                         Ui.dp(activity,16),Ui.dp(activity,12));
+                IdleProcessState.SessionRecord record=history.get(row.sessionIndex);
                 String task=record.topic.isEmpty()?"Session":record.topic;
                 TextView taskView=Ui.text(activity,task,14f,Ui.mainText(dark));
                 taskView.setTypeface(Ui.mediumTypeface(activity));
                 taskView.setSingleLine(false);
                 card.addView(taskView,new LinearLayout.LayoutParams(-1,-2));
-
                 String timing=RoleSessionHistory.formatTiming(
                         record.startedMillis,record.finishedMillis);
                 if(!timing.isEmpty()) addMeta(card,timing,6);
                 String length=RoleSessionHistory.formatLength(
                         record.startedMillis,record.finishedMillis);
                 if(!length.isEmpty()) addMeta(card,length,3);
-
-                LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);
-                cp.setMargins(0,Ui.dp(activity,7),0,0);
-                content.addView(card,cp);
+                return wrapper;
             }
-            if(visible<history.size()) {
-                TextView more=Ui.text(activity,"Scroll for 10 more",12f,
-                        Ui.secondaryText(dark));
-                more.setGravity(Gravity.CENTER);
-                LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(-1,-2);
-                mp.setMargins(0,Ui.dp(activity,8),0,0);
-                content.addView(more,mp);
-            }
-        }
-
-        void maybeLoadMoreHistory(int scrollY,int oldScrollY) {
-            if(loadingMoreHistory || scrollY<=oldScrollY || scroll.getChildCount()==0) return;
-            android.view.View child=scroll.getChildAt(0);
-            int remaining=child.getBottom()-(scroll.getHeight()+scrollY);
-            if(remaining>Ui.dp(activity,24)) return;
-            List<IdleProcessState.SessionRecord> history =
-                    IdleProcessState.history(activity,edit.profile().id);
-            int next=RoleSessionHistory.nextVisibleCount(historyVisibleCount,history.size());
-            if(next<=historyVisibleCount) return;
-            historyVisibleCount=next;
-            loadingMoreHistory=true;
-            render(true);
-            scroll.post(() -> loadingMoreHistory=false);
         }
 
         boolean showError(String error){

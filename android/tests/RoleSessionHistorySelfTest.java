@@ -11,7 +11,7 @@ public final class RoleSessionHistorySelfTest {
         try {
             Locale.setDefault(Locale.US);
             TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
-            testPagination();
+            testDayGrouping();
             testSameDayFormatting();
             testMultiDayFormatting();
             testLengthFormatting();
@@ -22,13 +22,27 @@ public final class RoleSessionHistorySelfTest {
         System.out.println("RoleSessionHistorySelfTest PASS");
     }
 
-    private static void testPagination() {
-        assert RoleSessionHistory.initialVisibleCount(0) == 0;
-        assert RoleSessionHistory.initialVisibleCount(6) == 6;
-        assert RoleSessionHistory.initialVisibleCount(25) == 10;
-        assert RoleSessionHistory.nextVisibleCount(10, 25) == 20;
-        assert RoleSessionHistory.nextVisibleCount(20, 25) == 25;
-        assert RoleSessionHistory.nextVisibleCount(25, 25) == 25;
+    private static void testDayGrouping() {
+        long[] finished = {
+                utc(2026, Calendar.SEPTEMBER, 29, 12, 0),
+                utc(2026, Calendar.SEPTEMBER, 29, 8, 0),
+                utc(2026, Calendar.SEPTEMBER, 28, 23, 59),
+                utc(2026, Calendar.SEPTEMBER, 28, 2, 0),
+                utc(2026, Calendar.SEPTEMBER, 27, 20, 0)
+        };
+        java.util.List<RoleSessionHistory.RowSpec> rows =
+                RoleSessionHistory.buildRows(finished);
+        assert rows.size() == 8;
+        assert rows.get(0).dayHeader;
+        assert !rows.get(1).dayHeader && rows.get(1).sessionIndex == 0;
+        assert !rows.get(2).dayHeader && rows.get(2).sessionIndex == 1;
+        assert rows.get(3).dayHeader;
+        assert !rows.get(4).dayHeader && rows.get(4).sessionIndex == 2;
+        assert !rows.get(5).dayHeader && rows.get(5).sessionIndex == 3;
+        assert rows.get(6).dayHeader;
+        assert !rows.get(7).dayHeader && rows.get(7).sessionIndex == 4;
+        assert "Tue · 29.09.26".equals(
+                RoleSessionHistory.formatDayHeader(rows.get(0).dayStartMillis));
     }
 
     private static void testSameDayFormatting() {

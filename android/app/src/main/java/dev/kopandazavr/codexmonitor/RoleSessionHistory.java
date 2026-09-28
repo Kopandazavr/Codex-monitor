@@ -1,26 +1,64 @@
 package dev.kopandazavr.codexmonitor;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
-/** Pure formatting/pagination rules for the Role Settings completed-session history. */
+/** Pure row-model and formatting rules for the Role Settings completed-session history. */
 final class RoleSessionHistory {
-    static final int PAGE_SIZE = 10;
+    static final class RowSpec {
+        final boolean dayHeader;
+        final int sessionIndex;
+        final long dayStartMillis;
 
-    private RoleSessionHistory() {
+        private RowSpec(boolean dayHeader, int sessionIndex, long dayStartMillis) {
+            this.dayHeader = dayHeader;
+            this.sessionIndex = sessionIndex;
+            this.dayStartMillis = dayStartMillis;
+        }
+
+        static RowSpec day(long dayStartMillis) {
+            return new RowSpec(true, -1, dayStartMillis);
+        }
+
+        static RowSpec session(int sessionIndex, long dayStartMillis) {
+            return new RowSpec(false, sessionIndex, dayStartMillis);
+        }
     }
 
-    static int initialVisibleCount(int total) {
-        return Math.min(Math.max(0, total), PAGE_SIZE);
+    private RoleSessionHistory() {}
+
+    static List<RowSpec> buildRows(long[] finishedMillisNewestFirst) {
+        List<RowSpec> rows = new ArrayList<>();
+        if (finishedMillisNewestFirst == null) return rows;
+        long previousDay = Long.MIN_VALUE;
+        for (int i = 0; i < finishedMillisNewestFirst.length; i++) {
+            long dayStart = dayStartMillis(finishedMillisNewestFirst[i]);
+            if (dayStart != previousDay) {
+                rows.add(RowSpec.day(dayStart));
+                previousDay = dayStart;
+            }
+            rows.add(RowSpec.session(i, dayStart));
+        }
+        return rows;
     }
 
-    static int nextVisibleCount(int current, int total) {
-        int boundedTotal = Math.max(0, total);
-        int base = Math.max(0, current);
-        if (base == 0 && boundedTotal > 0) base = PAGE_SIZE;
-        return Math.min(boundedTotal, base + PAGE_SIZE);
+    static long dayStartMillis(long millis) {
+        Calendar day = Calendar.getInstance();
+        day.setTimeInMillis(Math.max(0L, millis));
+        day.set(Calendar.HOUR_OF_DAY, 0);
+        day.set(Calendar.MINUTE, 0);
+        day.set(Calendar.SECOND, 0);
+        day.set(Calendar.MILLISECOND, 0);
+        return day.getTimeInMillis();
+    }
+
+    static String formatDayHeader(long dayStartMillis) {
+        return new SimpleDateFormat("EEE · dd.MM.yy", Locale.getDefault())
+                .format(new Date(dayStartMillis));
     }
 
     static String formatTiming(long startedMillis, long finishedMillis) {

@@ -18,13 +18,14 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 /** Factual measured-usage chart with reset-anchored absolute time and bounded tap-to-zoom. */
 public final class UsageBurnChartView extends View {
     private static final long FIVE_HOUR_ZOOM_MS = TimeUnit.HOURS.toMillis(1);
     private static final long WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1);
-    private static final long FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(5);
+    private static final long FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(10);
     private static final long FIVE_HOUR_DEFAULT_TICK_MS = TimeUnit.HOURS.toMillis(1);
     private static final long WEEKLY_ZOOM_TICK_MS = TimeUnit.HOURS.toMillis(4);
     private static final long WEEKLY_DEFAULT_TICK_MS = TimeUnit.DAYS.toMillis(1);
@@ -468,10 +469,16 @@ public final class UsageBurnChartView extends View {
         paint.setColor(Color.argb(dark ? 120 : 90, 128, 128, 128));
         canvas.drawLine(left, bottom + 2f * density, right, bottom + 2f * density, paint);
 
-        long anchor = defaultAxis()[1];
-        long stepsBack = Math.max(0L, (anchor - axis[0]) / interval);
-        long first = anchor - stepsBack * interval;
-        while (first < axis[0]) first += interval;
+        TimeZone timeZone = TimeZone.getDefault();
+        long first;
+        if (zoomed) {
+            first = UsageHistoryTickGrid.firstZoomTick(axis[0], isWeekly(), timeZone);
+        } else {
+            long anchor = defaultAxis()[1];
+            long stepsBack = Math.max(0L, (anchor - axis[0]) / interval);
+            first = anchor - stepsBack * interval;
+            while (first < axis[0]) first += interval;
+        }
 
         paint.setStyle(Paint.Style.FILL);
         paint.setTypeface(regularTypeface);
@@ -479,7 +486,7 @@ public final class UsageBurnChartView extends View {
         paint.setColor(Ui.secondaryText(dark));
         SimpleDateFormat format = new SimpleDateFormat(tickPattern(), Locale.getDefault());
         int guard = 0;
-        for (long tick = first; tick <= axis[1] && guard++ < 16; tick += interval) {
+        for (long tick = first; tick <= axis[1] && guard++ < 16;) {
             float tx = x(tick, axis[0], axis[1], left, right);
             paint.setStrokeWidth(1f * density);
             canvas.drawRect(tx, bottom + 1f * density, tx + 1f * density,
@@ -488,6 +495,11 @@ public final class UsageBurnChartView extends View {
             float width = paint.measureText(value);
             float labelX = Math.max(left, Math.min(right - width, tx - width / 2f));
             canvas.drawText(value, labelX, getHeight() - 5f * density, paint);
+            long next = zoomed
+                    ? UsageHistoryTickGrid.nextZoomTick(tick, isWeekly(), timeZone)
+                    : tick + interval;
+            if (next <= tick) break;
+            tick = next;
         }
     }
 
@@ -497,10 +509,8 @@ public final class UsageBurnChartView extends View {
     }
 
     private String tickPattern() {
-        boolean is24Hour = DateFormat.is24HourFormat(getContext());
-        if (isWeekly() && !zoomed) return "EEE d";
-        if (isWeekly()) return is24Hour ? "EEE HH:mm" : "EEE h a";
-        return is24Hour ? "HH:mm" : "h:mm";
+        return UsageHistoryTickGrid.tickPattern(
+                isWeekly(), zoomed, DateFormat.is24HourFormat(getContext()));
     }
 
     private long[] defaultAxis() {

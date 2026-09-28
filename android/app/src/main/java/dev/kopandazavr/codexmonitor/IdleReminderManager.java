@@ -164,19 +164,16 @@ final class IdleReminderManager {
         boolean overlayScheduled = scheduleCompletionOverlay(context, idle);
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        boolean persistentSurfaceAlerted = false;
+        boolean completionNotificationPosted = false;
         if (manager != null) {
             AlertSoundManager.ensureChannels(context);
-            persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
-                    context, idle, AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID, nowMillis);
-            if (persistentSurfaceAlerted) {
-                DualUsageNotificationManager.repostForProcessChangeDelayed(context, 5_000L);
-            }
+            completionNotificationPosted =
+                    ProcessNotificationManager.postCompletionAlert(context, idle, nowMillis);
         }
         DiagnosticLog.info(context, "idle_process", "completion_dispatched",
                 "role", idle.displayLabel(), "finished_at", idle.lastFinishedMillis,
                 "overlay_scheduled", overlayScheduled,
-                "persistent_surface_alerted", persistentSurfaceAlerted);
+                "completion_notification_posted", completionNotificationPosted);
     }
 
     private static void markCompletionBaseline(Context context, IdleProcessState.IdleRole idle) {

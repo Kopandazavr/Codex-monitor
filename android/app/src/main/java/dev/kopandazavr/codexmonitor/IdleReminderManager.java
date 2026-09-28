@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.media.AudioAttributes;
 import android.media.RingtoneManager;
 import java.util.Collections;
@@ -157,23 +159,23 @@ final class IdleReminderManager {
         // Mark before side effects so the same logical completion cannot recursively re-enter.
         prefs.edit().putLong(key, idle.lastFinishedMillis).apply();
 
-        // Android 15+ does not allow us to create a background FGS first and only then add
-        // the SYSTEM_ALERT_WINDOW overlay from inside that service. Route the overlay start
-        // through a user-enabled exact alarm instead; an exact-alarm delivery is an explicit
-        // background-FGS exemption and keeps the actual overlay service short-lived.
+        // Android 15+ requires a background-FGS exemption here. The exact alarm owns
+        // that exemption, but it must also own the ordering: posting the audible notification
+        // immediately can let Samsung/SystemUI finish the alert tone before this alarm is
+        // delivered. When scheduling succeeds, defer the notification to the overlay service,
+        // which posts it synchronously after WindowManager.addView(). If scheduling is
+        // unavailable, preserve notification delivery as a direct fallback.
         boolean overlayScheduled = scheduleCompletionOverlay(context, idle);
-        NotificationManager manager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
         boolean completionNotificationPosted = false;
-        if (manager != null) {
-            AlertSoundManager.ensureChannels(context);
+        if (!overlayScheduled) {
             completionNotificationPosted =
                     ProcessNotificationManager.postCompletionAlert(context, idle, nowMillis);
         }
         DiagnosticLog.info(context, "idle_process", "completion_dispatched",
                 "role", idle.displayLabel(), "finished_at", idle.lastFinishedMillis,
                 "overlay_scheduled", overlayScheduled,
-                "completion_notification_posted", completionNotificationPosted);
+                "completion_notification_delegated_to_overlay", overlayScheduled,
+                "completion_notification_posted_fallback", completionNotificationPosted);
     }
 
     private static void markCompletionBaseline(Context context, IdleProcessState.IdleRole idle) {
@@ -195,10 +197,24 @@ final class IdleReminderManager {
                     "reason", "stale_or_disabled");
             return;
         }
-        boolean requested = IdleReminderOverlayService.show(context, idle);
+        boolean requested = IdleReminderOverlayService.showCompletion(context, idle);
+        if (!requested) {
+            ProcessNotificationManager.postCompletionAlert(context, idle,
+                    System.currentTimeMillis());
+        } else {
+            // startForegroundService() is asynchronous. A short idempotent fallback guarantees
+            // the completion notification even if service startup is accepted but onStartCommand
+            // never reaches the post. In the normal path the service posts first and this no-ops.
+            Context app = context.getApplicationContext();
+            new Handler(Looper.getMainLooper()).postDelayed(
+                    () -> ProcessNotificationManager.postCompletionAlert(
+                            app, idle, System.currentTimeMillis()),
+                    2_000L);
+        }
         DiagnosticLog.info(context, "idle_process", "completion_overlay_alarm_received",
                 "role", idle.displayLabel(),
-                "overlay_start_requested", requested);
+                "overlay_start_requested", requested,
+                "notification_owned_by_overlay_service", requested);
     }
 
     private static boolean scheduleCompletionOverlay(Context context,

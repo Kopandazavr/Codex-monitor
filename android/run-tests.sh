@@ -76,16 +76,19 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OnboardingFlow.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OAuthBrowserPage.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/DiagnosticSanitizer.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RoleSessionHistory.java" \
   "$FILTERED_TEST" \
   "$ROOT/tests/ProjectProfileRulesSelfTest.java" \
   "$ROOT/tests/CalendarProcessSelfTest.java" \
   "$ROOT/tests/WatchdogCanonicalizerSelfTest.java" \
-  "$ROOT/tests/RoleProfileEditStateSelfTest.java"
+  "$ROOT/tests/RoleProfileEditStateSelfTest.java" \
+  "$ROOT/tests/RoleSessionHistorySelfTest.java"
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarProcessSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.WatchdogCanonicalizerSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleProfileEditStateSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleSessionHistorySelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
@@ -138,6 +141,8 @@ grep -q 'requestDisallowInterceptTouchEvent(false)' "$SRC/UsageBurnChartView.jav
 grep -q '"chart_tap_duplicate_suppressed"' "$SRC/UsageBurnChartView.java"
 grep -q '"chart_tap_outside_domain"' "$SRC/UsageBurnChartView.java"
 grep -q '"chart_tap_toggle"' "$SRC/UsageBurnChartView.java"
+grep -q 'zoomToMeasuredEndpoint' "$SRC/UsageBurnChartView.java"
+grep -q '"chart_tap_endpoint_snap"' "$SRC/UsageBurnChartView.java"
 grep -q 'MONTHLY = "monthly"' "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsageHistory.java"
 grep -q 'WINDOW_MONTHLY' "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/UsagePace.java"
 
@@ -168,6 +173,10 @@ grep -q 'IdleReminderOverlayService.showCompletion(context, idle)' "$SRC/IdleRem
 grep -q 'COMPLETION_NOTIFICATION_AFTER_OVERLAY_MS = 500L' "$SRC/IdleReminderOverlayService.java"
 grep -q 'completion_notification_after_overlay_draw_gap' "$SRC/IdleReminderOverlayService.java"
 grep -q 'KEY_COMPLETION_POSTED_PREFIX' "$SRC/ProcessNotificationManager.java"
+grep -q 'KEY_COMPLETION_RECONCILED_VERSION' "$SRC/ProcessNotificationManager.java"
+grep -q 'getActiveNotifications' "$SRC/ProcessNotificationManager.java"
+grep -q 'clearCompletionAlerts' "$SRC/IdleReminderOverlayService.java"
+grep -q 'completion_notification_skipped_after_overlay_dismiss' "$SRC/IdleReminderOverlayService.java"
 grep -q 'PROCESS_COMPLETION_CHANNEL_ID' "$SRC/ProcessNotificationManager.java"
 ! grep -q 'AlertSoundManager.playProcessCompletion(context)' "$SRC/IdleReminderManager.java"
 grep -q 'installStaticLayout()' "$SRC/OnboardingActivity.java"
@@ -180,6 +189,10 @@ grep -q 'exception.status == 401 && !retriedUnauthorized' "$SRC/GoogleCalendarPr
 grep -q 'calendar_http_401_retrying_with_fresh_token' "$SRC/GoogleCalendarProcessSource.java"
 grep -q '"authorization_retry_scheduled"' "$SRC/GoogleCalendarAuthorizationActivity.java"
 grep -q 'eventExists(' "$SRC/IdleProcessState.java"
+grep -q 'IdleProcessState.history(activity, profile.id)' "$SRC/RoleSettingsDialog.java"
+grep -q 'RoleSessionHistory.PAGE_SIZE' "$SRC/RoleSettingsDialog.java"
+grep -q 'maybeLoadMoreHistory' "$SRC/RoleSettingsDialog.java"
+! grep -q 'history.clear()' "$SRC/IdleProcessState.java"
 grep -q '"direct_cache_not_fresh"' "$SRC/CalendarProcessReader.java"
 
 # Permissions & connections supersedes the old Restart onboarding/account-card setup.

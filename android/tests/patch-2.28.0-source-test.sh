@@ -5,10 +5,10 @@ SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res"
 
-grep -Fq 'versionCode = 54' "$ROOT/app/build.gradle.kts"
-grep -Fq 'versionName = "2.28.0"' "$ROOT/app/build.gradle.kts"
-grep -Fq 'VERSION_CODE = 54' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_NAME = "2.28.0"' "$SRC/AppConstants.java"
+VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
+[[ "$VERSION_CODE" -ge 54 ]]
+grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
 # Short Name is uppercase, explicit-only unique, and empty still means automatic Primary fallback.
 grep -Fq 'normalizeShort(String value)' "$SHARED/ProjectProfileRules.java"

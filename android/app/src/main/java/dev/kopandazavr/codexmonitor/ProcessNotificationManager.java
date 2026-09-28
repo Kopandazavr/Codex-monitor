@@ -9,6 +9,8 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Color;
+import android.os.Build;
+import android.service.notification.StatusBarNotification;
 import android.view.View;
 import android.widget.RemoteViews;
 import java.util.Collections;
@@ -29,6 +31,7 @@ final class ProcessNotificationManager {
     private static final String PREFS = "codex_process_notification_state_v1";
     private static final String KEY_ACTIVE_IDS = "active_ids";
     private static final String KEY_COMPLETION_POSTED_PREFIX = "completion_posted:";
+    private static final String KEY_COMPLETION_RECONCILED_VERSION = "completion_reconciled_version";
 
     private ProcessNotificationManager() {
     }
@@ -36,6 +39,7 @@ final class ProcessNotificationManager {
     static void sync(Context context, List<CalendarProcess> processes,
             List<IdleProcessState.IdleRole> idleRoles, String mode, long nowMillis) {
         if (context == null) return;
+        reconcileStaleCompletionAlerts(context);
         String normalizedMode = ProcessNotificationMode.normalize(mode);
         if (ProcessNotificationMode.COMBINED.equals(normalizedMode)) {
             clearAll(context);
@@ -169,6 +173,62 @@ final class ProcessNotificationManager {
         int hash = key == null ? 0 : key.hashCode();
         return COMPLETION_NOTIFICATION_BASE
                 + Math.floorMod(hash, COMPLETION_NOTIFICATION_RANGE);
+    }
+
+    static void clearCompletionAlert(Context context, String key) {
+        if (context == null || key == null || key.trim().isEmpty()) return;
+        NotificationManager manager = (NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        int notificationId = completionNotificationId(key);
+        manager.cancel(notificationId);
+        DiagnosticLog.info(context, "notification", "completion_notification_cleared",
+                "notification_id", notificationId,
+                "role_key", key);
+    }
+
+    static void clearCompletionAlerts(Context context, Iterable<String> keys) {
+        if (keys == null) return;
+        for (String key : keys) clearCompletionAlert(context, key);
+    }
+
+    private static void reconcileStaleCompletionAlerts(Context context) {
+        SharedPreferences state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (state.getInt(KEY_COMPLETION_RECONCILED_VERSION, 0) >= AppConstants.VERSION_CODE) {
+            return;
+        }
+        NotificationManager manager = (NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return;
+        int cleared = 0;
+        try {
+            if (Build.VERSION.SDK_INT >= 23) {
+                StatusBarNotification[] active = manager.getActiveNotifications();
+                if (active != null) {
+                    for (StatusBarNotification item : active) {
+                        if (item == null) continue;
+                        int id = item.getId();
+                        if (id < COMPLETION_NOTIFICATION_BASE
+                                || id >= COMPLETION_NOTIFICATION_BASE
+                                        + COMPLETION_NOTIFICATION_RANGE) {
+                            continue;
+                        }
+                        manager.cancel(id);
+                        cleared++;
+                    }
+                }
+            }
+            state.edit().putInt(KEY_COMPLETION_RECONCILED_VERSION,
+                    AppConstants.VERSION_CODE).apply();
+            DiagnosticLog.info(context, "notification",
+                    "completion_notification_reconciled",
+                    "version_code", AppConstants.VERSION_CODE,
+                    "cleared", cleared);
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warn(context, "notification",
+                    "completion_notification_reconcile_failed",
+                    "error", exception.getClass().getSimpleName());
+        }
     }
 
     static void clearAll(Context context) {

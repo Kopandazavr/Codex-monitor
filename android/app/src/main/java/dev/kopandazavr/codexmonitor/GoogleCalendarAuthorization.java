@@ -191,6 +191,15 @@ final class GoogleCalendarAuthorization {
         return consumeInteractiveResult(activity, Activity.RESULT_OK, data).success;
     }
 
+    static void invalidateCachedToken(Context context, String reason) {
+        cachedToken = null;
+        cachedTokenAt = 0L;
+        if (context != null) {
+            DiagnosticLog.warn(context, "calendar_api", "cached_access_token_invalidated",
+                    "reason", reason == null ? "" : reason);
+        }
+    }
+
     static void accessToken(Context context, TokenCallback callback) {
         if (context == null) {
             callback.onResult(null);

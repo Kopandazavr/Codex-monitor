@@ -15,7 +15,6 @@ public final class AppConstants {
     public static final String ACTION_PROCESS_UPDATED = "dev.kopandazavr.codexmonitor.action.PROCESS_UPDATED";
     public static final String ACTION_CALENDAR_HEALTH_CHANGED =
             "dev.kopandazavr.codexmonitor.action.CALENDAR_HEALTH_CHANGED";
-    // Canonical Codex Monitor app callback scheme.
     public static final String APP_LINK = "codexmonitor://auth/complete";
     public static final String AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";
     public static final String AUTH_BASE = "https://auth.openai.com";
@@ -26,7 +25,6 @@ public final class AppConstants {
     public static final String EXTRA_NOTIFICATION_ID = "notification_id";
     public static final String EXTRA_PROMPT_USE_RESET = "prompt_use_reset";
     public static final String EXTRA_SUCCESS = "success";
-    // Canonical signature permission for the Codex Monitor package.
     public static final String INTERNAL_PERMISSION = "dev.kopandazavr.codexmonitor.permission.INTERNAL";
     public static final String OAUTH_CLIENT_ID = "app_EMoamEEZ73f0CkXaXp7hrann";
     public static final int[] OAUTH_PORTS = {1455, 1457};
@@ -37,11 +35,10 @@ public final class AppConstants {
     public static final String REVOKE_URL = "https://auth.openai.com/oauth/revoke";
     public static final String TOKEN_URL = "https://auth.openai.com/oauth/token";
     public static final String USAGE_URL = "https://chatgpt.com/backend-api/wham/usage";
-    public static final int VERSION_CODE = 57;
-    public static final String VERSION_NAME = "2.31.0";
+    public static final int VERSION_CODE = 58;
+    public static final String VERSION_NAME = "2.32.0";
 
-    private AppConstants() {
-    }
+    private AppConstants() {}
 
     public static String userAgent() {
         return ORIGINATOR + "/" + VERSION_NAME + " (Android "

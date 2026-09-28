@@ -154,6 +154,12 @@ public final class IdleReminderOverlayService extends Service {
                 // physically visible. Give the main looper several frames to draw the overlay
                 // before asking SystemUI to start the completion alert sound/vibration.
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (!roles.containsKey(idle.key)) {
+                        DiagnosticLog.info(this, "idle_process",
+                                "completion_notification_skipped_after_overlay_dismiss",
+                                "role", idle.displayLabel());
+                        return;
+                    }
                     boolean posted = ProcessNotificationManager.postCompletionAlert(
                             this, idle, System.currentTimeMillis());
                     DiagnosticLog.info(this, "idle_process",
@@ -385,6 +391,7 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     private void removeRole(String key) {
+        ProcessNotificationManager.clearCompletionAlert(this, key);
         roles.remove(key);
         if (roles.isEmpty()) {
             stopSelf();
@@ -397,6 +404,7 @@ public final class IdleReminderOverlayService extends Service {
         strongHaptic();
         DiagnosticLog.info(this, "idle_process", "overlay_dismissed",
                 "entries", roles.size());
+        ProcessNotificationManager.clearCompletionAlerts(this, roles.keySet());
         roles.clear();
         stopSelf();
     }

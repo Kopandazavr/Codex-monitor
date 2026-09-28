@@ -13,6 +13,8 @@ public final class AppConstants {
     public static final String ACTION_RESET_CREDITS_UPDATED = "dev.kopandazavr.codexmonitor.action.RESET_CREDITS_UPDATED";
     public static final String ACTION_USAGE_UPDATED = "dev.kopandazavr.codexmonitor.action.USAGE_UPDATED";
     public static final String ACTION_PROCESS_UPDATED = "dev.kopandazavr.codexmonitor.action.PROCESS_UPDATED";
+    public static final String ACTION_CALENDAR_HEALTH_CHANGED =
+            "dev.kopandazavr.codexmonitor.action.CALENDAR_HEALTH_CHANGED";
     // Canonical Codex Monitor app callback scheme.
     public static final String APP_LINK = "codexmonitor://auth/complete";
     public static final String AUTHORIZE_URL = "https://auth.openai.com/oauth/authorize";

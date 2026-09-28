@@ -46,6 +46,7 @@ public final class IdleReminderOverlayService extends Service {
             "post_completion_notification";
     private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final int FOREGROUND_ID = 8641;
+    private static final long COMPLETION_NOTIFICATION_AFTER_OVERLAY_MS = 500L;
     private static volatile IdleReminderOverlayService running;
 
     private final Map<String, IdleProcessState.IdleRole> roles = new LinkedHashMap<>();
@@ -141,16 +142,31 @@ public final class IdleReminderOverlayService extends Service {
         }
         boolean overlayVisible = showRole(idle);
         if (intent.getBooleanExtra(EXTRA_POST_COMPLETION_NOTIFICATION, false)) {
-            // The exact-alarm receiver is the Android background-FGS exemption. Publish the
-            // audible completion notification only after WindowManager.addView() has completed,
-            // so SystemUI sound cannot postpone the overlay alarm/window behind the alert tone.
-            boolean posted = ProcessNotificationManager.postCompletionAlert(
-                    this, idle, System.currentTimeMillis());
-            DiagnosticLog.info(this, "idle_process",
-                    "completion_notification_after_overlay",
-                    "role", idle.displayLabel(),
-                    "overlay_visible", overlayVisible,
-                    "notification_posted", posted);
+            if (!overlayVisible) {
+                boolean posted = ProcessNotificationManager.postCompletionAlert(
+                        this, idle, System.currentTimeMillis());
+                DiagnosticLog.warn(this, "idle_process",
+                        "completion_notification_overlay_draw_failed_fallback",
+                        "role", idle.displayLabel(),
+                        "notification_posted", posted);
+            } else {
+                // addView() only queues the first traversal; it does not mean a frame is already
+                // physically visible. Give the main looper several frames to draw the overlay
+                // before asking SystemUI to start the completion alert sound/vibration.
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    boolean posted = ProcessNotificationManager.postCompletionAlert(
+                            this, idle, System.currentTimeMillis());
+                    DiagnosticLog.info(this, "idle_process",
+                            "completion_notification_after_overlay_draw_gap",
+                            "role", idle.displayLabel(),
+                            "delay_ms", COMPLETION_NOTIFICATION_AFTER_OVERLAY_MS,
+                            "notification_posted", posted);
+                }, COMPLETION_NOTIFICATION_AFTER_OVERLAY_MS);
+                DiagnosticLog.info(this, "idle_process",
+                        "completion_notification_waiting_for_overlay_draw",
+                        "role", idle.displayLabel(),
+                        "delay_ms", COMPLETION_NOTIFICATION_AFTER_OVERLAY_MS);
+            }
         }
         return START_NOT_STICKY;
     }

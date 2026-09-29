@@ -647,6 +647,8 @@ public final class MainActivity extends AppCompatActivity {
         body.setOrientation(LinearLayout.VERTICAL);
         View.OnClickListener roleSettingsAction = view ->
                 RoleSettingsDialog.show(this, process, this::onRoleProfileChanged);
+        body.setOnClickListener(roleSettingsAction);
+        body.setFocusable(true);
         LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -656,7 +658,7 @@ public final class MainActivity extends AppCompatActivity {
                 new ProjectBadgeView(this, projectProfile, process.projectShort);
         projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
                 this, projectProfile.id, process.projectShort, this::onProjectProfileChanged));
-        copy.addView(projectBadge);
+        copy.addView(projectBadge, new LinearLayout.LayoutParams(-2, -2));
         TextView role = Ui.text(this, RoleProfileStore.displayName(this, process.role),
                 14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
@@ -726,6 +728,8 @@ public final class MainActivity extends AppCompatActivity {
         body.setOrientation(LinearLayout.VERTICAL);
         View.OnClickListener roleSettingsAction = view ->
                 RoleSettingsDialog.show(this, idle, this::onRoleProfileChanged);
+        body.setOnClickListener(roleSettingsAction);
+        body.setFocusable(true);
         LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -735,7 +739,7 @@ public final class MainActivity extends AppCompatActivity {
                 new ProjectBadgeView(this, projectProfile, idle.projectShort);
         projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
                 this, projectProfile.id, idle.projectShort, this::onProjectProfileChanged));
-        copy.addView(projectBadge);
+        copy.addView(projectBadge, new LinearLayout.LayoutParams(-2, -2));
         TextView role = Ui.text(this,
                 RoleProfileStore.displayNameById(this, idle.key, idle.role),
                 14.0f, Ui.mainText(this.dark));

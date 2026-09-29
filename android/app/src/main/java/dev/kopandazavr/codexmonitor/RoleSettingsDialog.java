@@ -7,6 +7,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -103,9 +105,27 @@ final class RoleSettingsDialog {
             render(false);
             dialog=new AlertDialog.Builder(activity).setTitle("Role settings").setView(list)
                     .setNegativeButton("Cancel",null).setPositiveButton("Done",null).create();
-            dialog.setOnShowListener(x -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                    .setOnClickListener(v -> commitAndClose()));
+            dialog.setOnShowListener(x -> {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                        .setOnClickListener(v -> commitAndClose());
+                lockDialogHeightAfterFirstLayout();
+            });
             dialog.show();
+        }
+
+        void lockDialogHeightAfterFirstLayout() {
+            if(dialog==null) return;
+            Window window=dialog.getWindow();
+            if(window==null) return;
+            View decor=window.getDecorView();
+            decor.post(() -> {
+                if(dialog==null || !dialog.isShowing()) return;
+                int measuredHeight=decor.getHeight();
+                if(measuredHeight<=0) return;
+                WindowManager.LayoutParams params=window.getAttributes();
+                params.height=measuredHeight;
+                window.setAttributes(params);
+            });
         }
 
         void commitAndClose() {

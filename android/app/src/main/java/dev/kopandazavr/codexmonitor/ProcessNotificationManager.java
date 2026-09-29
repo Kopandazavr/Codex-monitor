@@ -157,10 +157,15 @@ final class ProcessNotificationManager {
             if (idle.lastFinishedMillis > 0L) {
                 state.edit().putLong(postedKey, idle.lastFinishedMillis).apply();
             }
+            boolean speakerSoundPlayed = false;
+            if (AlertSoundManager.playOnPhoneSpeaker(context)) {
+                speakerSoundPlayed = AlertSoundManager.playProcessCompletion(context);
+            }
             DiagnosticLog.info(context, "notification", "completion_notification_posted",
                     "role", idle.displayLabel(),
                     "notification_id", notificationId,
-                    "channel", AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID);
+                    "channel", AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID,
+                    "speaker_sound_played", speakerSoundPlayed);
             return true;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "notification", "completion_notification_failed",

@@ -645,10 +645,8 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setClickable(true);
-        body.setFocusable(true);
-        body.setOnClickListener(view ->
-                RoleSettingsDialog.show(this, process, this::onRoleProfileChanged));
+        View.OnClickListener roleSettingsAction = view ->
+                RoleSettingsDialog.show(this, process, this::onRoleProfileChanged);
         LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -662,12 +660,16 @@ public final class MainActivity extends AppCompatActivity {
         TextView role = Ui.text(this, RoleProfileStore.displayName(this, process.role),
                 14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
-        LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-1, -2);
+        role.setOnClickListener(roleSettingsAction);
+        role.setFocusable(true);
+        LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-2, -2);
         roleParams.setMargins(0, Ui.dp(this, 5), 0, 0);
         copy.addView(role, roleParams);
         TextView state = Ui.text(this,
                 "Active · " + formatProcessRemaining(process.remainingMillis(nowMillis)),
                 12.0f, Ui.accent(this, this.dark));
+        state.setOnClickListener(roleSettingsAction);
+        state.setFocusable(true);
         LinearLayout.LayoutParams stateParams = new LinearLayout.LayoutParams(-2, -2);
         stateParams.setMargins(0, Ui.dp(this, 2), 0, 0);
         copy.addView(state, stateParams);
@@ -691,7 +693,9 @@ public final class MainActivity extends AppCompatActivity {
 
         if (process.topic != null && !process.topic.isEmpty()) {
             TextView topic = Ui.text(this, process.topic, 13.5f, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-1, -2);
+            topic.setOnClickListener(roleSettingsAction);
+            topic.setFocusable(true);
+            LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-2, -2);
             topicParams.setMargins(0, Ui.dp(this, 7), 0, 0);
             body.addView(topic, topicParams);
         }
@@ -720,10 +724,8 @@ public final class MainActivity extends AppCompatActivity {
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
-        body.setClickable(true);
-        body.setFocusable(true);
-        body.setOnClickListener(view ->
-                RoleSettingsDialog.show(this, idle, this::onRoleProfileChanged));
+        View.OnClickListener roleSettingsAction = view ->
+                RoleSettingsDialog.show(this, idle, this::onRoleProfileChanged);
         LinearLayout top = Ui.horizontal(this, Gravity.TOP);
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
@@ -738,12 +740,16 @@ public final class MainActivity extends AppCompatActivity {
                 RoleProfileStore.displayNameById(this, idle.key, idle.role),
                 14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
-        LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-1, -2);
+        role.setOnClickListener(roleSettingsAction);
+        role.setFocusable(true);
+        LinearLayout.LayoutParams roleParams = new LinearLayout.LayoutParams(-2, -2);
         roleParams.setMargins(0, Ui.dp(this, 5), 0, 0);
         copy.addView(role, roleParams);
         TextView state = Ui.text(this,
                 "Idle · " + formatIdleAge(nowMillis - idle.lastFinishedMillis),
                 12.0f, Ui.secondaryText(this.dark));
+        state.setOnClickListener(roleSettingsAction);
+        state.setFocusable(true);
         LinearLayout.LayoutParams stateParams = new LinearLayout.LayoutParams(-2, -2);
         stateParams.setMargins(0, Ui.dp(this, 2), 0, 0);
         copy.addView(state, stateParams);
@@ -765,7 +771,9 @@ public final class MainActivity extends AppCompatActivity {
 
         if (idle.topic != null && !idle.topic.isEmpty()) {
             TextView topic = Ui.text(this, idle.topic, 13.5f, Ui.secondaryText(this.dark));
-            LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-1, -2);
+            topic.setOnClickListener(roleSettingsAction);
+            topic.setFocusable(true);
+            LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-2, -2);
             topicParams.setMargins(0, Ui.dp(this, 7), 0, 0);
             body.addView(topic, topicParams);
         }
@@ -775,6 +783,8 @@ public final class MainActivity extends AppCompatActivity {
                     "Last session · "
                             + formatProcessDuration(idle.lastFinishedMillis - idle.lastStartedMillis),
                     11.5f, Ui.secondaryText(this.dark));
+            duration.setOnClickListener(roleSettingsAction);
+            duration.setFocusable(true);
             LinearLayout.LayoutParams durationParams = new LinearLayout.LayoutParams(-1, -2);
             durationParams.setMargins(0, Ui.dp(this, 5), 0, 0);
             body.addView(duration, durationParams);

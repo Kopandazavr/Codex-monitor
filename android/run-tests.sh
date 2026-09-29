@@ -77,6 +77,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/OAuthBrowserPage.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/DiagnosticSanitizer.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/RoleSessionHistory.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageHistoryViewport.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageHistoryTickGrid.java" \
   "$FILTERED_TEST" \
   "$ROOT/tests/ProjectProfileRulesSelfTest.java" \
@@ -84,6 +85,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/tests/WatchdogCanonicalizerSelfTest.java" \
   "$ROOT/tests/RoleProfileEditStateSelfTest.java" \
   "$ROOT/tests/RoleSessionHistorySelfTest.java" \
+  "$ROOT/tests/UsageHistoryViewportSelfTest.java" \
   "$ROOT/tests/UsageHistoryTickGridSelfTest.java"
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
@@ -91,6 +93,7 @@ java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarProcessSelfTe
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.WatchdogCanonicalizerSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleProfileEditStateSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleSessionHistorySelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryViewportSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryTickGridSelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
@@ -119,6 +122,17 @@ grep -q 'FIVE_HOUR_ZOOM_MS = TimeUnit.HOURS.toMillis(1)' "$SRC/UsageBurnChartVie
 grep -q 'WEEKLY_ZOOM_MS = TimeUnit.DAYS.toMillis(1)' "$SRC/UsageBurnChartView.java"
 grep -q 'FIVE_HOUR_ZOOM_TICK_MS = TimeUnit.MINUTES.toMillis(10)' "$SRC/UsageBurnChartView.java"
 grep -q 'UsageHistoryTickGrid.firstZoomTick' "$SRC/UsageBurnChartView.java"
+grep -q 'UsageHistoryViewport.zoomSpan' "$SRC/UsageBurnChartView.java"
+grep -q 'UsageHistoryViewport.restoreSpan' "$SRC/UsageBurnChartView.java"
+grep -q 'UsageHistoryViewport.canPan' "$SRC/UsageBurnChartView.java"
+grep -q 'defaultExpandedDay' "$SRC/RoleSettingsDialog.java"
+grep -q 'expandedDays' "$SRC/RoleSettingsDialog.java"
+grep -q 'row.sessionCount' "$SRC/RoleSettingsDialog.java"
+grep -q 'row.totalDurationMillis' "$SRC/RoleSettingsDialog.java"
+! grep -Fq 'body.setOnClickListener' "$SRC/MainActivity.java"
+grep -q 'role.setOnClickListener(roleSettingsAction)' "$SRC/MainActivity.java"
+grep -q 'state.setOnClickListener(roleSettingsAction)' "$SRC/MainActivity.java"
+grep -q 'topic.setOnClickListener(roleSettingsAction)' "$SRC/MainActivity.java"
 grep -q 'UsageHistoryTickGrid.nextZoomTick' "$SRC/UsageBurnChartView.java"
 grep -q 'reset > 0L ? reset : System.currentTimeMillis()' "$SRC/UsageBurnChartView.java"
 grep -q 'WEEKLY_ORANGE = 0xFFFF9800' "$SRC/UsageBurnChartView.java"

@@ -234,8 +234,8 @@ public final class UsageBurnChartView extends View {
             return false;
         }
         long measuredSpan = measuredEnd - measuredStart;
-        long zoomSpan = Math.min(
-                isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS, measuredSpan);
+        long zoomSpan = UsageHistoryViewport.zoomSpan(
+                minimumZoomSpan(), measuredStart, measuredEnd);
         if (zoomSpan <= 0L) return false;
         float left = chartLeft();
         float right = chartRight();
@@ -243,9 +243,14 @@ public final class UsageBurnChartView extends View {
                 (touchX - left) / Math.max(1d, right - left)));
         long center = full[0] + Math.round(ratio * (full[1] - full[0]));
         center = Math.max(measuredStart, Math.min(center, measuredEnd));
-        long start = center - zoomSpan / 2L;
-        long maxStart = measuredEnd - zoomSpan;
-        start = Math.max(measuredStart, Math.min(start, maxStart));
+        long start;
+        if (measuredSpan <= zoomSpan) {
+            start = measuredStart;
+        } else {
+            start = center - zoomSpan / 2L;
+            long maxStart = measuredEnd - zoomSpan;
+            start = Math.max(measuredStart, Math.min(start, maxStart));
+        }
         viewportStartMillis = start;
         viewportEndMillis = start + zoomSpan;
         zoomed = true;
@@ -263,12 +268,17 @@ public final class UsageBurnChartView extends View {
             return false;
         }
         long measuredSpan = measuredEnd - measuredStart;
-        long zoomSpan = Math.min(
-                isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS, measuredSpan);
+        long zoomSpan = UsageHistoryViewport.zoomSpan(
+                minimumZoomSpan(), measuredStart, measuredEnd);
         if (zoomSpan <= 0L) return false;
-        long start = startSide ? measuredStart : measuredEnd - zoomSpan;
-        long maxStart = measuredEnd - zoomSpan;
-        start = Math.max(measuredStart, Math.min(start, maxStart));
+        long start;
+        if (measuredSpan <= zoomSpan) {
+            start = measuredStart;
+        } else {
+            start = startSide ? measuredStart : measuredEnd - zoomSpan;
+            long maxStart = measuredEnd - zoomSpan;
+            start = Math.max(measuredStart, Math.min(start, maxStart));
+        }
         viewportStartMillis = start;
         viewportEndMillis = start + zoomSpan;
         zoomed = true;
@@ -293,9 +303,17 @@ public final class UsageBurnChartView extends View {
         if (measuredStart == Long.MAX_VALUE || measuredEnd <= measuredStart) return;
         long requestedSpan = requestedEndMillis - requestedStartMillis;
         if (requestedSpan <= 0L) return;
-        long span = Math.min(requestedSpan, measuredEnd - measuredStart);
-        long maxStart = measuredEnd - span;
-        long start = Math.max(measuredStart, Math.min(requestedStartMillis, maxStart));
+        long measuredSpan = measuredEnd - measuredStart;
+        long span = UsageHistoryViewport.restoreSpan(
+                minimumZoomSpan(), measuredStart, measuredEnd, requestedSpan);
+        if (span <= 0L) return;
+        long start;
+        if (measuredSpan <= span) {
+            start = measuredStart;
+        } else {
+            long maxStart = measuredEnd - span;
+            start = Math.max(measuredStart, Math.min(requestedStartMillis, maxStart));
+        }
         viewportStartMillis = start;
         viewportEndMillis = start + span;
         zoomed = true;
@@ -307,9 +325,8 @@ public final class UsageBurnChartView extends View {
         long measuredStart = measuredStartMillis();
         long measuredEnd = measuredEndMillis();
         if (measuredStart == Long.MAX_VALUE || measuredEnd <= measuredStart) return;
-        long span = Math.min(viewportEndMillis - viewportStartMillis,
-                measuredEnd - measuredStart);
-        if (span <= 0L) return;
+        long span = viewportEndMillis - viewportStartMillis;
+        if (!UsageHistoryViewport.canPan(measuredStart, measuredEnd, span)) return;
         float width = Math.max(1f, chartRight() - chartLeft());
         long shift = Math.round(-deltaX * span / width);
         long start = viewportStartMillis + shift;
@@ -501,6 +518,10 @@ public final class UsageBurnChartView extends View {
             if (next <= tick) break;
             tick = next;
         }
+    }
+
+    private long minimumZoomSpan() {
+        return isWeekly() ? WEEKLY_ZOOM_MS : FIVE_HOUR_ZOOM_MS;
     }
 
     private long tickInterval() {

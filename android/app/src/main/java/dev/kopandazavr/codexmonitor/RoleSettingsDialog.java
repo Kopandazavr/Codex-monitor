@@ -3,6 +3,7 @@ package dev.kopandazavr.codexmonitor;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.res.ColorStateList;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,7 +17,9 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Role/Agent Settings: live status, stable aliases, and durable completed-session history. */
 final class RoleSettingsDialog {
@@ -90,6 +93,10 @@ final class RoleSettingsDialog {
             list.addHeaderView(content,null,false);
             this.historyAdapter=new HistoryAdapter();
             list.setAdapter(historyAdapter);
+            list.setOnItemClickListener((parent, view, position, id) -> {
+                int adapterPosition=position-list.getHeaderViewsCount();
+                if(adapterPosition>=0) historyAdapter.toggleDay(adapterPosition);
+            });
         }
 
         void show() {
@@ -193,12 +200,46 @@ final class RoleSettingsDialog {
             private static final int TYPE_EMPTY = 2;
             private List<IdleProcessState.SessionRecord> history=Collections.emptyList();
             private List<RoleSessionHistory.RowSpec> rows=Collections.emptyList();
+            private final Set<Long> expandedDays=new HashSet<>();
+            private boolean collapseInitialized;
 
             void setHistory(List<IdleProcessState.SessionRecord> value) {
                 history=value==null?Collections.emptyList():value;
-                long[] finished=new long[history.size()];
-                for(int i=0;i<history.size();i++) finished[i]=history.get(i).finishedMillis;
-                rows=RoleSessionHistory.buildRows(finished);
+                long[] started=startedMillis();
+                long[] finished=finishedMillis();
+                if(!collapseInitialized) {
+                    long today=RoleSessionHistory.defaultExpandedDay(
+                            System.currentTimeMillis(),started,finished);
+                    if(today!=Long.MIN_VALUE) expandedDays.add(today);
+                    collapseInitialized=true;
+                }
+                rebuildRows(started,finished);
+                notifyDataSetChanged();
+            }
+
+            private long[] startedMillis() {
+                long[] values=new long[history.size()];
+                for(int i=0;i<history.size();i++) values[i]=history.get(i).startedMillis;
+                return values;
+            }
+
+            private long[] finishedMillis() {
+                long[] values=new long[history.size()];
+                for(int i=0;i<history.size();i++) values[i]=history.get(i).finishedMillis;
+                return values;
+            }
+
+            private void rebuildRows(long[] started,long[] finished) {
+                rows=RoleSessionHistory.buildRows(started,finished,expandedDays);
+            }
+
+            void toggleDay(int position) {
+                if(history.isEmpty()||position<0||position>=rows.size()) return;
+                RoleSessionHistory.RowSpec row=rows.get(position);
+                if(!row.dayHeader) return;
+                if(row.expanded) expandedDays.remove(row.dayStartMillis);
+                else expandedDays.add(row.dayStartMillis);
+                rebuildRows(startedMillis(),finishedMillis());
                 notifyDataSetChanged();
             }
 
@@ -207,7 +248,10 @@ final class RoleSettingsDialog {
                 return history.isEmpty()?null:rows.get(position);
             }
             @Override public long getItemId(int position){ return position; }
-            @Override public boolean isEnabled(int position){ return false; }
+            @Override public boolean isEnabled(int position){
+                return !history.isEmpty()&&position>=0&&position<rows.size()
+                        &&rows.get(position).dayHeader;
+            }
             @Override public int getViewTypeCount(){ return 3; }
             @Override public int getItemViewType(int position){
                 if(history.isEmpty()) return TYPE_EMPTY;
@@ -228,13 +272,40 @@ final class RoleSettingsDialog {
                 }
                 RoleSessionHistory.RowSpec row=rows.get(position);
                 if(type==TYPE_DAY) {
-                    TextView day=convertView instanceof TextView?(TextView)convertView:
-                            Ui.text(activity,"",12.5f,Ui.secondaryText(dark));
-                    day.setTypeface(Ui.mediumTypeface(activity));
-                    day.setTextColor(Ui.secondaryText(dark));
-                    day.setText(RoleSessionHistory.formatDayHeader(row.dayStartMillis));
+                    LinearLayout day=convertView instanceof LinearLayout
+                            ?(LinearLayout)convertView:new LinearLayout(activity);
+                    day.removeAllViews();
+                    day.setOrientation(LinearLayout.HORIZONTAL);
+                    day.setGravity(Gravity.CENTER_VERTICAL);
                     day.setPadding(Ui.dp(activity,20),Ui.dp(activity,12),
-                            Ui.dp(activity,20),Ui.dp(activity,2));
+                            Ui.dp(activity,20),Ui.dp(activity,4));
+
+                    TextView chevron=Ui.text(activity,row.expanded?"▼":"▶",
+                            11.5f,Ui.secondaryText(dark));
+                    day.addView(chevron,new LinearLayout.LayoutParams(
+                            Ui.dp(activity,20),-2));
+
+                    TextView title=Ui.text(activity,
+                            RoleSessionHistory.formatDayHeader(row.dayStartMillis),
+                            12.5f,Ui.secondaryText(dark));
+                    title.setTypeface(Ui.mediumTypeface(activity));
+                    LinearLayout.LayoutParams titleParams=
+                            new LinearLayout.LayoutParams(0,-2,1f);
+                    titleParams.setMargins(Ui.dp(activity,3),0,Ui.dp(activity,8),0);
+                    day.addView(title,titleParams);
+
+                    TextView pill=Ui.text(activity,
+                            row.sessionCount+" ("+
+                                    RoleSessionHistory.formatDuration(row.totalDurationMillis)+")",
+                            11f,Ui.secondaryText(dark));
+                    pill.setGravity(Gravity.CENTER);
+                    pill.setPadding(Ui.dp(activity,8),Ui.dp(activity,3),
+                            Ui.dp(activity,8),Ui.dp(activity,3));
+                    GradientDrawable pillBackground=new GradientDrawable();
+                    pillBackground.setColor(dark?0xFF303238:0xFFE4E6EA);
+                    pillBackground.setCornerRadius(Ui.dp(activity,12));
+                    pill.setBackground(pillBackground);
+                    day.addView(pill,new LinearLayout.LayoutParams(-2,-2));
                     return day;
                 }
                 FrameLayout wrapper=convertView instanceof FrameLayout

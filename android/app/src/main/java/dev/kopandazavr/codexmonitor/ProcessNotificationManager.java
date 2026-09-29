@@ -137,8 +137,12 @@ final class ProcessNotificationManager {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String identity = notificationIdentity(
                 context, idle.project, idle.role, idle.topic, false);
-        Notification notification = new Notification.Builder(
-                context, AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID)
+        boolean speakerRequested = AlertSoundManager.playOnPhoneSpeaker(context);
+        boolean silentSpeakerDelivery =
+                CompletionAudioRoute.useSilentNotificationDelivery(speakerRequested);
+        String completionChannelId = AlertSoundManager.completionNotificationChannelId(
+                context, silentSpeakerDelivery);
+        Notification notification = new Notification.Builder(context, completionChannelId)
                 .setSmallIcon(R.drawable.ic_notification_codex_monitor)
                 .setContentTitle(identity + " finished")
                 .setContentText("Watched process completed")
@@ -158,13 +162,13 @@ final class ProcessNotificationManager {
                 state.edit().putLong(postedKey, idle.lastFinishedMillis).apply();
             }
             boolean speakerSoundPlayed = false;
-            if (AlertSoundManager.playOnPhoneSpeaker(context)) {
+            if (CompletionAudioRoute.playDirectSound(speakerRequested)) {
                 speakerSoundPlayed = AlertSoundManager.playProcessCompletion(context);
             }
             DiagnosticLog.info(context, "notification", "completion_notification_posted",
                     "role", idle.displayLabel(),
                     "notification_id", notificationId,
-                    "channel", AlertSoundManager.PROCESS_COMPLETION_CHANNEL_ID,
+                    "channel", completionChannelId,
                     "speaker_sound_played", speakerSoundPlayed);
             return true;
         } catch (RuntimeException exception) {

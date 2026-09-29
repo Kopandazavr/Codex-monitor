@@ -460,7 +460,8 @@ public final class UsageBurnChartView extends View {
                 Color.red(seriesColor), Color.green(seriesColor), Color.blue(seriesColor)));
         canvas.drawPath(area, paint);
 
-        float spacing = 14f * density;
+        float spacing = UsageHistoryStripeCadence.spacingPx(
+                14f * density, zoomed, isWeekly());
         float height = Math.max(1f, bottom - top);
         float phase = (SystemClock.uptimeMillis() % 90_000L) / 90_000f * spacing;
         int save = canvas.save();

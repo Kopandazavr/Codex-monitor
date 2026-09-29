@@ -18,14 +18,16 @@ import java.io.IOException;
 /**
  * Canonical PHONE notification-channel and semantic alert-sound contract.
  *
- * <p>Only two channels are user-meaningful/audible: Process completion and Limits reset.
+ * <p>Process completion and Limits reset remain the two user sound categories.
  * Every ongoing notification/foreground-service surface shares one silent operational channel.
- * Semantic sounds are played by the app so the optional phone-speaker route can be requested
- * without coupling sound delivery to a transient notification card.</p>
+ * When explicit phone-speaker routing is enabled, a vibration/visual-only completion companion
+ * carries the notification while the app owns the single audible playback path.</p>
  */
 final class AlertSoundManager {
     static final String OPERATIONAL_CHANNEL_ID = "codex_operational_v1";
     static final String PROCESS_COMPLETION_CHANNEL_ID = "codex_process_completion_v2";
+    static final String PROCESS_COMPLETION_SPEAKER_CHANNEL_ID =
+            "codex_process_completion_speaker_v1";
     static final String LIMITS_RESET_CHANNEL_ID = "codex_limits_reset_v1";
 
     private static final String PREFS = "codex_alert_sound_settings_v1";
@@ -70,6 +72,9 @@ final class AlertSoundManager {
         ensureSemantic(manager, PROCESS_COMPLETION_CHANNEL_ID, "Process completion",
                 "Sound and vibration for one watched-process completion notification",
                 oldCompletion, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
+        if (playOnPhoneSpeaker(context)) {
+            ensureSpeakerCompletionDelivery(manager);
+        }
         ensureSemantic(manager, LIMITS_RESET_CHANNEL_ID, "Limits reset",
                 "Shared sound for 5-hour and Weekly limit resets",
                 oldLimits, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
@@ -225,6 +230,51 @@ final class AlertSoundManager {
                     "event", event, "route", route);
             return false;
         }
+    }
+
+    static String completionNotificationChannelId(Context context,
+            boolean silentSpeakerDelivery) {
+        if (!silentSpeakerDelivery || context == null) return PROCESS_COMPLETION_CHANNEL_ID;
+        ensureChannels(context);
+        NotificationManager manager = (NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return PROCESS_COMPLETION_CHANNEL_ID;
+        NotificationChannel source = manager.getNotificationChannel(PROCESS_COMPLETION_CHANNEL_ID);
+        if (source == null || source.getImportance() == NotificationManager.IMPORTANCE_NONE) {
+            return PROCESS_COMPLETION_CHANNEL_ID;
+        }
+        NotificationChannel delivery =
+                manager.getNotificationChannel(PROCESS_COMPLETION_SPEAKER_CHANNEL_ID);
+        return delivery == null ? PROCESS_COMPLETION_CHANNEL_ID
+                : PROCESS_COMPLETION_SPEAKER_CHANNEL_ID;
+    }
+
+    private static void ensureSpeakerCompletionDelivery(NotificationManager manager) {
+        if (manager.getNotificationChannel(PROCESS_COMPLETION_SPEAKER_CHANNEL_ID) != null) return;
+        NotificationChannel source = manager.getNotificationChannel(PROCESS_COMPLETION_CHANNEL_ID);
+        if (source == null) return;
+
+        NotificationChannel channel = new NotificationChannel(
+                PROCESS_COMPLETION_SPEAKER_CHANNEL_ID,
+                "Process completion · phone speaker",
+                source.getImportance());
+        channel.setDescription(
+                "Visual and vibration delivery while completion audio is routed to the phone speaker");
+        channel.setShowBadge(false);
+        // The source completion channel remains the sound preference owner. This companion must
+        // never add a second audible path when MediaPlayer routes that sound to the phone speaker.
+        channel.setSound(null, null);
+        if (source.shouldVibrate()) {
+            long[] pattern = source.getVibrationPattern();
+            if (pattern != null && pattern.length > 0) {
+                channel.setVibrationPattern(pattern);
+            } else {
+                channel.enableVibration(true);
+            }
+        } else {
+            channel.enableVibration(false);
+        }
+        manager.createNotificationChannel(channel);
     }
 
     private static void ensureOperational(NotificationManager manager) {

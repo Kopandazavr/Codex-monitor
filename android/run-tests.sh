@@ -207,7 +207,7 @@ grep -q 'KEY_COMPLETION_RECONCILED_VERSION' "$SRC/ProcessNotificationManager.jav
 grep -q 'getActiveNotifications' "$SRC/ProcessNotificationManager.java"
 grep -q 'clearCompletionAlerts' "$SRC/IdleReminderOverlayService.java"
 grep -q 'completion_notification_skipped_after_overlay_dismiss' "$SRC/IdleReminderOverlayService.java"
-grep -q 'PROCESS_COMPLETION_CHANNEL_ID' "$SRC/ProcessNotificationManager.java"
+grep -q 'PROCESS_COMPLETION_CHANNEL_ID' "$SRC/AlertSoundManager.java"
 grep -q 'PROCESS_COMPLETION_SPEAKER_CHANNEL_ID' "$SRC/AlertSoundManager.java"
 grep -q 'ensureSpeakerCompletionDelivery' "$SRC/AlertSoundManager.java"
 grep -q 'completionNotificationChannelId' "$SRC/ProcessNotificationManager.java"

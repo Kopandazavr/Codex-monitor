@@ -221,16 +221,6 @@ public final class IdleReminderOverlayService extends Service {
         shell.setClickable(true);
         shell.setOnClickListener(view -> dismissAll());
 
-        TextView header = text("Codex Monitor", 18f, Color.WHITE);
-        header.setGravity(Gravity.CENTER);
-        shell.addView(header, matchWrap());
-
-        TextView title = text("Session finished", 28f, Color.WHITE);
-        title.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams titleParams = matchWrap();
-        titleParams.setMargins(0, dp(4), 0, dp(16));
-        shell.addView(title, titleParams);
-
         entries = new LinearLayout(this);
         entries.setOrientation(LinearLayout.VERTICAL);
         shell.addView(entries, matchWrap());

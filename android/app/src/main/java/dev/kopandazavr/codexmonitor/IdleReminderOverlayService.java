@@ -284,15 +284,16 @@ public final class IdleReminderOverlayService extends Service {
 
         String primaryRole = RoleProfileStore.displayNameById(this, idle.key, idle.role);
         String role = primaryRole == null || primaryRole.isEmpty() ? "Watched role" : primaryRole;
-        TextView roleView = text(role, 20f, Color.WHITE);
-        copy.addView(roleView, matchWrap());
-
-        if (idle.project != null && !idle.project.isEmpty()) {
-            TextView project = text(idle.project, 14f, 0xFFE4E4E7);
-            LinearLayout.LayoutParams projectParams = matchWrap();
-            projectParams.setMargins(0, dp(3), 0, 0);
-            copy.addView(project, projectParams);
+        boolean hasProject = idle.project != null && !idle.project.isEmpty();
+        if (hasProject) {
+            TextView project = text(idle.project, 20f, Color.WHITE);
+            copy.addView(project, matchWrap());
         }
+
+        TextView roleView = text(role, 16f, Color.WHITE);
+        LinearLayout.LayoutParams roleParams = matchWrap();
+        roleParams.setMargins(0, hasProject ? dp(3) : 0, 0, 0);
+        copy.addView(roleView, roleParams);
         if (idle.topic != null && !idle.topic.isEmpty()) {
             TextView topic = text(idle.topic, 13f, 0xFFCACACE);
             LinearLayout.LayoutParams topicParams = matchWrap();

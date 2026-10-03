@@ -72,6 +72,8 @@ public final class IdleReminderOverlayService extends Service {
         Intent intent = new Intent(context, IdleReminderOverlayService.class)
                 .setAction(ACTION_SHOW)
                 .putExtra(IdleReminderManager.EXTRA_ROLE_KEY, idle.key)
+                .putExtra(IdleReminderManager.EXTRA_INSTANCE_ID, idle.instanceId)
+                .putExtra(IdleReminderManager.EXTRA_EVENT_ID, idle.eventId)
                 .putExtra(IdleReminderManager.EXTRA_FINISHED_AT, idle.lastFinishedMillis)
                 .putExtra(EXTRA_POST_COMPLETION_NOTIFICATION, postCompletionNotification);
         try {
@@ -125,7 +127,7 @@ public final class IdleReminderOverlayService extends Service {
         if (ACTION_SHOW_TEST.equals(intent.getAction())) {
             long now = System.currentTimeMillis();
             showRole(new IdleProcessState.IdleRole(
-                    TEST_ROLE_KEY, "Codex Monitor", "CM", "Main Agent", "Test overlay",
+                    TEST_ROLE_KEY, "Codex Monitor", "CM", "Main Agent", "Test overlay", "",
                     now - 300_000L, now, -1L, false, 0L));
             return START_NOT_STICKY;
         }
@@ -134,9 +136,12 @@ public final class IdleReminderOverlayService extends Service {
             return START_NOT_STICKY;
         }
         String key = intent.getStringExtra(IdleReminderManager.EXTRA_ROLE_KEY);
+        String instanceId = intent.getStringExtra(IdleReminderManager.EXTRA_INSTANCE_ID);
+        long eventId = intent.getLongExtra(IdleReminderManager.EXTRA_EVENT_ID, 0L);
         long finished = intent.getLongExtra(IdleReminderManager.EXTRA_FINISHED_AT, 0L);
-        IdleProcessState.IdleRole idle = IdleProcessState.find(this, key);
-        if (idle == null || idle.lastFinishedMillis != finished || !idle.reminderEnabled) {
+        IdleProcessState.IdleRole idle = IdleProcessState.findCompletion(
+                this, key, instanceId, eventId, finished);
+        if (idle == null || !idle.reminderEnabled) {
             stopSelfIfEmpty();
             return START_NOT_STICKY;
         }
@@ -154,7 +159,7 @@ public final class IdleReminderOverlayService extends Service {
                 // physically visible. Give the main looper several frames to draw the overlay
                 // before asking SystemUI to start the completion alert sound/vibration.
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    if (!roles.containsKey(idle.key)) {
+                    if (!roles.containsKey(completionKey(idle))) {
                         DiagnosticLog.info(this, "idle_process",
                                 "completion_notification_skipped_after_overlay_dismiss",
                                 "role", idle.displayLabel());
@@ -192,7 +197,7 @@ public final class IdleReminderOverlayService extends Service {
 
     private boolean showRole(IdleProcessState.IdleRole idle) {
         if (windowManager == null) return false;
-        roles.put(idle.key, idle);
+        roles.put(completionKey(idle), idle);
         ensureRoot();
         rebuildEntries();
         return overlayRoot != null;
@@ -335,11 +340,7 @@ public final class IdleReminderOverlayService extends Service {
                 long now = System.currentTimeMillis();
                 boolean enabled = IdleProcessState.toggleReminder(this, idle.key, now);
                 IdleReminderManager.onReminderToggled(this, idle.key, enabled, now);
-                IdleProcessState.IdleRole updated = IdleProcessState.find(this, idle.key);
-                if (updated != null) {
-                    roles.put(idle.key, updated);
-                    updateBell(view, updated);
-                }
+                refreshRoleEntries(idle.key);
                 DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
                 DiagnosticLog.info(this, "idle_process", "overlay_bell_toggled",
                         "role", idle.displayLabel(),
@@ -381,9 +382,32 @@ public final class IdleReminderOverlayService extends Service {
         }
     }
 
+    private static String completionKey(IdleProcessState.IdleRole idle) {
+        if (idle == null) return "";
+        return idle.key + ":" + idle.completionIdentity() + ":" + idle.lastFinishedMillis;
+    }
+
+    private void refreshRoleEntries(String roleKey) {
+        Map<String, IdleProcessState.IdleRole> refreshed = new LinkedHashMap<>();
+        for (Map.Entry<String, IdleProcessState.IdleRole> entry : roles.entrySet()) {
+            IdleProcessState.IdleRole current = entry.getValue();
+            if (current != null && roleKey.equals(current.key)) {
+                IdleProcessState.IdleRole updated = IdleProcessState.findCompletion(
+                        this, current.key, current.instanceId,
+                        current.eventId, current.lastFinishedMillis);
+                refreshed.put(entry.getKey(), updated == null ? current : updated);
+            } else {
+                refreshed.put(entry.getKey(), current);
+            }
+        }
+        roles.clear();
+        roles.putAll(refreshed);
+        rebuildEntries();
+    }
+
     private void removeRole(String key) {
         ProcessNotificationManager.clearCompletionAlert(this, key);
-        roles.remove(key);
+        roles.entrySet().removeIf(entry -> key.equals(entry.getValue().key));
         if (roles.isEmpty()) {
             stopSelf();
         } else {
@@ -395,7 +419,9 @@ public final class IdleReminderOverlayService extends Service {
         strongHaptic();
         DiagnosticLog.info(this, "idle_process", "overlay_dismissed",
                 "entries", roles.size());
-        ProcessNotificationManager.clearCompletionAlerts(this, roles.keySet());
+        java.util.Set<String> roleKeys = new java.util.HashSet<>();
+        for (IdleProcessState.IdleRole idle : roles.values()) roleKeys.add(idle.key);
+        ProcessNotificationManager.clearCompletionAlerts(this, roleKeys);
         roles.clear();
         stopSelf();
     }

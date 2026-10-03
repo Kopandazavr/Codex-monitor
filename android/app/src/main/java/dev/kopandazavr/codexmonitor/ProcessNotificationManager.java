@@ -118,7 +118,8 @@ final class ProcessNotificationManager {
             IdleProcessState.IdleRole idle, long nowMillis) {
         if (context == null || idle == null) return false;
         SharedPreferences state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String postedKey = KEY_COMPLETION_POSTED_PREFIX + idle.key;
+        String postedKey = KEY_COMPLETION_POSTED_PREFIX
+                + idle.key + ":" + idle.completionIdentity();
         if (idle.lastFinishedMillis > 0L
                 && state.getLong(postedKey, 0L) == idle.lastFinishedMillis) {
             DiagnosticLog.info(context, "notification", "completion_notification_deduped",
@@ -259,11 +260,9 @@ final class ProcessNotificationManager {
             List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
             long nowMillis, boolean showActiveReminder) {
         parent.removeAllViews(containerId);
-        if (processes != null) {
-            for (CalendarProcess process : processes) {
-                parent.addView(containerId,
-                        buildActiveRow(context, process, nowMillis, showActiveReminder));
-            }
+        for (ProcessRoleGroup group : ProcessRoleGroup.group(context, processes)) {
+            parent.addView(containerId,
+                    buildActiveGroupRow(context, group, nowMillis, showActiveReminder));
         }
         if (idleRoles != null) {
             for (IdleProcessState.IdleRole idle : idleRoles) {
@@ -279,12 +278,18 @@ final class ProcessNotificationManager {
         int idleCount = idleRoles == null ? 0 : idleRoles.size();
         int total = activeCount + idleCount;
         if (activeCount > 0) {
-            CalendarProcess process = processes.get(0);
+            ProcessRoleGroup group = ProcessRoleGroup.group(context, processes).get(0);
+            CalendarProcess process = group.representative();
+            boolean single = group.processes.size() == 1;
             StringBuilder summary = new StringBuilder(notificationIdentity(
-                    context, process.project, process.role, process.topic, true));
-            appendSummaryPart(summary, process.remainingPercent(nowMillis) + "%");
-            appendSummaryPart(summary, formatRemaining(process.remainingMillis(nowMillis)));
-            appendMore(summary, total - 1);
+                    context, process.project, process.role, process.topic, single));
+            if (single) {
+                appendSummaryPart(summary, process.remainingPercent(nowMillis) + "%");
+                appendSummaryPart(summary, formatRemaining(process.remainingMillis(nowMillis)));
+            } else {
+                appendSummaryPart(summary, group.processes.size() + " sessions");
+            }
+            appendMore(summary, total - group.processes.size());
             return summary.toString();
         }
         if (idleCount > 0) {
@@ -302,17 +307,18 @@ final class ProcessNotificationManager {
             List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
             long nowMillis) {
         Set<String> nextIds = new HashSet<>();
-        if (processes != null) {
-            for (CalendarProcess process : processes) {
-                int id = notificationId(context, process);
-                nextIds.add(String.valueOf(id));
-                String key = IdleProcessState.roleKey(context, process);
-                manager.notify(id, buildNotification(context,
-                        Collections.singletonList(process), Collections.emptyList(),
-                        notificationIdentity(context, process.project, process.role,
-                                process.topic, true), nowMillis, CHANNEL_ID,
-                        NotificationSurfaceContract.sortRole(key), true));
-            }
+        for (ProcessRoleGroup group : ProcessRoleGroup.group(context, processes)) {
+            CalendarProcess representative = group.representative();
+            if (representative == null) continue;
+            int id = activeRoleNotificationId(group.roleKey);
+            nextIds.add(String.valueOf(id));
+            boolean single = group.processes.size() == 1;
+            manager.notify(id, buildNotification(context,
+                    group.processes, Collections.emptyList(),
+                    notificationIdentity(context, representative.project, representative.role,
+                            representative.topic, single),
+                    nowMillis, CHANNEL_ID, NotificationSurfaceContract.sortRole(group.roleKey),
+                    true));
         }
         if (idleRoles != null) {
             for (IdleProcessState.IdleRole idle : idleRoles) {
@@ -410,9 +416,14 @@ final class ProcessNotificationManager {
                 summary.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
-    private static RemoteViews buildActiveRow(Context context, CalendarProcess process,
+    private static RemoteViews buildActiveGroupRow(Context context, ProcessRoleGroup group,
             long nowMillis, boolean showReminder) {
-        RemoteViews row = new RemoteViews(context.getPackageName(), R.layout.notification_process_row);
+        CalendarProcess process = group == null ? null : group.representative();
+        if (process == null) {
+            return new RemoteViews(context.getPackageName(), R.layout.notification_process_group_row);
+        }
+        RemoteViews row = new RemoteViews(
+                context.getPackageName(), R.layout.notification_process_group_row);
         int textColor = textColor(context);
         ProjectProfileStore.Profile profile = ProjectProfileStore.resolve(context, process.project);
         String projectIdentity = ProjectProfileStore.effectiveShort(profile);
@@ -422,29 +433,37 @@ final class ProcessNotificationManager {
         row.setViewVisibility(R.id.notification_process_project,
                 projectIdentity.isEmpty() ? View.GONE : View.VISIBLE);
 
+        boolean single = group.processes.size() == 1;
         String roleAndTopic = RoleProfileStore.displayName(context, process.role);
-        if (!clean(process.topic).isEmpty()) {
+        if (single && !clean(process.topic).isEmpty()) {
             roleAndTopic = roleAndTopic.isEmpty()
                     ? clean(process.topic) : roleAndTopic + " · " + clean(process.topic);
         }
         row.setTextViewText(R.id.notification_process_title, roleAndTopic);
         row.setTextColor(R.id.notification_process_title, textColor);
         row.setTextViewText(R.id.notification_process_remaining,
-                formatRemaining(process.remainingMillis(nowMillis)));
+                single ? formatRemaining(process.remainingMillis(nowMillis))
+                        : group.processes.size() + " active");
         row.setTextColor(R.id.notification_process_remaining, textColor);
-        row.setProgressBar(R.id.notification_process_progress, 100,
-                process.elapsedPercent(nowMillis), false);
-        row.setViewVisibility(R.id.notification_process_progress, View.VISIBLE);
+
+        row.removeAllViews(R.id.notification_process_instance_bars);
+        for (CalendarProcess instance : group.processes) {
+            RemoteViews bar = new RemoteViews(
+                    context.getPackageName(), R.layout.notification_process_instance_bar);
+            bar.setProgressBar(R.id.notification_process_instance_progress, 100,
+                    instance.elapsedPercent(nowMillis), false);
+            row.addView(R.id.notification_process_instance_bars, bar);
+        }
+
         if (showReminder) {
-            String key = IdleProcessState.roleKey(context, process);
-            boolean reminderEnabled = IdleProcessState.isReminderEnabled(context, key);
+            boolean reminderEnabled = IdleProcessState.isReminderEnabled(context, group.roleKey);
             row.setViewVisibility(R.id.notification_process_reminder, View.VISIBLE);
             row.setImageViewResource(R.id.notification_process_reminder,
                     reminderEnabled ? R.drawable.ic_bell_on : R.drawable.ic_bell_off);
             row.setInt(R.id.notification_process_reminder, "setColorFilter",
                     reminderEnabled ? 0xFFFFC107 : textColor);
             row.setOnClickPendingIntent(R.id.notification_process_reminder,
-                    IdleReminderManager.toggleIntent(context, key));
+                    IdleReminderManager.toggleIntent(context, group.roleKey));
         } else {
             row.setViewVisibility(R.id.notification_process_reminder, View.GONE);
         }
@@ -491,11 +510,8 @@ final class ProcessNotificationManager {
         return value.length() == 0 ? "Process" : value.toString();
     }
 
-    private static int notificationId(Context context, CalendarProcess process) {
-        String stableRole = IdleProcessState.roleKey(context, process);
-        String identity = stableRole.isEmpty() ? process.identity()
-                : stableRole + ":" + process.eventId;
-        int hash = identity.hashCode() & 0x7fffffff;
+    private static int activeRoleNotificationId(String roleKey) {
+        int hash = roleKey == null ? 0 : roleKey.hashCode() & 0x7fffffff;
         return PROCESS_NOTIFICATION_BASE + (hash % PROCESS_NOTIFICATION_RANGE);
     }
 

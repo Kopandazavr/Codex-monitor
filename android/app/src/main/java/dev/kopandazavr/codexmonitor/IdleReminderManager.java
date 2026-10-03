@@ -25,6 +25,8 @@ final class IdleReminderManager {
     static final String ACTION_COMPLETION_OVERLAY =
             "dev.kopandazavr.codexmonitor.action.IDLE_COMPLETION_OVERLAY";
     static final String EXTRA_ROLE_KEY = "idle_role_key";
+    static final String EXTRA_INSTANCE_ID = "idle_instance_id";
+    static final String EXTRA_EVENT_ID = "idle_event_id";
     static final String EXTRA_FINISHED_AT = "idle_finished_at";
 
     private static final String PREFS = "codex_idle_reminder_scheduler_v1";
@@ -47,16 +49,21 @@ final class IdleReminderManager {
         Set<String> enabledKeys = enabledKeys(context);
         if (active != null) {
             for (CalendarProcess process : active) {
-                String key = IdleProcessState.roleKey(process);
+                String key = IdleProcessState.roleKey(context, process);
                 cancelAlarm(context, key);
                 dismissSurface(context, key);
             }
+        }
+        for (IdleProcessState.IdleRole completion :
+                IdleProcessState.recentCompletions(context, nowMillis, COMPLETION_FRESH_MS)) {
+            if (!completion.reminderEnabled) continue;
+            enabledKeys.add(completion.key);
+            deliverFreshCompletion(context, completion, nowMillis);
         }
         if (visibleIdle != null) {
             for (IdleProcessState.IdleRole idle : visibleIdle) {
                 if (!idle.reminderEnabled) continue;
                 enabledKeys.add(idle.key);
-                deliverFreshCompletion(context, idle, nowMillis);
                 schedule(context, idle, nowMillis);
             }
         }
@@ -103,10 +110,12 @@ final class IdleReminderManager {
     static void fireFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
         String key = intent.getStringExtra(EXTRA_ROLE_KEY);
+        String instanceId = intent.getStringExtra(EXTRA_INSTANCE_ID);
+        long eventId = intent.getLongExtra(EXTRA_EVENT_ID, 0L);
         long expectedFinished = intent.getLongExtra(EXTRA_FINISHED_AT, 0L);
-        IdleProcessState.IdleRole idle = IdleProcessState.find(context, key);
-        if (idle == null || !idle.reminderEnabled
-                || idle.lastFinishedMillis != expectedFinished) {
+        IdleProcessState.IdleRole idle = IdleProcessState.findCompletion(
+                context, key, instanceId, eventId, expectedFinished);
+        if (idle == null || !idle.reminderEnabled) {
             if (key != null) cancelAlarm(context, key);
             return;
         }
@@ -153,7 +162,7 @@ final class IdleReminderManager {
         if (age > COMPLETION_FRESH_MS) return;
 
         SharedPreferences prefs = preferences(context);
-        String key = KEY_COMPLETION_DELIVERED_PREFIX + idle.key;
+        String key = completionPreferenceKey(idle);
         if (prefs.getLong(key, 0L) == idle.lastFinishedMillis) return;
 
         // Mark before side effects so the same logical completion cannot recursively re-enter.
@@ -181,7 +190,7 @@ final class IdleReminderManager {
     private static void markCompletionBaseline(Context context, IdleProcessState.IdleRole idle) {
         if (context == null || idle == null || idle.lastFinishedMillis <= 0L) return;
         preferences(context).edit()
-                .putLong(KEY_COMPLETION_DELIVERED_PREFIX + idle.key, idle.lastFinishedMillis)
+                .putLong(completionPreferenceKey(idle), idle.lastFinishedMillis)
                 .apply();
     }
 
@@ -252,7 +261,7 @@ final class IdleReminderManager {
 
     private static PendingIntent completionOverlayIntent(Context context,
             IdleProcessState.IdleRole idle) {
-        return PendingIntent.getBroadcast(context, requestCode(idle.key, 4),
+        return PendingIntent.getBroadcast(context, requestCode(completionIntentKey(idle), 4),
                 baseIntent(context, ACTION_COMPLETION_OVERLAY, idle),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
@@ -260,13 +269,19 @@ final class IdleReminderManager {
     private static void cancelCompletionOverlayAlarm(Context context, String key) {
         AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarms == null || key == null) return;
-        Intent intent = new Intent(context, NowBarActionReceiver.class)
-                .setAction(ACTION_COMPLETION_OVERLAY);
-        PendingIntent pending = PendingIntent.getBroadcast(context, requestCode(key, 4), intent,
-                PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
-        if (pending != null) {
-            alarms.cancel(pending);
-            pending.cancel();
+        long now = System.currentTimeMillis();
+        for (IdleProcessState.IdleRole completion :
+                IdleProcessState.recentCompletions(context, now, COMPLETION_FRESH_MS)) {
+            if (!key.equals(completion.key)) continue;
+            Intent intent = new Intent(context, NowBarActionReceiver.class)
+                    .setAction(ACTION_COMPLETION_OVERLAY);
+            PendingIntent pending = PendingIntent.getBroadcast(context,
+                    requestCode(completionIntentKey(completion), 4), intent,
+                    PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+            if (pending != null) {
+                alarms.cancel(pending);
+                pending.cancel();
+            }
         }
     }
 
@@ -350,6 +365,8 @@ final class IdleReminderManager {
         return new Intent(context, NowBarActionReceiver.class)
                 .setAction(action)
                 .putExtra(EXTRA_ROLE_KEY, idle.key)
+                .putExtra(EXTRA_INSTANCE_ID, idle.instanceId)
+                .putExtra(EXTRA_EVENT_ID, idle.eventId)
                 .putExtra(EXTRA_FINISHED_AT, idle.lastFinishedMillis);
     }
 
@@ -390,6 +407,15 @@ final class IdleReminderManager {
     private static void saveEnabledKeys(Context context, Set<String> keys) {
         preferences(context).edit()
                 .putStringSet(KEY_ENABLED_KEYS, new HashSet<>(keys)).apply();
+    }
+
+    private static String completionIntentKey(IdleProcessState.IdleRole idle) {
+        if (idle == null) return "";
+        return idle.key + ":" + idle.completionIdentity() + ":" + idle.lastFinishedMillis;
+    }
+
+    private static String completionPreferenceKey(IdleProcessState.IdleRole idle) {
+        return KEY_COMPLETION_DELIVERED_PREFIX + completionIntentKey(idle);
     }
 
     private static int requestCode(String key, int kind) {

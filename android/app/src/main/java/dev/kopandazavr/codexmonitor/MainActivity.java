@@ -623,9 +623,9 @@ public final class MainActivity extends AppCompatActivity {
         }
 
         boolean first = true;
-        for (CalendarProcess process : active) {
+        for (ProcessRoleGroup group : ProcessRoleGroup.group(this, active)) {
             if (!first) addProcessDivider(card);
-            card.addView(buildActiveProcessRow(process, now));
+            card.addView(buildActiveProcessGroupRow(group, now));
             first = false;
         }
         for (IdleProcessState.IdleRole idle : idleRoles) {
@@ -638,7 +638,11 @@ public final class MainActivity extends AppCompatActivity {
         return card;
     }
 
-    private View buildActiveProcessRow(CalendarProcess process, long nowMillis) {
+    private View buildActiveProcessGroupRow(ProcessRoleGroup group, long nowMillis) {
+        CalendarProcess process = group == null ? null : group.representative();
+        if (process == null) return new View(this);
+        boolean single = group.processes.size() == 1;
+
         LinearLayout row = Ui.horizontal(this, Gravity.TOP);
         row.setPadding(0, Ui.dp(this, 9), 0, Ui.dp(this, 7));
         addProcessActionGutter(row, null);
@@ -668,7 +672,9 @@ public final class MainActivity extends AppCompatActivity {
         roleParams.setMargins(0, Ui.dp(this, 5), 0, 0);
         copy.addView(role, roleParams);
         TextView state = Ui.text(this,
-                "Active · " + formatProcessRemaining(process.remainingMillis(nowMillis)),
+                single
+                        ? "Active · " + formatProcessRemaining(process.remainingMillis(nowMillis))
+                        : group.processes.size() + " active sessions",
                 12.0f, Ui.accent(this, this.dark));
         state.setOnClickListener(roleSettingsAction);
         state.setFocusable(true);
@@ -677,13 +683,12 @@ public final class MainActivity extends AppCompatActivity {
         copy.addView(state, stateParams);
         top.addView(copy, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
-        String key = IdleProcessState.roleKey(this, process);
-        boolean reminderEnabled = IdleProcessState.isReminderEnabled(this, key);
+        boolean reminderEnabled = IdleProcessState.isReminderEnabled(this, group.roleKey);
         ImageView bell = processActionIcon(
                 reminderEnabled ? R.drawable.ic_bell_on : R.drawable.ic_bell_off,
                 reminderEnabled ? 0xFFFFC107 : Ui.secondaryText(this.dark),
                 reminderEnabled ? "Disable idle reminders" : "Enable idle reminders");
-        bell.setOnClickListener(view -> toggleProcessReminder(key));
+        bell.setOnClickListener(view -> toggleProcessReminder(group.roleKey));
         LinearLayout.LayoutParams bellParams =
                 new LinearLayout.LayoutParams(
                         Ui.dp(this, PROCESS_ACTION_VISIBLE_DP),
@@ -693,21 +698,30 @@ public final class MainActivity extends AppCompatActivity {
         top.addView(bell, bellParams);
         body.addView(top);
 
-        if (process.topic != null && !process.topic.isEmpty()) {
-            TextView topic = Ui.text(this, process.topic, 13.5f, Ui.secondaryText(this.dark));
-            topic.setOnClickListener(roleSettingsAction);
-            topic.setFocusable(true);
-            LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-2, -2);
-            topicParams.setMargins(0, Ui.dp(this, 7), 0, 0);
-            body.addView(topic, topicParams);
-        }
+        int sessionIndex = 0;
+        for (CalendarProcess instance : group.processes) {
+            sessionIndex++;
+            String topicText = instance.topic == null ? "" : instance.topic.trim();
+            if (!single || !topicText.isEmpty()) {
+                String label = topicText.isEmpty() ? "Session " + sessionIndex : topicText;
+                if (!single) {
+                    label += " · " + formatProcessRemaining(instance.remainingMillis(nowMillis));
+                }
+                TextView topic = Ui.text(this, label, 13.5f, Ui.secondaryText(this.dark));
+                topic.setOnClickListener(roleSettingsAction);
+                topic.setFocusable(true);
+                LinearLayout.LayoutParams topicParams = new LinearLayout.LayoutParams(-2, -2);
+                topicParams.setMargins(0, Ui.dp(this, sessionIndex == 1 ? 7 : 9), 0, 0);
+                body.addView(topic, topicParams);
+            }
 
-        ProgressBar progress = Ui.progress(this, this.dark);
-        progress.setProgress(process.elapsedPercent(nowMillis));
-        LinearLayout.LayoutParams progressParams =
-                new LinearLayout.LayoutParams(-1, Ui.dp(this, 7));
-        progressParams.setMargins(0, Ui.dp(this, 10), 0, 0);
-        body.addView(progress, progressParams);
+            ProgressBar progress = Ui.progress(this, this.dark);
+            progress.setProgress(instance.elapsedPercent(nowMillis));
+            LinearLayout.LayoutParams progressParams =
+                    new LinearLayout.LayoutParams(-1, Ui.dp(this, 7));
+            progressParams.setMargins(0, Ui.dp(this, single ? 10 : 5), 0, 0);
+            body.addView(progress, progressParams);
+        }
 
         LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(0, -2, 1.0f);
         bodyParams.setMargins(Ui.dp(this, 4), 0, 0, 0);

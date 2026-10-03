@@ -48,7 +48,10 @@ final class WatchdogCanonicalizer {
         if(p==null)return "";
         String project=ProjectProfileRules.normalizeAlias(p.project);
         String role=ProjectProfileRules.normalizeAlias(p.role);
-        return project.isEmpty()||role.isEmpty()?"":project+"\u001f"+role;
+        if(project.isEmpty()||role.isEmpty())return "";
+        String instance=p.instanceId==null?"":p.instanceId.trim();
+        return instance.isEmpty()?project+"\u001f"+role
+                :project+"\u001f"+role+"\u001finstance:"+instance;
     }
     private static boolean isNewer(CalendarProcess candidate,CalendarProcess current){
         if(candidate.beginMillis!=current.beginMillis)return candidate.beginMillis>current.beginMillis;

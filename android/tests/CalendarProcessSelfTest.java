@@ -18,6 +18,7 @@ public final class CalendarProcessSelfTest {
         testOptionalFieldsMayBeMissing();
         testDirectSourceProvenance();
         testProviderUpdatedMarker();
+        testStableInstanceIdentity();
         testCanonicalWorkWindow();
         System.out.println("CalendarProcess strict metadata/display/timing self-test passed.");
     }
@@ -174,6 +175,30 @@ public final class CalendarProcessSelfTest {
                 20_000L, 21_000L, 19_500L);
         require(direct != null && direct.providerUpdatedMillis == 19_500L,
                 "direct source keeps provider updated marker");
+    }
+
+    private static void testStableInstanceIdentity() {
+        CalendarProcess direct = CalendarProcess.fromDirectEvent(
+                901L, "GPT_WATCHDOG|urgent|Data Matrix",
+                "codex_monitor_watchdog=v1 project=Data Matrix role=Planner "
+                        + "topic=parallel A instance_id=planner-session-a",
+                30_000L, 31_000L, 29_000L);
+        CalendarProcess provider = CalendarProcess.fromEvent(
+                77L, "GPT_WATCHDOG|urgent|Data Matrix",
+                "codex_monitor_watchdog=v1 project=Data Matrix role=Planner "
+                        + "topic=parallel A instance_id=planner-session-a",
+                30_000L, 31_000L);
+        require(direct != null && provider != null, "instance watchdogs parsed");
+        require("planner-session-a".equals(direct.instanceId), "instance_id parsed");
+        require(direct.identity().equals(provider.identity()),
+                "instance identity survives source-specific event IDs");
+
+        CalendarProcess legacy = CalendarProcess.fromEvent(
+                78L, "GPT_WATCHDOG|urgent|Data Matrix",
+                "codex_monitor_watchdog=v1 project=Data Matrix role=Planner topic=legacy",
+                30_000L, 31_000L);
+        require(legacy != null && legacy.instanceId.isEmpty(), "legacy instance_id optional");
+        require("legacy-event:78".equals(legacy.identity()), "legacy identity keeps event ID");
     }
 
     private static void testCanonicalWorkWindow() {

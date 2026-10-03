@@ -29,11 +29,33 @@ public final class WatchdogCanonicalizerSelfTest {
         List<CalendarProcess> idTie=WatchdogCanonicalizer.select(
                 list(p(30L,300_000L,0L,"a"),p(31L,300_000L,0L,"b")),idMemory);
         require(idTie.size()==1&&idTie.get(0).eventId==31L,"provider id final tie-break");
-        System.out.println("Watchdog canonicalization + shadow suppression PASS");
+        Map<String,WatchdogCanonicalizer.Memory> parallelMemory=new HashMap<>();
+        CalendarProcess plannerA=pi(40L,400_000L,1_000L,"a","planner-a");
+        CalendarProcess plannerB=pi(41L,401_000L,1_100L,"b","planner-b");
+        List<CalendarProcess> parallel=WatchdogCanonicalizer.select(
+                list(plannerA,plannerB),parallelMemory);
+        require(parallel.size()==2,"distinct instance_id siblings survive together");
+
+        Map<String,WatchdogCanonicalizer.Memory> duplicateInstanceMemory=new HashMap<>();
+        List<CalendarProcess> duplicateInstance=WatchdogCanonicalizer.select(
+                list(pi(50L,500_000L,1_000L,"old","same-instance"),
+                        pi(51L,510_000L,2_000L,"new","same-instance")),
+                duplicateInstanceMemory);
+        require(duplicateInstance.size()==1&&duplicateInstance.get(0).eventId==51L,
+                "same instance_id still uses latest-wins duplicate suppression");
+
+        System.out.println("Watchdog canonicalization + parallel instances PASS");
     }
     private static CalendarProcess p(long id,long begin,long updated,String topic){
         return CalendarProcess.fromDirectEvent(id,"GPT_WATCHDOG|urgent|Codex Monitor",
                 "codex_monitor_watchdog=v1 project=Codex Monitor role=Main Agent topic="+topic,
+                begin,begin+60_000L,updated);
+    }
+    private static CalendarProcess pi(long id,long begin,long updated,String topic,
+            String instanceId){
+        return CalendarProcess.fromDirectEvent(id,"GPT_WATCHDOG|urgent|Data Matrix",
+                "codex_monitor_watchdog=v1 project=Data Matrix role=Planner topic="+topic
+                        +" instance_id="+instanceId,
                 begin,begin+60_000L,updated);
     }
     private static List<CalendarProcess> list(CalendarProcess...values){

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ProgressBar xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/notification_process_instance_progress"
+    style="?android:attr/progressBarStyleHorizontal"
+    android:layout_width="match_parent"
+    android:layout_height="3dp"
+    android:layout_marginTop="2dp"
+    android:max="100"
+    android:progressBackgroundTint="#303B82F6"
+    android:progressTint="#5B9CFF" />

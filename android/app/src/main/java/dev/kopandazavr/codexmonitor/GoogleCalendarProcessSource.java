@@ -249,6 +249,9 @@ final class GoogleCalendarProcessSource {
                     }
                     if (!process.role.isEmpty()) metadata.append(" role=").append(process.role);
                     if (!process.topic.isEmpty()) metadata.append(" topic=").append(process.topic);
+                    if (!process.instanceId.isEmpty()) {
+                        metadata.append(" instance_id=").append(process.instanceId);
+                    }
                     row.put("description", metadata.toString());
                     row.put("begin", process.beginMillis);
                     row.put("end", process.endMillis);

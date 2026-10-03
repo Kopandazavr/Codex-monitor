@@ -22,16 +22,17 @@ final class CalendarProcess {
     final String projectShort;
     final String role;
     final String topic;
+    final String instanceId;
     final boolean directSource;
 
     CalendarProcess(long eventId, long beginMillis, long endMillis,
             String project, String role, String topic) {
-        this(eventId, beginMillis, endMillis, 0L, project, "", role, topic, false);
+        this(eventId, beginMillis, endMillis, 0L, project, "", role, topic, "", false);
     }
 
     private CalendarProcess(long eventId, long beginMillis, long endMillis,
             long providerUpdatedMillis, String project, String projectShort,
-            String role, String topic, boolean directSource) {
+            String role, String topic, String instanceId, boolean directSource) {
         this.eventId = eventId;
         this.beginMillis = beginMillis;
         this.endMillis = endMillis;
@@ -40,6 +41,7 @@ final class CalendarProcess {
         this.projectShort = clean(projectShort);
         this.role = clean(role);
         this.topic = clean(topic);
+        this.instanceId = clean(instanceId);
         this.directSource = directSource;
     }
 
@@ -69,8 +71,9 @@ final class CalendarProcess {
         String projectShort = metadata.get("project_short");
         String role = metadata.get("role");
         String topic = metadata.get("topic");
+        String instanceId = metadata.get("instance_id");
         return new CalendarProcess(eventId, beginMillis, endMillis, providerUpdatedMillis,
-                project, projectShort, role, topic, directSource);
+                project, projectShort, role, topic, instanceId, directSource);
     }
 
     static String rejectionReason(String title, String description,
@@ -222,8 +225,12 @@ final class CalendarProcess {
     }
 
     /** Stable across an in-place Calendar reschedule of the same provider event. */
+    String instanceIdentity() {
+        return instanceId.isEmpty() ? "legacy-event:" + eventId : "instance:" + instanceId;
+    }
+
     String identity() {
-        return String.valueOf(eventId);
+        return instanceIdentity();
     }
 
     private static String normalizeMetadata(String description) {

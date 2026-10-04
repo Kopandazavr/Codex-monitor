@@ -439,6 +439,13 @@ final class IdleReminderManager {
         return KEY_COMPLETION_DELIVERED_PREFIX + completionIntentKey(idle);
     }
 
+    private static int requestCode(String containerId, String key, int kind) {
+        String stable = AccountNotificationNamespace.safe(containerId) + "|"
+                + (key == null ? "" : key);
+        int hash = stable.hashCode() & 0x7fffffff;
+        return REQUEST_BASE + kind * 10000 + (hash % 9000);
+    }
+
     private static int requestCode(String key, int kind) {
         int hash = key == null ? 0 : key.hashCode() & 0x7fffffff;
         return REQUEST_BASE + kind * 10000 + (hash % 9000);

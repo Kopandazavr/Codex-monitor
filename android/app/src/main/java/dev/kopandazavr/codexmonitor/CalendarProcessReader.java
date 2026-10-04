@@ -44,17 +44,20 @@ final class CalendarProcessReader {
         if (GoogleCalendarAuthorization.isConnected(context, containerId)) {
             GoogleCalendarProcessSource.refreshIfDue(context, containerId, null);
             if (GoogleCalendarProcessSource.hasFreshCache(context, containerId, nowMillis)) {
-                MonitorHealthDiagnostics.recordObservationSource(context, "direct_api");
+                MonitorHealthDiagnostics.recordObservationSource(
+                        context, containerId, "direct_api");
                 return canonicalize(context, containerId,
                         GoogleCalendarProcessSource.cached(context, containerId));
             }
         }
         if (LocalCalendarFallbackOwner.isOwner(context, containerId)) {
             MonitorHealthDiagnostics.recordObservationSource(
-                    context, "calendar_provider_fallback");
-            return canonicalize(context, containerId, queryProvider(context, nowMillis));
+                    context, containerId, "calendar_provider_fallback");
+            return canonicalize(context, containerId,
+                    queryProvider(context, containerId, nowMillis));
         }
-        MonitorHealthDiagnostics.recordObservationSource(context, "no_calendar_fallback");
+        MonitorHealthDiagnostics.recordObservationSource(
+                context, containerId, "no_calendar_fallback");
         return new ArrayList<>();
     }
 
@@ -134,9 +137,13 @@ final class CalendarProcessReader {
                 != PackageManager.PERMISSION_GRANTED) {
             return true;
         }
+        List<Long> calendarIds = providerCalendarIds(context, containerId);
+        if (calendarIds != null && calendarIds.isEmpty()) return true;
         Uri eventUri = ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, eventId);
+        String selection = calendarIds == null ? null : calendarSelection(calendarIds);
+        String[] selectionArgs = calendarIds == null ? null : calendarSelectionArgs(calendarIds);
         try (Cursor cursor = context.getContentResolver().query(eventUri,
-                new String[]{CalendarContract.Events._ID}, null, null, null)) {
+                new String[]{CalendarContract.Events._ID}, selection, selectionArgs, null)) {
             return cursor == null || cursor.moveToFirst();
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(context, "calendar_process", "event_exists_read_failed",
@@ -223,10 +230,17 @@ final class CalendarProcessReader {
                 + id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
-    private static List<CalendarProcess> queryProvider(Context context, long nowMillis) {
+    private static List<CalendarProcess> queryProvider(
+            Context context, String containerId, long nowMillis) {
         List<CalendarProcess> processes = new ArrayList<>();
         if (context == null || context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
                 != PackageManager.PERMISSION_GRANTED) {
+            return processes;
+        }
+        List<Long> calendarIds = providerCalendarIds(context, containerId);
+        if (calendarIds != null && calendarIds.isEmpty()) {
+            DiagnosticLog.info(context, "calendar_process", "provider_owner_unresolved",
+                    "container_id", containerId);
             return processes;
         }
         Uri.Builder builder = CalendarContract.Instances.CONTENT_URI.buildUpon();
@@ -239,8 +253,10 @@ final class CalendarProcessReader {
                 CalendarContract.Instances.BEGIN,
                 CalendarContract.Instances.END
         };
+        String selection = calendarIds == null ? null : calendarSelection(calendarIds);
+        String[] selectionArgs = calendarIds == null ? null : calendarSelectionArgs(calendarIds);
         ContentResolver resolver = context.getContentResolver();
-        try (Cursor cursor = resolver.query(builder.build(), projection, null, null,
+        try (Cursor cursor = resolver.query(builder.build(), projection, selection, selectionArgs,
                 CalendarContract.Instances.END + " ASC")) {
             if (cursor == null) return processes;
             int eventIdIndex = cursor.getColumnIndexOrThrow(CalendarContract.Instances.EVENT_ID);
@@ -267,19 +283,63 @@ final class CalendarProcessReader {
                 String reason = CalendarProcess.rejectionReason(
                         title, description, begin, end);
                 if (!"not_watchdog".equals(reason)) {
-                    // "watchdog_rejected_metadata"; "source", "calendar_provider"
                     WatchdogObservationDiagnostics.logRejected(context, "calendar_process",
                             eventId, "calendar_provider", "provider_fallback",
                             title, description, begin, end);
                 }
             }
         } catch (RuntimeException exception) {
-            MonitorHealthDiagnostics.recordPollFailure(context,
+            MonitorHealthDiagnostics.recordPollFailure(context, containerId,
                     "calendar_provider_read_" + exception.getClass().getSimpleName());
             DiagnosticLog.warn(context, "calendar_process", "read_failed",
+                    "container_id", containerId,
                     "error", exception.getClass().getSimpleName());
             processes.clear();
         }
         return processes;
     }
+
+    /**
+     * null means the single-container legacy provider may remain unfiltered.
+     * An empty list in multi-account mode means provenance is not safe enough to consume.
+     */
+    private static List<Long> providerCalendarIds(Context context, String containerId) {
+        if (AccountContainerStore.all(context).size() <= 1) return null;
+        List<Long> ids = new ArrayList<>();
+        String googleAccount = GoogleCalendarAuthorization.accountName(context, containerId);
+        if (googleAccount.isEmpty()) return ids;
+        try (Cursor cursor = context.getContentResolver().query(
+                CalendarContract.Calendars.CONTENT_URI,
+                new String[]{CalendarContract.Calendars._ID},
+                CalendarContract.Calendars.ACCOUNT_NAME + " = ?",
+                new String[]{googleAccount}, null)) {
+            if (cursor == null) return ids;
+            int idIndex = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID);
+            while (cursor.moveToNext()) ids.add(cursor.getLong(idIndex));
+        } catch (RuntimeException exception) {
+            DiagnosticLog.warn(context, "calendar_process", "calendar_owner_lookup_failed",
+                    "container_id", containerId,
+                    "error", exception.getClass().getSimpleName());
+        }
+        return ids;
+    }
+
+    private static String calendarSelection(List<Long> calendarIds) {
+        StringBuilder out = new StringBuilder(CalendarContract.Instances.CALENDAR_ID)
+                .append(" IN (");
+        for (int i = 0; i < calendarIds.size(); i++) {
+            if (i > 0) out.append(',');
+            out.append('?');
+        }
+        return out.append(')').toString();
+    }
+
+    private static String[] calendarSelectionArgs(List<Long> calendarIds) {
+        String[] args = new String[calendarIds.size()];
+        for (int i = 0; i < calendarIds.size(); i++) {
+            args[i] = Long.toString(calendarIds.get(i));
+        }
+        return args;
+    }
+
 }

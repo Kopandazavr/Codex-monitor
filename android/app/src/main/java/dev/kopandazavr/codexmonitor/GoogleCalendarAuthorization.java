@@ -96,7 +96,10 @@ final class GoogleCalendarAuthorization {
     }
 
     static String statusSummary(Context context) {
-        String containerId = AccountContainerStore.selectedId(context);
+        return statusSummary(context, AccountContainerStore.selectedId(context));
+    }
+
+    static String statusSummary(Context context, String containerId) {
         SharedPreferences prefs = prefs(context);
         String account = accountName(context, containerId);
         if (isConnected(context, containerId)) {

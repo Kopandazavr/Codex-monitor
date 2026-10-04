@@ -78,6 +78,16 @@ final class IdleReminderManager {
         saveEnabledKeys(context, containerId, enabledKeys);
     }
 
+    static void cancelAllScheduled(Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()) return;
+        for (String key : new HashSet<>(enabledKeys(context, containerId))) {
+            cancelAlarm(context, containerId, key);
+            cancelCompletionOverlayAlarm(context, containerId, key);
+            clearLegacyReminderCard(context, containerId, key);
+        }
+        saveEnabledKeys(context, containerId, Collections.emptySet());
+    }
+
     static void onReminderToggled(Context context, String key, boolean enabled, long nowMillis) {
         onReminderToggled(context, AccountContainerStore.selectedId(context),
                 key, enabled, nowMillis);

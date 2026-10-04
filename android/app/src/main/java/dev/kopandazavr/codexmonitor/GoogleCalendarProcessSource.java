@@ -167,8 +167,8 @@ final class GoogleCalendarProcessSource {
             boolean retriedUnauthorized) {
         GoogleCalendarAuthorization.accessToken(app, containerId, token -> {
             if (token == null || token.isEmpty()) {
-                MonitorHealthDiagnostics.recordPollFailure(app,
-                        "authorization_token_unavailable");
+                MonitorHealthDiagnostics.recordPollFailure(
+                        app, containerId, "authorization_token_unavailable");
                 finishRefresh(containerId);
                 return;
             }
@@ -177,7 +177,8 @@ final class GoogleCalendarProcessSource {
                     List<CalendarProcess> processes =
                             fetch(app, token, System.currentTimeMillis());
                     store(app, containerId, processes, System.currentTimeMillis());
-                    MonitorHealthDiagnostics.recordDirectPollSuccess(app, processes.size());
+                    MonitorHealthDiagnostics.recordDirectPollSuccess(
+                            app, containerId, processes.size());
                     if (retriedUnauthorized) {
                         DiagnosticLog.info(app, "calendar_api",
                                 "calendar_http_401_recovered_after_token_refresh",
@@ -195,7 +196,7 @@ final class GoogleCalendarProcessSource {
                         requestAndFetch(app, containerId, true);
                         return;
                     }
-                    MonitorHealthDiagnostics.recordPollFailure(app, exception);
+                    MonitorHealthDiagnostics.recordPollFailure(app, containerId, exception);
                     finishRefresh(containerId);
                 } catch (Exception exception) {
                     MonitorHealthDiagnostics.recordPollFailure(app, exception);

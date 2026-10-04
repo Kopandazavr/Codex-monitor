@@ -37,7 +37,22 @@ final class LocalCalendarFallbackOwner {
     static synchronized boolean transfer(Context context, String containerId) {
         AccountContainerStore.Account target = AccountContainerStore.find(context, containerId);
         if (target == null) return false;
-        return prefs(context).edit().putString(KEY_OWNER_ID, target.id).commit();
+        String previous = ownerId(context);
+        if (target.id.equals(previous)) return true;
+        if (!previous.isEmpty()) {
+            IdleReminderManager.cancelAllScheduled(context, previous);
+            WatchdogInstanceState.clearContainer(context, previous);
+        }
+        boolean moved = prefs(context).edit().putString(KEY_OWNER_ID, target.id).commit();
+        if (moved) {
+            DualUsageNotificationManager.repostForProcessChange(context, previous);
+            DualUsageNotificationManager.repostForProcessChange(context, target.id);
+            ProcessNotificationScheduler.recover(context);
+            DiagnosticLog.info(context, "calendar_process", "fallback_owner_transferred",
+                    "previous_container_id", previous,
+                    "container_id", target.id);
+        }
+        return moved;
     }
 
     static synchronized void onContainerRemoved(Context context, String removedId) {

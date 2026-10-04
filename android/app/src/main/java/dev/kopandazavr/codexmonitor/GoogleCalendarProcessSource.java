@@ -13,7 +13,9 @@ import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -29,8 +31,12 @@ final class GoogleCalendarProcessSource {
     private static final long AUTHORITATIVE_CACHE_MS = TimeUnit.MINUTES.toMillis(3);
 
     private static final Object LOCK = new Object();
-    private static final List<Runnable> waiters = new ArrayList<>();
-    private static boolean refreshInFlight;
+    private static final Map<String, RefreshState> REFRESH_STATES = new HashMap<>();
+
+    private static final class RefreshState {
+        final List<Runnable> waiters = new ArrayList<>();
+        boolean inFlight;
+    }
 
     private GoogleCalendarProcessSource() {
     }
@@ -46,16 +52,26 @@ final class GoogleCalendarProcessSource {
 
 
     static boolean hasFreshCache(Context context, long nowMillis) {
-        if (context == null || !GoogleCalendarAuthorization.isConnected(context)) return false;
-        long refreshed = prefs(context).getLong(KEY_LAST_REFRESH, 0L);
+        return hasFreshCache(context, AccountContainerStore.selectedId(context), nowMillis);
+    }
+
+    static boolean hasFreshCache(Context context, String containerId, long nowMillis) {
+        if (context == null || !GoogleCalendarAuthorization.isConnected(context, containerId)) {
+            return false;
+        }
+        long refreshed = prefs(context).getLong(key(containerId, KEY_LAST_REFRESH), 0L);
         return refreshed > 0L && nowMillis >= refreshed
                 && nowMillis - refreshed <= AUTHORITATIVE_CACHE_MS;
     }
 
     static List<CalendarProcess> cached(Context context) {
+        return cached(context, AccountContainerStore.selectedId(context));
+    }
+
+    static List<CalendarProcess> cached(Context context, String containerId) {
         List<CalendarProcess> result = new ArrayList<>();
         if (context == null) return result;
-        String raw = prefs(context).getString(KEY_EVENTS, "[]");
+        String raw = prefs(context).getString(key(containerId, KEY_EVENTS), "[]");
         try {
             JSONArray rows = new JSONArray(raw == null ? "[]" : raw);
             for (int index = 0; index < rows.length(); index++) {
@@ -77,7 +93,6 @@ final class GoogleCalendarProcessSource {
                     String reason = CalendarProcess.rejectionReason(
                             title, description, begin, end);
                     if (!"not_watchdog".equals(reason)) {
-                        // "watchdog_rejected_metadata"; "source", "direct_cache"
                         WatchdogObservationDiagnostics.logRejected(context, "calendar_api",
                                 eventId, "direct_cache", "direct_cache",
                                 title, description, begin, end);
@@ -86,87 +101,106 @@ final class GoogleCalendarProcessSource {
             }
         } catch (Exception exception) {
             DiagnosticLog.warn(context, "calendar_api", "cache_read_failed",
+                    "container_id", containerId,
                     "error", exception.getClass().getSimpleName());
         }
         return result;
     }
 
     static boolean cachedEventExists(Context context, long eventId, long nowMillis) {
-        if (!hasFreshCache(context, nowMillis)) return true;
-        for (CalendarProcess process : cached(context)) {
+        return cachedEventExists(context, AccountContainerStore.selectedId(context),
+                eventId, nowMillis);
+    }
+
+    static boolean cachedEventExists(Context context, String containerId,
+            long eventId, long nowMillis) {
+        if (!hasFreshCache(context, containerId, nowMillis)) return true;
+        for (CalendarProcess process : cached(context, containerId)) {
             if (process.eventId == eventId) return true;
         }
         return false;
     }
 
     static void refreshIfDue(Context context, Runnable completion) {
-        if (context == null || !GoogleCalendarAuthorization.isConnected(context)) {
+        refreshIfDue(context, AccountContainerStore.selectedId(context), completion);
+    }
+
+    static void refreshIfDue(Context context, String containerId, Runnable completion) {
+        if (context == null || !GoogleCalendarAuthorization.isConnected(context, containerId)) {
             run(completion);
             return;
         }
         long now = System.currentTimeMillis();
-        long last = prefs(context).getLong(KEY_LAST_REFRESH, 0L);
+        long last = prefs(context).getLong(key(containerId, KEY_LAST_REFRESH), 0L);
         if (last > 0L && now >= last && now - last < REFRESH_INTERVAL_MS) {
             run(completion);
             return;
         }
-        refresh(context, completion);
+        refresh(context, containerId, completion);
     }
 
     static void forceRefresh(Context context, Runnable completion) {
-        if (context == null || !GoogleCalendarAuthorization.isConnected(context)) {
+        forceRefresh(context, AccountContainerStore.selectedId(context), completion);
+    }
+
+    static void forceRefresh(Context context, String containerId, Runnable completion) {
+        if (context == null || !GoogleCalendarAuthorization.isConnected(context, containerId)) {
             run(completion);
             return;
         }
-        refresh(context, completion);
+        refresh(context, containerId, completion);
     }
 
-    private static void refresh(Context context, Runnable completion) {
+    private static void refresh(Context context, String containerId, Runnable completion) {
         Context app = context.getApplicationContext();
         synchronized (LOCK) {
-            if (completion != null) waiters.add(completion);
-            if (refreshInFlight) return;
-            refreshInFlight = true;
+            RefreshState state = stateLocked(containerId);
+            if (completion != null) state.waiters.add(completion);
+            if (state.inFlight) return;
+            state.inFlight = true;
         }
-        requestAndFetch(app, false);
+        requestAndFetch(app, containerId, false);
     }
 
-    private static void requestAndFetch(Context app, boolean retriedUnauthorized) {
-        GoogleCalendarAuthorization.accessToken(app, token -> {
+    private static void requestAndFetch(Context app, String containerId,
+            boolean retriedUnauthorized) {
+        GoogleCalendarAuthorization.accessToken(app, containerId, token -> {
             if (token == null || token.isEmpty()) {
                 MonitorHealthDiagnostics.recordPollFailure(app,
                         "authorization_token_unavailable");
-                finishRefresh();
+                finishRefresh(containerId);
                 return;
             }
             new Thread(() -> {
                 try {
                     List<CalendarProcess> processes =
                             fetch(app, token, System.currentTimeMillis());
-                    store(app, processes, System.currentTimeMillis());
+                    store(app, containerId, processes, System.currentTimeMillis());
                     MonitorHealthDiagnostics.recordDirectPollSuccess(app, processes.size());
                     if (retriedUnauthorized) {
                         DiagnosticLog.info(app, "calendar_api",
                                 "calendar_http_401_recovered_after_token_refresh",
+                                "container_id", containerId,
                                 "events", processes.size());
                     }
-                    finishRefresh();
+                    finishRefresh(containerId);
                 } catch (CalendarHttpException exception) {
                     if (exception.status == 401 && !retriedUnauthorized) {
                         GoogleCalendarAuthorization.invalidateCachedToken(
-                                app, "calendar_http_401");
+                                app, containerId, "calendar_http_401");
                         DiagnosticLog.warn(app, "calendar_api",
-                                "calendar_http_401_retrying_with_fresh_token");
-                        requestAndFetch(app, true);
+                                "calendar_http_401_retrying_with_fresh_token",
+                                "container_id", containerId);
+                        requestAndFetch(app, containerId, true);
                         return;
                     }
                     MonitorHealthDiagnostics.recordPollFailure(app, exception);
-                    finishRefresh();
+                    finishRefresh(containerId);
                 } catch (Exception exception) {
                     MonitorHealthDiagnostics.recordPollFailure(app, exception);
-                    finishRefresh();
+                    finishRefresh(containerId);
                 }
-            }, "codex-calendar-api").start();
+            }, "codex-calendar-api-" + safeSuffix(containerId)).start();
         });
     }
 
@@ -234,7 +268,8 @@ final class GoogleCalendarProcessSource {
         return result;
     }
 
-    private static void store(Context context, List<CalendarProcess> processes, long refreshedAt) {
+    private static void store(Context context, String containerId,
+            List<CalendarProcess> processes, long refreshedAt) {
         JSONArray rows = new JSONArray();
         if (processes != null) {
             for (CalendarProcess process : processes) {
@@ -265,8 +300,8 @@ final class GoogleCalendarProcessSource {
             }
         }
         prefs(context).edit()
-                .putString(KEY_EVENTS, rows.toString())
-                .putLong(KEY_LAST_REFRESH, refreshedAt)
+                .putString(key(containerId, KEY_EVENTS), rows.toString())
+                .putLong(key(containerId, KEY_LAST_REFRESH), refreshedAt)
                 .apply();
     }
 
@@ -316,14 +351,25 @@ final class GoogleCalendarProcessSource {
         return body.toString();
     }
 
-    private static void finishRefresh() {
+    private static void finishRefresh(String containerId) {
         List<Runnable> callbacks;
         synchronized (LOCK) {
-            refreshInFlight = false;
-            callbacks = new ArrayList<>(waiters);
-            waiters.clear();
+            RefreshState state = stateLocked(containerId);
+            state.inFlight = false;
+            callbacks = new ArrayList<>(state.waiters);
+            state.waiters.clear();
         }
         for (Runnable callback : callbacks) run(callback);
+    }
+
+    private static RefreshState stateLocked(String containerId) {
+        String key = containerId == null ? "" : containerId;
+        RefreshState state = REFRESH_STATES.get(key);
+        if (state == null) {
+            state = new RefreshState();
+            REFRESH_STATES.put(key, state);
+        }
+        return state;
     }
 
     private static void run(Runnable runnable) {
@@ -333,6 +379,15 @@ final class GoogleCalendarProcessSource {
             } catch (RuntimeException ignored) {
             }
         }
+    }
+
+    private static String key(String containerId, String base) {
+        return base + "::" + safeSuffix(containerId);
+    }
+
+    private static String safeSuffix(String containerId) {
+        String id = containerId == null ? "" : containerId.trim();
+        return id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
     private static SharedPreferences prefs(Context context) {

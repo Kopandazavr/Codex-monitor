@@ -9,6 +9,10 @@ final class NotificationSurfaceContract {
     private NotificationSurfaceContract() {
     }
 
+    static String groupKey(String containerId) {
+        return AccountNotificationNamespace.groupKey(containerId);
+    }
+
     static String sortRole(String key) {
         String stable = key == null ? "" : key;
         return "20_role_" + Integer.toHexString(stable.hashCode());

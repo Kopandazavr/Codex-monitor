@@ -283,8 +283,14 @@ final class IdleReminderManager {
 
     private static PendingIntent completionOverlayIntent(Context context,
             IdleProcessState.IdleRole idle) {
-        return PendingIntent.getBroadcast(context, requestCode(completionIntentKey(idle), 4),
-                baseIntent(context, ACTION_COMPLETION_OVERLAY, idle),
+        return completionOverlayIntent(context, AccountContainerStore.selectedId(context), idle);
+    }
+
+    private static PendingIntent completionOverlayIntent(Context context, String containerId,
+            IdleProcessState.IdleRole idle) {
+        return PendingIntent.getBroadcast(context,
+                requestCode(containerId, completionIntentKey(idle), 4),
+                baseIntent(context, containerId, ACTION_COMPLETION_OVERLAY, idle),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 

@@ -218,7 +218,10 @@ final class GoogleCalendarProcessSource {
                     }
                     finishRefresh(containerId);
                 } catch (Exception exception) {
-                    MonitorHealthDiagnostics.recordPollFailure(app, exception);
+                    if (AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                        MonitorHealthDiagnostics.recordPollFailure(
+                                app, containerId, exception);
+                    }
                     finishRefresh(containerId);
                 }
             }, "codex-calendar-api-" + safeSuffix(containerId)).start();

@@ -40,8 +40,8 @@ public final class UsageApi {
             boolean forceSubscription, String trigger) throws Exception {
         AuthTokens authTokens;
         Response responseRequestUsage;
-        String str;
         UsageSnapshot usageSnapshot;
+        UsageSnapshot previousSnapshot;
         long started = SystemClock.elapsedRealtime();
         String safeTrigger = trigger == null || trigger.trim().isEmpty()
                 ? "unspecified" : trigger.trim();
@@ -54,117 +54,129 @@ public final class UsageApi {
         }
         try {
             synchronized (NETWORK_LOCK) {
-                AuthTokens authTokensUsableTokens = usableTokens(context, containerId);
-                Response responseRequestUsage2 = requestUsage(context, authTokensUsableTokens,
-                        safeTrigger);
-                if (responseRequestUsage2.status == 401) {
+                AuthTokens usable = usableTokens(context, containerId);
+                Response first = requestUsage(context, usable, safeTrigger);
+                if (first.status == 401) {
                     DiagnosticLog.warn(context, "auth", "usage_token_rejected_refreshing",
-                            "trigger", safeTrigger);
-                    AuthTokens authTokensRefresh = OAuthClient.refresh(context,
-                            authTokensUsableTokens);
+                            "container_id", containerId, "trigger", safeTrigger);
+                    AuthTokens refreshed = OAuthClient.refresh(context, usable);
                     synchronized (AccountContainerLifecycleGuard.lock()) {
                         if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
                             throw new Exception("Account container was removed.");
                         }
-                        SecureTokenStore.save(context, containerId, authTokensRefresh);
+                        SecureTokenStore.save(context, containerId, refreshed);
                     }
-                    authTokens = authTokensRefresh;
-                    responseRequestUsage = requestUsage(context, authTokensRefresh, safeTrigger);
+                    authTokens = refreshed;
+                    responseRequestUsage = requestUsage(context, refreshed, safeTrigger);
                 } else {
-                    authTokens = authTokensUsableTokens;
-                    responseRequestUsage = responseRequestUsage2;
+                    authTokens = usable;
+                    responseRequestUsage = first;
                 }
                 if (responseRequestUsage.status < 200 || responseRequestUsage.status >= 300) {
-                    if (responseRequestUsage.status == 403) {
-                        str = "Codex usage access was denied for this account.";
-                    } else {
-                        str = responseRequestUsage.status == 404
-                                ? "The Codex usage endpoint is unavailable or has changed."
-                                : "Usage refresh failed (HTTP " + responseRequestUsage.status + ").";
-                    }
-                    throw new Exception(OAuthClient.readError(responseRequestUsage.body, str));
+                    String fallback = responseRequestUsage.status == 403
+                            ? "Codex usage access was denied for this account."
+                            : responseRequestUsage.status == 404
+                            ? "The Codex usage endpoint is unavailable or has changed."
+                            : "Usage refresh failed (HTTP " + responseRequestUsage.status + ").";
+                    throw new Exception(OAuthClient.readError(responseRequestUsage.body, fallback));
                 }
-                long parsedAt = System.currentTimeMillis();
-                usageSnapshot = UsageParser.parse(responseRequestUsage.body, parsedAt);
+
+                usageSnapshot = UsageParser.parse(
+                        responseRequestUsage.body, System.currentTimeMillis());
                 if (!usageSnapshot.hasDisplayableData()) {
                     DiagnosticLog.warn(context, "refresh", "usage_snapshot_rejected",
-                            "trigger", safeTrigger, "reason", "no_displayable_data");
+                            "container_id", containerId,
+                            "trigger", safeTrigger,
+                            "reason", "no_displayable_data");
                     throw new Exception("OpenAI returned no recognizable Codex usage data.");
                 }
+
                 synchronized (AccountContainerLifecycleGuard.lock()) {
                     if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
                         DiagnosticLog.info(context, "refresh", "usage_commit_skipped_removed",
-                                "container_id", containerId,
-                                "trigger", safeTrigger);
+                                "container_id", containerId, "trigger", safeTrigger);
                         return usageSnapshot;
                     }
-                UsageSnapshot previousSnapshot =
-                        AppPreferences.loadSnapshot(context, containerId);
-                DiagnosticLog.info(context, "refresh", "usage_snapshot_parsed",
-                        "trigger", safeTrigger,
-                        "previous_id", snapshotIdentity(previousSnapshot),
-                        "previous_fetched_at", fetchedAt(previousSnapshot),
-                        "new_id", snapshotIdentity(usageSnapshot),
-                        "new_fetched_at", usageSnapshot.fetchedAtMillis,
-                        "five_reset", resetAt(usageSnapshot.fiveHour, usageSnapshot.fetchedAtMillis),
-                        "long_reset", resetAt(usageSnapshot.longWindow(), usageSnapshot.fetchedAtMillis));
-                if (!AppPreferences.saveSnapshot(context, containerId, usageSnapshot)) {
-                    DiagnosticLog.warn(context, "refresh", "usage_snapshot_rejected",
-                            "trigger", safeTrigger, "reason", "persistence_failed");
-                    throw new Exception("Usage was received, but it could not be saved on this device.");
+                    previousSnapshot = AppPreferences.loadSnapshot(context, containerId);
+                    DiagnosticLog.info(context, "refresh", "usage_snapshot_parsed",
+                            "container_id", containerId,
+                            "trigger", safeTrigger,
+                            "previous_id", snapshotIdentity(previousSnapshot),
+                            "previous_fetched_at", fetchedAt(previousSnapshot),
+                            "new_id", snapshotIdentity(usageSnapshot),
+                            "new_fetched_at", usageSnapshot.fetchedAtMillis,
+                            "five_reset", resetAt(usageSnapshot.fiveHour,
+                                    usageSnapshot.fetchedAtMillis),
+                            "long_reset", resetAt(usageSnapshot.longWindow(),
+                                    usageSnapshot.fetchedAtMillis));
+                    if (!AppPreferences.saveSnapshot(context, containerId, usageSnapshot)) {
+                        throw new Exception(
+                                "Usage was received, but it could not be saved on this device.");
+                    }
+                    UsageHistoryRecorder.record(context, containerId, usageSnapshot);
                 }
-                DiagnosticLog.info(context, "refresh", "usage_snapshot_replaced",
-                        "trigger", safeTrigger,
-                        "previous_id", snapshotIdentity(previousSnapshot),
-                        "new_id", snapshotIdentity(usageSnapshot),
-                        "new_fetched_at", usageSnapshot.fetchedAtMillis);
-                UsageHistoryRecorder.record(context, containerId, usageSnapshot);
-                boolean selected = containerId.equals(AccountContainerStore.selectedId(context));
-                if (selected) PhoneWearSync.pushUsage(context, usageSnapshot);
+
                 try {
-                    // Explicit refreshes force this request; periodic work retains the normal TTL.
                     SubscriptionApi.refreshAndCacheLocked(context, containerId, authTokens,
                             forceSubscription, safeTrigger);
                 } catch (RuntimeException exception) {
                     DiagnosticLog.error(context, "refresh", "subscription_side_refresh_failed",
-                            exception, "trigger", safeTrigger);
+                            exception, "container_id", containerId, "trigger", safeTrigger);
                 }
-                notifyUsageUpdated(context, containerId, safeTrigger, usageSnapshot);
-                if (selected) NowBarManager.onUsageUpdated(context, usageSnapshot);
-                // NowBarManager remains authoritative for monitor state/alarms; the compact renderer
-                // then rebuilds the current persistent usage/process surfaces from saved state.
-                DualUsageNotificationManager.postFromSnapshot(context, containerId, usageSnapshot);
-                DiagnosticLog.info(context, "refresh", "usage_notification_rebuilt",
-                        "trigger", safeTrigger,
-                        "snapshot_id", snapshotIdentity(usageSnapshot));
-                ResetNotificationManager.onUsageUpdated(
-                        context, containerId, previousSnapshot, usageSnapshot);
-                try {
-                    ResetAlertScheduler.scheduleFromSnapshot(
+
+                synchronized (AccountContainerLifecycleGuard.lock()) {
+                    if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                        DiagnosticLog.info(context, "refresh",
+                                "usage_surface_commit_skipped_removed",
+                                "container_id", containerId, "trigger", safeTrigger);
+                        return usageSnapshot;
+                    }
+                    DiagnosticLog.info(context, "refresh", "usage_snapshot_replaced",
+                            "container_id", containerId,
+                            "trigger", safeTrigger,
+                            "previous_id", snapshotIdentity(previousSnapshot),
+                            "new_id", snapshotIdentity(usageSnapshot),
+                            "new_fetched_at", usageSnapshot.fetchedAtMillis);
+                    boolean selected = containerId.equals(AccountContainerStore.selectedId(context));
+                    if (selected) PhoneWearSync.pushUsage(context, usageSnapshot);
+                    notifyUsageUpdated(context, containerId, safeTrigger, usageSnapshot);
+                    if (selected) NowBarManager.onUsageUpdated(context, usageSnapshot);
+                    DualUsageNotificationManager.postFromSnapshot(
                             context, containerId, usageSnapshot);
-                } catch (RuntimeException exception) {
-                    DiagnosticLog.error(context, "scheduler", "reset_alert_schedule_failed",
-                            exception);
+                    ResetNotificationManager.onUsageUpdated(
+                            context, containerId, previousSnapshot, usageSnapshot);
+                    try {
+                        ResetAlertScheduler.scheduleFromSnapshot(
+                                context, containerId, usageSnapshot);
+                    } catch (RuntimeException exception) {
+                        DiagnosticLog.error(context, "scheduler",
+                                "reset_alert_schedule_failed", exception,
+                                "container_id", containerId);
+                    }
                 }
+
                 try {
                     ResetCreditApi.refreshAndCacheLocked(context, containerId, authTokens);
                 } catch (Exception exception) {
                     DiagnosticLog.error(context, "refresh", "reset_credit_side_refresh_failed",
-                            exception);
-                    ResetNotificationManager.onResetCreditSummaryUpdated(
-                            context, containerId, usageSnapshot.resetCreditsAvailable);
-                    AppPreferences.setResetCreditsError(context, containerId,
-                            safeMessage(exception));
-                }
+                            exception, "container_id", containerId);
+                    if (AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                        ResetNotificationManager.onResetCreditSummaryUpdated(
+                                context, containerId, usageSnapshot.resetCreditsAvailable);
+                        AppPreferences.setResetCreditsError(
+                                context, containerId, safeMessage(exception));
+                    }
                 }
             }
         } catch (Exception exception) {
             DiagnosticLog.error(context, "refresh", "usage_refresh_failed", exception,
+                    "container_id", containerId,
                     "trigger", safeTrigger,
                     "duration_ms", SystemClock.elapsedRealtime() - started);
             throw exception;
         }
         DiagnosticLog.info(context, "refresh", "usage_refresh_succeeded",
+                "container_id", containerId,
                 "trigger", safeTrigger,
                 "duration_ms", SystemClock.elapsedRealtime() - started,
                 "snapshot_id", snapshotIdentity(usageSnapshot),
@@ -188,7 +200,12 @@ public final class UsageApi {
             DiagnosticLog.info(context, "auth", "token_refresh_due",
                     "container_id", containerId);
             AuthTokens authTokensRefresh = OAuthClient.refresh(context, authTokensLoad);
-            SecureTokenStore.save(context, containerId, authTokensRefresh);
+            synchronized (AccountContainerLifecycleGuard.lock()) {
+                if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                    throw new Exception("Account container was removed.");
+                }
+                SecureTokenStore.save(context, containerId, authTokensRefresh);
+            }
             return authTokensRefresh;
         }
         return authTokensLoad;

@@ -12,7 +12,7 @@ grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 grep -Fq 'ProjectProfileStore.resolve(this, process.project)' "$SRC/MainActivity.java"
 grep -Fq 'ProjectProfileStore.resolve(this, idle.project)' "$SRC/MainActivity.java"
 grep -Fq 'ProjectSettingsDialog.show' "$SRC/MainActivity.java"
-grep -Fq 'RoleProfileStore.displayName(this, process.role)' "$SRC/MainActivity.java"
+grep -Fq 'RoleProfileStore.displayLabel(this, process.role, process.roleIcon)' "$SRC/MainActivity.java"
 grep -Fq 'RoleProfileStore.displayNameById(this, idle.key, idle.role)' "$SRC/MainActivity.java"
 
 grep -Fq '"seed:data-matrix", "Data Matrix"' "$SRC/ProjectProfileStore.java"

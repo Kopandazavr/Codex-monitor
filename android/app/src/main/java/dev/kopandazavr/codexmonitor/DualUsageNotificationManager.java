@@ -108,7 +108,7 @@ final class DualUsageNotificationManager {
 
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
+        PendingIntent contentIntent = PendingIntent.getActivity(context, AccountNotificationNamespace.requestCode(containerId, "usage_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Notification notification = new Notification.Builder(context, alertChannelId)
@@ -121,7 +121,7 @@ final class DualUsageNotificationManager {
                 .setCategory(Notification.CATEGORY_STATUS)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setShowWhen(false)
-                .setGroup(NotificationSurfaceContract.GROUP_KEY)
+                .setGroup(NotificationSurfaceContract.groupKey(containerId))
                 .setSortKey(NotificationSurfaceContract.SORT_USAGE)
                 .setStyle(new Notification.DecoratedCustomViewStyle())
                 .setCustomContentView(alert)
@@ -235,25 +235,26 @@ final class DualUsageNotificationManager {
                 subscription, planText, fallbackText, snapshot.longWindowIsMonthly());
     }
 
-    private static Notification buildSurface(Context context, String channelId, SurfaceState state,
-            String title, String text, boolean onlyAlertOnce) {
+    private static Notification buildSurface(Context context, String containerId,
+            String channelId, SurfaceState state, String title, String text,
+            boolean onlyAlertOnce) {
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent refreshIntent = PendingIntent.getBroadcast(context, REQUEST_REFRESH,
+        PendingIntent refreshIntent = PendingIntent.getBroadcast(context, AccountNotificationNamespace.requestCode(containerId, "usage_refresh"),
                 new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_REFRESH),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent dismissedIntent = PendingIntent.getBroadcast(context, REQUEST_DISMISSED,
+        PendingIntent dismissedIntent = PendingIntent.getBroadcast(context, AccountNotificationNamespace.requestCode(containerId, "usage_dismissed"),
                 new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_DISMISSED),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Icon refreshIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
-        RemoteViews compact = buildViews(context, R.layout.notification_usage_dual_bars,
+        RemoteViews compact = buildViews(context, containerId, R.layout.notification_usage_dual_bars,
                 state.fiveHour, state.longWindow, state.longLabel, state.observedAt, state.now,
                 state.planText, state.fiveResetTime, state.longResetTime, state.processes,
                 state.idleRoles, state.processMode);
-        RemoteViews expanded = buildViews(context, R.layout.notification_usage_dual_bars_expanded,
+        RemoteViews expanded = buildViews(context, containerId, R.layout.notification_usage_dual_bars_expanded,
                 state.fiveHour, state.longWindow, state.longLabel, state.observedAt, state.now,
                 state.planText, state.fiveResetTime, state.longResetTime, state.processes,
                 state.idleRoles, state.processMode);
@@ -289,7 +290,7 @@ final class DualUsageNotificationManager {
         }
     }
 
-    private static RemoteViews buildViews(Context context, int layoutId,
+    private static RemoteViews buildViews(Context context, String containerId, int layoutId,
             UsageWindow fiveHour, UsageWindow longWindow, String longLabel,
             long observedAt, long now, String planText, String fiveResetTime,
             String longResetTime, List<CalendarProcess> processes,

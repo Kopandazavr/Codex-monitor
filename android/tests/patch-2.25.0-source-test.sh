@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "2.25 source contract failed at line $LINENO" >&2' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 RES="$ROOT/app/src/main/res"
@@ -36,7 +37,8 @@ grep -Fq 'OPERATIONAL_CHANNEL_ID = "codex_operational_v1"' "$SRC/AlertSoundManag
 grep -Fq '"Process completion"' "$SRC/AlertSoundManager.java"
 grep -Fq '"Limits reset"' "$SRC/AlertSoundManager.java"
 grep -Fq 'manager.deleteNotificationChannel(legacyId);' "$SRC/AlertSoundManager.java"
-grep -Fq 'ProcessNotificationManager.postCompletionAlert(context, idle, nowMillis)' "$SRC/IdleReminderManager.java"
+grep -Fq 'ProcessNotificationManager.postCompletionAlert(' "$SRC/IdleReminderManager.java"
+grep -Fq 'context, containerId, idle, nowMillis' "$SRC/IdleReminderManager.java"
 grep -Fq 'completionNotificationChannelId(' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'PROCESS_COMPLETION_SPEAKER_CHANNEL_ID' "$SRC/AlertSoundManager.java"
 grep -Fq 'ensureSpeakerCompletionDelivery' "$SRC/AlertSoundManager.java"

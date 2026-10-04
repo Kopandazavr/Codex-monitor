@@ -106,7 +106,6 @@ public final class UsageRefreshJobService extends JobService {
                         AppPreferences.recordRefreshSuccess(app, account.id);
                         succeeded++;
                         if (account.id.equals(selectedId)) {
-                            RefreshScheduler.scheduleAtNextReset(app, snapshot);
                             ContextStartMonitor.startIfRequested(app);
                         }
                         DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
@@ -127,6 +126,7 @@ public final class UsageRefreshJobService extends JobService {
                     }
                 }
 
+                RefreshScheduler.scheduleAtNextKnownReset(app);
                 WidgetRenderer.updateAll(app);
                 boolean retry = attempted > 0 && succeeded == 0 && !this.chainedCycle;
                 DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",

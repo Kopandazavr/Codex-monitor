@@ -4,33 +4,39 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.SystemClock;
 import dev.kopandazavr.codexmonitor.wear.PhoneWearSync;
-import java.net.CookieHandler;
-import java.net.CookieManager;
-import java.net.CookiePolicy;
 import java.net.URI;
 import javax.net.ssl.HttpsURLConnection;
 
 /* JADX INFO: loaded from: classes.dex */
 public final class UsageApi {
     static final Object NETWORK_LOCK = new Object();
-    private static boolean cookiesInstalled;
 
     private UsageApi() {
     }
 
     /** Direct callers are explicit/user-driven refreshes and must bypass subscription TTL. */
     public static UsageSnapshot refreshAndCache(Context context) throws Exception {
-        return refreshAndCacheInternal(context, true, "manual_direct");
+        return refreshAndCache(context, AccountContainerStore.selectedId(context));
+    }
+
+    static UsageSnapshot refreshAndCache(Context context, String containerId) throws Exception {
+        return refreshAndCacheInternal(context, containerId, true, "manual_direct");
     }
 
     /** Scheduler entry point: immediate user actions may force side data; periodic work does not. */
     static UsageSnapshot refreshAndCacheScheduled(Context context, boolean forceSubscription,
             String trigger) throws Exception {
-        return refreshAndCacheInternal(context, forceSubscription,
+        return refreshAndCacheScheduled(context, AccountContainerStore.selectedId(context),
+                forceSubscription, trigger);
+    }
+
+    static UsageSnapshot refreshAndCacheScheduled(Context context, String containerId,
+            boolean forceSubscription, String trigger) throws Exception {
+        return refreshAndCacheInternal(context, containerId, forceSubscription,
                 trigger == null || trigger.trim().isEmpty() ? "scheduled" : trigger.trim());
     }
 
-    private static UsageSnapshot refreshAndCacheInternal(Context context,
+    private static UsageSnapshot refreshAndCacheInternal(Context context, String containerId,
             boolean forceSubscription, String trigger) throws Exception {
         AuthTokens authTokens;
         Response responseRequestUsage;
@@ -44,8 +50,7 @@ public final class UsageApi {
                 "force_subscription", forceSubscription);
         try {
             synchronized (NETWORK_LOCK) {
-                installCookieManager();
-                AuthTokens authTokensUsableTokens = usableTokens(context);
+                AuthTokens authTokensUsableTokens = usableTokens(context, containerId);
                 Response responseRequestUsage2 = requestUsage(context, authTokensUsableTokens,
                         safeTrigger);
                 if (responseRequestUsage2.status == 401) {
@@ -53,7 +58,7 @@ public final class UsageApi {
                             "trigger", safeTrigger);
                     AuthTokens authTokensRefresh = OAuthClient.refresh(context,
                             authTokensUsableTokens);
-                    SecureTokenStore.save(context, authTokensRefresh);
+                    SecureTokenStore.save(context, containerId, authTokensRefresh);
                     authTokens = authTokensRefresh;
                     responseRequestUsage = requestUsage(context, authTokensRefresh, safeTrigger);
                 } else {
@@ -77,7 +82,8 @@ public final class UsageApi {
                             "trigger", safeTrigger, "reason", "no_displayable_data");
                     throw new Exception("OpenAI returned no recognizable Codex usage data.");
                 }
-                UsageSnapshot previousSnapshot = AppPreferences.loadSnapshot(context);
+                UsageSnapshot previousSnapshot =
+                        AppPreferences.loadSnapshot(context, containerId);
                 DiagnosticLog.info(context, "refresh", "usage_snapshot_parsed",
                         "trigger", safeTrigger,
                         "previous_id", snapshotIdentity(previousSnapshot),
@@ -86,7 +92,7 @@ public final class UsageApi {
                         "new_fetched_at", usageSnapshot.fetchedAtMillis,
                         "five_reset", resetAt(usageSnapshot.fiveHour, usageSnapshot.fetchedAtMillis),
                         "long_reset", resetAt(usageSnapshot.longWindow(), usageSnapshot.fetchedAtMillis));
-                if (!AppPreferences.saveSnapshot(context, usageSnapshot)) {
+                if (!AppPreferences.saveSnapshot(context, containerId, usageSnapshot)) {
                     DiagnosticLog.warn(context, "refresh", "usage_snapshot_rejected",
                             "trigger", safeTrigger, "reason", "persistence_failed");
                     throw new Exception("Usage was received, but it could not be saved on this device.");
@@ -96,39 +102,47 @@ public final class UsageApi {
                         "previous_id", snapshotIdentity(previousSnapshot),
                         "new_id", snapshotIdentity(usageSnapshot),
                         "new_fetched_at", usageSnapshot.fetchedAtMillis);
-                UsageHistoryRecorder.record(context, usageSnapshot);
-                PhoneWearSync.pushUsage(context, usageSnapshot);
+                UsageHistoryRecorder.record(context, containerId, usageSnapshot);
+                boolean selected = containerId.equals(AccountContainerStore.selectedId(context));
+                if (selected) PhoneWearSync.pushUsage(context, usageSnapshot);
                 try {
                     // Explicit refreshes force this request; periodic work retains the normal TTL.
-                    SubscriptionApi.refreshAndCacheLocked(context, authTokens,
-                            forceSubscription, safeTrigger);
+                    if (selected) {
+                        SubscriptionApi.refreshAndCacheLocked(context, authTokens,
+                                forceSubscription, safeTrigger);
+                    }
                 } catch (RuntimeException exception) {
                     DiagnosticLog.error(context, "refresh", "subscription_side_refresh_failed",
                             exception, "trigger", safeTrigger);
                 }
-                notifyUsageUpdated(context, safeTrigger, usageSnapshot);
-                NowBarManager.onUsageUpdated(context, usageSnapshot);
+                notifyUsageUpdated(context, containerId, safeTrigger, usageSnapshot);
+                if (selected) NowBarManager.onUsageUpdated(context, usageSnapshot);
                 // NowBarManager remains authoritative for monitor state/alarms; the compact renderer
                 // then rebuilds the current persistent usage/process surfaces from saved state.
-                DualUsageNotificationManager.postFromSnapshot(context, usageSnapshot);
+                if (selected) DualUsageNotificationManager.postFromSnapshot(context, usageSnapshot);
                 DiagnosticLog.info(context, "refresh", "usage_notification_rebuilt",
                         "trigger", safeTrigger,
                         "snapshot_id", snapshotIdentity(usageSnapshot));
-                ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
+                if (selected) {
+                    ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
+                }
                 try {
-                    ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);
+                    if (selected) ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);
                 } catch (RuntimeException exception) {
                     DiagnosticLog.error(context, "scheduler", "reset_alert_schedule_failed",
                             exception);
                 }
                 try {
-                    ResetCreditApi.refreshAndCacheLocked(context, authTokens);
+                    if (selected) ResetCreditApi.refreshAndCacheLocked(context, authTokens);
                 } catch (Exception exception) {
                     DiagnosticLog.error(context, "refresh", "reset_credit_side_refresh_failed",
                             exception);
-                    ResetNotificationManager.onResetCreditSummaryUpdated(context,
-                            usageSnapshot.resetCreditsAvailable);
-                    AppPreferences.setResetCreditsError(context, safeMessage(exception));
+                    if (selected) {
+                        ResetNotificationManager.onResetCreditSummaryUpdated(context,
+                                usageSnapshot.resetCreditsAvailable);
+                    }
+                    AppPreferences.setResetCreditsError(context, containerId,
+                            safeMessage(exception));
                 }
             }
         } catch (Exception exception) {
@@ -149,14 +163,19 @@ public final class UsageApi {
     }
 
     static AuthTokens usableTokens(Context context) throws Exception {
-        AuthTokens authTokensLoad = SecureTokenStore.load(context);
+        return usableTokens(context, AccountContainerStore.selectedId(context));
+    }
+
+    static AuthTokens usableTokens(Context context, String containerId) throws Exception {
+        AuthTokens authTokensLoad = SecureTokenStore.load(context, containerId);
         if (authTokensLoad == null) {
             throw new Exception("Sign in to ChatGPT first.");
         }
         if (authTokensLoad.shouldRefresh(System.currentTimeMillis())) {
-            DiagnosticLog.info(context, "auth", "token_refresh_due");
+            DiagnosticLog.info(context, "auth", "token_refresh_due",
+                    "container_id", containerId);
             AuthTokens authTokensRefresh = OAuthClient.refresh(context, authTokensLoad);
-            SecureTokenStore.save(context, authTokensRefresh);
+            SecureTokenStore.save(context, containerId, authTokensRefresh);
             return authTokensRefresh;
         }
         return authTokensLoad;
@@ -210,15 +229,9 @@ public final class UsageApi {
     }
 
     static void installCookieManager() {
-        if (!cookiesInstalled) {
-            try {
-                if (CookieHandler.getDefault() == null) {
-                    CookieHandler.setDefault(new CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER));
-                }
-            } catch (Exception e) {
-            }
-            cookiesInstalled = true;
-        }
+        // Usage and reset-credit requests authenticate exclusively with explicit Bearer headers.
+        // A process-global CookieHandler would let one account leak cookies into another account,
+        // so multi-account mode intentionally does not install one.
     }
 
     static String safeMessage(Exception exc) {
@@ -230,10 +243,12 @@ public final class UsageApi {
         return strTrim.length() > 240 ? strTrim.substring(0, 240) : strTrim;
     }
 
-    private static void notifyUsageUpdated(Context context, String trigger, UsageSnapshot snapshot) {
+    private static void notifyUsageUpdated(Context context, String containerId,
+            String trigger, UsageSnapshot snapshot) {
         try {
             context.sendBroadcast(new Intent(AppConstants.ACTION_USAGE_UPDATED)
-                            .setPackage(context.getPackageName()),
+                            .setPackage(context.getPackageName())
+                            .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId),
                     AppConstants.INTERNAL_PERMISSION);
             DiagnosticLog.info(context, "refresh", "usage_update_broadcast_sent",
                     "trigger", trigger,

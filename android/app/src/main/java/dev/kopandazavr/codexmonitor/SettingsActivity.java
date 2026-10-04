@@ -136,6 +136,7 @@ public final class SettingsActivity extends AppCompatActivity {
         private static final int REQUEST_EXPORT_DIAGNOSTICS = 9203;
 
         private String page = PAGE_ROOT;
+        private PreferenceCategory accountsCategory;
         private Preference expiryTimesPreference;
         private Preference testNotificationPreference;
         private PreferenceCategory notificationLowUsageCategory;
@@ -164,6 +165,10 @@ public final class SettingsActivity extends AppCompatActivity {
             page = normalizePage(getArguments() == null
                     ? null : getArguments().getString(ARG_PAGE));
             switch (page) {
+                case PAGE_ACCOUNTS:
+                    addPreferencesFromResource(R.xml.preferences_settings_accounts);
+                    bindAccounts();
+                    break;
                 case PAGE_NOTIFICATIONS:
                     addPreferencesFromResource(R.xml.preferences_settings_notifications);
                     bindNotifications();
@@ -207,6 +212,8 @@ public final class SettingsActivity extends AppCompatActivity {
             super.onResume();
             if (PAGE_ROOT.equals(page)) {
                 updateRootSummaries();
+            } else if (PAGE_ACCOUNTS.equals(page)) {
+                refreshAccountsPage();
             } else if (PAGE_NOTIFICATIONS.equals(page)) {
                 updatePermissionSummary();
             } else if (PAGE_NOW_BAR.equals(page)) {
@@ -230,6 +237,7 @@ public final class SettingsActivity extends AppCompatActivity {
                 return true;
             });
 
+            bindPageLink("settings_accounts", PAGE_ACCOUNTS);
             bindPageLink("settings_now_bar", PAGE_NOW_BAR);
             bindPageLink("settings_diagnostics", PAGE_DIAGNOSTICS);
             updateRootSummaries();

@@ -283,6 +283,7 @@ final class CalendarProcessReader {
                 String reason = CalendarProcess.rejectionReason(
                         title, description, begin, end);
                 if (!"not_watchdog".equals(reason)) {
+                    // "watchdog_rejected_metadata"; "source", "calendar_provider"
                     WatchdogObservationDiagnostics.logRejected(context, "calendar_process",
                             eventId, "calendar_provider", "provider_fallback",
                             title, description, begin, end);

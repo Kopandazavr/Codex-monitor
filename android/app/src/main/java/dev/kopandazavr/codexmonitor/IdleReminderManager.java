@@ -339,15 +339,21 @@ final class IdleReminderManager {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    private static void schedule(Context context, IdleProcessState.IdleRole idle, long nowMillis) {
+    private static void schedule(Context context, IdleProcessState.IdleRole idle,
+            long nowMillis) {
+        schedule(context, AccountContainerStore.selectedId(context), idle, nowMillis);
+    }
+
+    private static void schedule(Context context, String containerId,
+            IdleProcessState.IdleRole idle, long nowMillis) {
         long when = idle.nextReminderAtMillis;
         if (when <= nowMillis) {
             when = Math.max(nowMillis + 1_000L,
                     idle.lastFinishedMillis + IdleProcessState.cadenceMillis(context));
             if (when <= nowMillis) when = nowMillis + IdleProcessState.cadenceMillis(context);
-            IdleProcessState.setNextReminderAt(context, idle.key, when);
+            IdleProcessState.setNextReminderAt(context, containerId, idle.key, when);
         }
-        scheduleAt(context, idle, when);
+        scheduleAt(context, containerId, idle, when);
     }
 
     private static void scheduleAt(Context context, IdleProcessState.IdleRole idle, long whenMillis) {

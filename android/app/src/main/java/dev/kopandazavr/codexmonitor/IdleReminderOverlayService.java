@@ -53,6 +53,7 @@ public final class IdleReminderOverlayService extends Service {
     private static volatile IdleReminderOverlayService running;
 
     private final Map<String, IdleProcessState.IdleRole> roles = new LinkedHashMap<>();
+    private final Map<String, String> roleAccounts = new LinkedHashMap<>();
     private WindowManager windowManager;
     private FrameLayout overlayRoot;
     private LinearLayout entries;
@@ -66,14 +67,26 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     static boolean showCompletion(Context context, IdleProcessState.IdleRole idle) {
-        return start(context, idle, true);
+        return showCompletion(context, AccountContainerStore.selectedId(context), idle);
+    }
+
+    static boolean showCompletion(Context context, String containerId,
+            IdleProcessState.IdleRole idle) {
+        return start(context, containerId, idle, true);
     }
 
     private static boolean start(Context context, IdleProcessState.IdleRole idle,
             boolean postCompletionNotification) {
+        return start(context, AccountContainerStore.selectedId(context),
+                idle, postCompletionNotification);
+    }
+
+    private static boolean start(Context context, String containerId,
+            IdleProcessState.IdleRole idle, boolean postCompletionNotification) {
         if (context == null || idle == null || !canDraw(context)) return false;
         Intent intent = new Intent(context, IdleReminderOverlayService.class)
                 .setAction(ACTION_SHOW)
+                .putExtra(IdleReminderManager.EXTRA_CONTAINER_ID, containerId)
                 .putExtra(IdleReminderManager.EXTRA_ROLE_KEY, idle.key)
                 .putExtra(IdleReminderManager.EXTRA_INSTANCE_ID, idle.instanceId)
                 .putExtra(IdleReminderManager.EXTRA_EVENT_ID, idle.eventId)

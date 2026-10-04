@@ -93,6 +93,7 @@ final class GoogleCalendarProcessSource {
                     String reason = CalendarProcess.rejectionReason(
                             title, description, begin, end);
                     if (!"not_watchdog".equals(reason)) {
+                        // "watchdog_rejected_metadata"; "source", "direct_cache"
                         WatchdogObservationDiagnostics.logRejected(context, "calendar_api",
                                 eventId, "direct_cache", "direct_cache",
                                 title, description, begin, end);

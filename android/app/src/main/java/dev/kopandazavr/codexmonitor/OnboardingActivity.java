@@ -298,11 +298,30 @@ public final class OnboardingActivity extends AppCompatActivity {
         addSectionHeader("Optional");
         RoundedLinearLayout optional = Ui.seslRowCard(this, this.dark);
         boolean localAllowed = SetupReadiness.localCalendarAllowed(this);
-        String localState = localAllowed ? "Allowed" : "Tap to allow fallback";
+        AccountContainerStore.Account selectedAccount =
+                AccountContainerStore.selected(this);
+        AccountContainerStore.Account fallbackOwner =
+                LocalCalendarFallbackOwner.owner(this);
+        boolean ownsFallback = selectedAccount != null
+                && LocalCalendarFallbackOwner.isOwner(this, selectedAccount.id);
+        String localState;
+        int localColor;
+        if (!localAllowed) {
+            localState = "Permission not allowed · Tap to allow fallback";
+            localColor = Ui.secondaryText(this.dark);
+        } else if (ownsFallback) {
+            localState = "Assigned to this account";
+            localColor = statusGreen();
+        } else if (fallbackOwner != null) {
+            localState = "Used by " + fallbackOwner.name + " · Tap to move";
+            localColor = STATUS_YELLOW;
+        } else {
+            localState = "Available · Tap to assign";
+            localColor = Ui.secondaryText(this.dark);
+        }
         CardItemView localCalendar = Ui.actionRow(this, "Local Calendar fallback", localState,
                 R.drawable.ic_oui_calendar_week, view -> requestLocalCalendarAccess());
-        setMatchingTextColor(localCalendar, localState,
-                localAllowed ? statusGreen() : Ui.secondaryText(this.dark));
+        setMatchingTextColor(localCalendar, localState, localColor);
         addSetupRow(optional, localCalendar, false);
         this.content.addView(optional, sectionCardParams());
 
@@ -548,7 +567,45 @@ public final class OnboardingActivity extends AppCompatActivity {
     }
 
     private void requestLocalCalendarAccess() {
-        Ui.startSecondaryActivity(this, CalendarPermissionActivity.class);
+        if (!SetupReadiness.localCalendarAllowed(this)) {
+            Ui.startSecondaryActivity(this, CalendarPermissionActivity.class);
+            return;
+        }
+        AccountContainerStore.Account target = AccountContainerStore.selected(this);
+        if (target == null) return;
+        AccountContainerStore.Account owner = LocalCalendarFallbackOwner.owner(this);
+        if (owner != null && owner.id.equals(target.id)) {
+            Toast.makeText(this,
+                    "Local Calendar fallback is already assigned to " + target.name + ".",
+                    Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (owner == null) {
+            if (LocalCalendarFallbackOwner.transfer(this, target.id)) {
+                DualUsageNotificationManager.repostForProcessChangeDelayed(
+                        this, target.id, 100L);
+                render();
+            }
+            return;
+        }
+        new AlertDialog.Builder(this)
+                .setTitle("Move Local Calendar fallback?")
+                .setMessage("Local calendar fallback can only be assigned to one account. "
+                        + "Currently " + owner.name + ". Move to " + target.name + "?")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Move", (dialog, which) -> {
+                    if (!LocalCalendarFallbackOwner.transfer(this, target.id)) {
+                        Toast.makeText(this, "Could not move Local Calendar fallback.",
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    DualUsageNotificationManager.repostForProcessChangeDelayed(
+                            this, owner.id, 100L);
+                    DualUsageNotificationManager.repostForProcessChangeDelayed(
+                            this, target.id, 120L);
+                    render();
+                })
+                .show();
     }
 
     private void requestExactAlarmAccess() {

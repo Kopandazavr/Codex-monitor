@@ -78,41 +78,58 @@ public final class ResetNotificationManager {
     }
 
     public static void onResetCreditsUpdated(Context context, ResetCreditsSnapshot snapshot) {
+        onResetCreditsUpdated(
+                context, AccountContainerStore.selectedId(context), snapshot);
+    }
+
+    static void onResetCreditsUpdated(Context context, String containerId,
+            ResetCreditsSnapshot snapshot) {
         if (context == null || snapshot == null) return;
-        onResetCreditCountUpdated(context, snapshot.availableCount);
-        pruneResetCreditExpiryHistory(context, snapshot);
+        onResetCreditCountUpdated(context, containerId, snapshot.availableCount);
+        pruneResetCreditExpiryHistory(context, containerId, snapshot);
         try {
-            ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
+            ResetCreditExpiryScheduler.scheduleFromSnapshot(
+                    context, containerId, snapshot);
         } catch (RuntimeException ignored) {
         }
     }
 
     static void onResetCreditSummaryUpdated(Context context, int availableCount) {
-        if (context == null || availableCount < 0) return;
-        onResetCreditCountUpdated(context, availableCount);
+        onResetCreditSummaryUpdated(
+                context, AccountContainerStore.selectedId(context), availableCount);
     }
 
-    private static void onResetCreditCountUpdated(Context context, int current) {
+    static void onResetCreditSummaryUpdated(
+            Context context, String containerId, int availableCount) {
+        if (context == null || availableCount < 0) return;
+        onResetCreditCountUpdated(context, containerId, availableCount);
+    }
+
+    private static void onResetCreditCountUpdated(
+            Context context, String containerId, int current) {
         SharedPreferences state = state(context);
-        if (!state.contains(KEY_CREDIT_COUNT)) {
-            state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
+        String stateKey = accountStateKey(containerId, KEY_CREDIT_COUNT);
+        if (!state.contains(stateKey)) {
+            state.edit().putInt(stateKey, current).apply();
             return;
         }
-        int previous = state.getInt(KEY_CREDIT_COUNT, current);
+        int previous = state.getInt(stateKey, current);
         int added = CelebrationDetector.resetCreditsAdded(previous, current);
         if (!ResetAlertPreferences.enabled(context)
                 || !ResetAlertPreferences.resetCreditIncreasesEnabled(context)
                 || added <= 0) {
-            state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
+            state.edit().putInt(stateKey, current).apply();
             return;
         }
         String text = added == 1
                 ? "One Codex reset credit was added. You now have " + current + "."
                 : added + " Codex reset credits were added. You now have " + current + ".";
-        if (post(context, NOTIFICATION_NEW_CREDIT,
-                added == 1 ? "Codex reset credit added" : "Codex reset credits added", text,
-                NOTIFICATION_NEW_CREDIT)) {
-            state.edit().putInt(KEY_CREDIT_COUNT, current).apply();
+        String title = added == 1
+                ? "Codex reset credit added" : "Codex reset credits added";
+        if (post(context, containerId, NOTIFICATION_NEW_CREDIT,
+                accountTitle(context, containerId, title), text,
+                NOTIFICATION_NEW_CREDIT, false)) {
+            state.edit().putInt(stateKey, current).apply();
         }
     }
 

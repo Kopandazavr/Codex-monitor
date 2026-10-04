@@ -72,7 +72,7 @@ grep -q 'deliverFreshCompletion(context, containerId, completion, nowMillis)' "$
 grep -q 'COMPLETION_FRESH_MS' "$SRC/IdleReminderManager.java"
 grep -q '"completion_dispatched"' "$SRC/IdleReminderManager.java"
 grep -q 'prefs.edit().putLong(key, idle.lastFinishedMillis).apply()' "$SRC/IdleReminderManager.java"
-grep -q 'markCompletionBaseline(context, idle)' "$SRC/IdleReminderManager.java"
+grep -q 'markCompletionBaseline(context, containerId, idle)' "$SRC/IdleReminderManager.java"
 grep -q 'if (!overlayScheduled)' "$SRC/IdleReminderManager.java"
 grep -q 'IdleReminderOverlayService.showCompletion(' "$SRC/IdleReminderManager.java"
 grep -q 'context, containerId, idle' "$SRC/IdleReminderManager.java"

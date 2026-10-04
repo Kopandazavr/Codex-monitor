@@ -225,7 +225,8 @@ final class DualUsageNotificationManager {
                 () -> repostFromCache(app), Math.max(0L, delayMillis));
     }
 
-    private static SurfaceState surfaceState(Context context, UsageSnapshot snapshot) {
+    private static SurfaceState surfaceState(Context context, String containerId,
+            UsageSnapshot snapshot) {
         long now = System.currentTimeMillis();
         long observedAt = snapshot.fetchedAtMillis;
 
@@ -237,25 +238,26 @@ final class DualUsageNotificationManager {
         if (fiveHour == null && longWindow == null) return null;
 
         String longLabel = snapshot.longWindowIsMonthly() ? "Monthly" : "Weekly";
-        String focus = NowBarManager.activeFocusMetric(context);
+        String focus = containerId.equals(AccountContainerStore.selectedId(context))
+                ? NowBarManager.activeFocusMetric(context) : null;
         if (focus == null) focus = NowBarPercentMode.lowerRemainingFocus(fiveHour, longWindow);
         UsageWindow paceWindow = NowBarPercentMode.selectWindow(focus, fiveHour, longWindow);
         String fiveResetTime = formatResetTime(fiveHour, observedAt);
         String longResetTime = formatResetTime(longWindow, observedAt);
-        String processMode = ProcessNotificationMode.current(context);
-        List<CalendarProcess> observed = CalendarProcessReader.observed(context, now);
+        String processMode = ProcessNotificationMode.current(context, containerId);
+        List<CalendarProcess> observed = CalendarProcessReader.observed(context, containerId, now);
         List<CalendarProcess> processes = CalendarProcessReader.active(observed, now);
         List<CalendarProcess> finished = CalendarProcessReader.recentlyFinished(observed, now);
         List<IdleProcessState.IdleRole> idleRoles =
-                IdleProcessState.synchronize(context, processes, finished, observed, now);
-        IdleReminderManager.sync(context, processes, idleRoles, now);
+                IdleProcessState.synchronize(context, containerId, processes, finished, observed, now);
+        IdleReminderManager.sync(context, containerId, processes, idleRoles, now);
         MonitorHealthDiagnostics.recordCounts(context, processes.size(), idleRoles.size());
 
         try {
-            SubscriptionStore.seedFromJwt(context, SecureTokenStore.load(context), now);
+            SubscriptionStore.seedFromJwt(context, containerId, SecureTokenStore.load(context, containerId), now);
         } catch (RuntimeException ignored) {
         }
-        SubscriptionInfo subscription = SubscriptionStore.load(context);
+        SubscriptionInfo subscription = SubscriptionStore.load(context, containerId);
         String planText = formatSubscription(subscription);
         String fiveText = notificationResetText(fiveHour, observedAt, now, fiveResetTime);
         String longText = notificationResetText(longWindow, observedAt, now, longResetTime);

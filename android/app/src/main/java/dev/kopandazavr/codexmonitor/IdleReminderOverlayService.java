@@ -151,21 +151,26 @@ public final class IdleReminderOverlayService extends Service {
             stopSelfIfEmpty();
             return START_NOT_STICKY;
         }
+        String containerId = intent.getStringExtra(IdleReminderManager.EXTRA_CONTAINER_ID);
+        if (containerId == null || AccountContainerStore.find(this, containerId) == null) {
+            containerId = AccountContainerStore.selectedId(this);
+        }
         String key = intent.getStringExtra(IdleReminderManager.EXTRA_ROLE_KEY);
         String instanceId = intent.getStringExtra(IdleReminderManager.EXTRA_INSTANCE_ID);
         long eventId = intent.getLongExtra(IdleReminderManager.EXTRA_EVENT_ID, 0L);
         long finished = intent.getLongExtra(IdleReminderManager.EXTRA_FINISHED_AT, 0L);
         IdleProcessState.IdleRole idle = IdleProcessState.findCompletion(
-                this, key, instanceId, eventId, finished);
+                this, containerId, key, instanceId, eventId, finished);
         if (idle == null || !idle.reminderEnabled) {
             stopSelfIfEmpty();
             return START_NOT_STICKY;
         }
-        boolean overlayVisible = showRole(idle);
+        final String owningContainerId = containerId;
+        boolean overlayVisible = showRole(owningContainerId, idle);
         if (intent.getBooleanExtra(EXTRA_POST_COMPLETION_NOTIFICATION, false)) {
             if (!overlayVisible) {
                 boolean posted = ProcessNotificationManager.postCompletionAlert(
-                        this, idle, System.currentTimeMillis());
+                        this, owningContainerId, idle, System.currentTimeMillis());
                 DiagnosticLog.warn(this, "idle_process",
                         "completion_notification_overlay_draw_failed_fallback",
                         "role", idle.displayLabel(),
@@ -175,14 +180,14 @@ public final class IdleReminderOverlayService extends Service {
                 // physically visible. Give the main looper several frames to draw the overlay
                 // before asking SystemUI to start the completion alert sound/vibration.
                 new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                    if (!roles.containsKey(completionKey(idle))) {
+                    if (!roles.containsKey(completionKey(owningContainerId, idle))) {
                         DiagnosticLog.info(this, "idle_process",
                                 "completion_notification_skipped_after_overlay_dismiss",
                                 "role", idle.displayLabel());
                         return;
                     }
                     boolean posted = ProcessNotificationManager.postCompletionAlert(
-                            this, idle, System.currentTimeMillis());
+                            this, owningContainerId, idle, System.currentTimeMillis());
                     DiagnosticLog.info(this, "idle_process",
                             "completion_notification_after_overlay_draw_gap",
                             "role", idle.displayLabel(),

@@ -39,7 +39,8 @@ grep -Fq 'R.drawable.ic_idle_trash' "$SRC/ProjectSettingsDialog.java"
 # Notification identity uses effective local Short Name/color, refreshes after Done, keeps bell/topic, no trash.
 grep -Fq 'ProjectProfileStore.effectiveShort(profile)' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'ProjectProfileStore.accentColor(profile)' "$SRC/ProcessNotificationManager.java"
-grep -Fq 'roleAndTopic + " · " + clean(process.topic)' "$SRC/ProcessNotificationManager.java"
+grep -Fq 'single && !clean(process.topic).isEmpty()' "$SRC/ProcessNotificationManager.java"
+grep -Fq 'notification_process_reminder' "$RES/layout/notification_process_group_row.xml"
 grep -Fq 'notification_process_reminder' "$RES/layout/notification_process_row.xml"
 ! grep -Fq 'notification_process_dismiss' "$RES/layout/notification_process_row.xml"
 grep -Fq 'private void onProjectProfileChanged()' "$SRC/MainActivity.java"
@@ -53,7 +54,8 @@ grep -Fq 'BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"' "$SR
 # Dashboard dismissal is display-only; durable session history is retained.
 grep -Fq 'static List<SessionRecord> history(Context context, String key)' "$SRC/IdleProcessState.java"
 grep -Fq 'json.put("history", historyArray);' "$SRC/IdleProcessState.java"
-grep -Fq 'appendHistory(row, project, projectShort, role, topic, eventId' "$SRC/IdleProcessState.java"
+grep -Fq 'appendHistory(row, instance.project, instance.projectShort, instance.role, instance.topic' "$SRC/IdleProcessState.java"
+grep -Fq 'instance.instanceId, instance.eventId' "$SRC/IdleProcessState.java"
 grep -Fq 'row.dismissedThroughMillis = Math.max' "$SRC/IdleProcessState.java"
 ! grep -Fq 'rows.remove(clean(key))' "$SRC/IdleProcessState.java"
 

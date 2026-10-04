@@ -63,7 +63,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="4dp"
                 android:max="100"
-                android:progressTint="#70A7FF"
+                android:progressTint="@color/allowance_five_hour"
                 android:progressBackgroundTint="#3070A7FF" />
             <ProgressBar
                 android:id="@+id/notification_five_progress_lime"
@@ -113,7 +113,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="4dp"
                 android:max="100"
-                android:progressTint="#F4B95F"
+                android:progressTint="@color/allowance_long_window"
                 android:progressBackgroundTint="#30F4B95F" />
             <ProgressBar
                 android:id="@+id/notification_long_progress_lime"

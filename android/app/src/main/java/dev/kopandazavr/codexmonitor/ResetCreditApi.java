@@ -39,7 +39,11 @@ public final class ResetCreditApi {
     static ResetCreditsSnapshot refreshAndCacheLocked(Context context, String containerId,
             AuthTokens authTokens) throws Exception {
         long started = SystemClock.elapsedRealtime();
-        DiagnosticLog.info(context, "refresh", "reset_credit_refresh_started");
+        DiagnosticLog.info(context, "refresh", "reset_credit_refresh_started",
+                "container_id", containerId);
+        if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+            throw new Exception("Account container was removed.");
+        }
         if (authTokens == null) {
             authTokens = UsageApi.usableTokens(context, containerId);
         }
@@ -48,18 +52,30 @@ public final class ResetCreditApi {
         if (responseRequest.status == 401) {
             DiagnosticLog.warn(context, "auth", "reset_credit_token_rejected_refreshing");
             AuthTokens authTokensRefresh = OAuthClient.refresh(context, authTokens);
-            SecureTokenStore.save(context, containerId, authTokensRefresh);
+            synchronized (AccountContainerLifecycleGuard.lock()) {
+                if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                    throw new Exception("Account container was removed.");
+                }
+                SecureTokenStore.save(context, containerId, authTokensRefresh);
+            }
             responseRequest = request(context, "reset_credit_list", "GET",
                     AppConstants.RESET_CREDITS_URL, authTokensRefresh, null);
         }
         ensureSuccess(responseRequest, "Could not load Codex reset credits");
-        ResetCreditsSnapshot resetCreditsSnapshot = ResetCreditsParser.parse(responseRequest.body, System.currentTimeMillis());
-        if (!AppPreferences.saveResetCredits(context, containerId, resetCreditsSnapshot)) {
-            throw new Exception("Reset credits were received, but could not be saved on this device.");
+        ResetCreditsSnapshot resetCreditsSnapshot = ResetCreditsParser.parse(
+                responseRequest.body, System.currentTimeMillis());
+        synchronized (AccountContainerLifecycleGuard.lock()) {
+            if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                throw new Exception("Account container was removed.");
+            }
+            if (!AppPreferences.saveResetCredits(context, containerId, resetCreditsSnapshot)) {
+                throw new Exception(
+                        "Reset credits were received, but could not be saved on this device.");
+            }
+            ResetNotificationManager.onResetCreditsUpdated(
+                    context, containerId, resetCreditsSnapshot);
+            notifyUpdated(context, containerId);
         }
-        ResetNotificationManager.onResetCreditsUpdated(
-                context, containerId, resetCreditsSnapshot);
-        notifyUpdated(context, containerId);
         DiagnosticLog.info(context, "refresh", "reset_credit_refresh_succeeded",
                 "duration_ms", SystemClock.elapsedRealtime() - started,
                 "available", resetCreditsSnapshot.availableCount);
@@ -76,6 +92,9 @@ public final class ResetCreditApi {
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(app, "user", "reset_credit_use_requested",
                 "container_id", containerId);
+        if (!AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+            throw new Exception("Account container was removed.");
+        }
         synchronized (UsageApi.NETWORK_LOCK) {
             AuthTokens tokens = UsageApi.usableTokens(app, containerId);
             ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(app, containerId);
@@ -109,7 +128,12 @@ public final class ResetCreditApi {
                 DiagnosticLog.warn(app, "auth", "reset_consume_token_rejected_refreshing",
                         "container_id", containerId);
                 tokens = OAuthClient.refresh(app, tokens);
-                SecureTokenStore.save(app, containerId, tokens);
+                synchronized (AccountContainerLifecycleGuard.lock()) {
+                    if (!AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                        throw new Exception("Account container was removed.");
+                    }
+                    SecureTokenStore.save(app, containerId, tokens);
+                }
                 response = request(app, "reset_credit_consume", "POST",
                         AppConstants.RESET_CREDITS_CONSUME_URL, tokens, payload);
             }
@@ -119,6 +143,9 @@ public final class ResetCreditApi {
             String code = object.optString("code", "");
             int windowsReset = object.optInt("windows_reset", 0);
             String message = "";
+            if (!AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                return new ResetConsumeResult(code, windowsReset, message);
+            }
 
             if (ResetConsumeResult.RESET.equals(code)) {
                 ResetNotificationManager.markUserReset(
@@ -129,19 +156,25 @@ public final class ResetCreditApi {
                     ResetAlertScheduler.scheduleFromSnapshot(app, containerId, snapshot);
                 } catch (Exception exception) {
                     message = "The reset succeeded, but the new usage values could not be loaded yet.";
-                    AppPreferences.setLastError(
-                            app, containerId, UsageApi.safeMessage(exception));
+                    if (AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                        AppPreferences.setLastError(
+                                app, containerId, UsageApi.safeMessage(exception));
+                    }
                 }
             }
 
             try {
                 refreshAndCacheLocked(app, containerId, UsageApi.usableTokens(app, containerId));
             } catch (Exception exception) {
-                AppPreferences.setResetCreditsError(
-                        app, containerId, UsageApi.safeMessage(exception));
+                if (AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                    AppPreferences.setResetCreditsError(
+                            app, containerId, UsageApi.safeMessage(exception));
+                }
             }
-            WidgetRenderer.updateAll(app);
-            notifyUpdated(app, containerId);
+            if (AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                WidgetRenderer.updateAll(app);
+                notifyUpdated(app, containerId);
+            }
             DiagnosticLog.info(app, "user", "reset_credit_use_finished",
                     "container_id", containerId,
                     "result", code,

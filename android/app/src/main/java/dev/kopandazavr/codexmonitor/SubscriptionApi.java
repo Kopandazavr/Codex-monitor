@@ -33,11 +33,15 @@ final class SubscriptionApi {
 
     static void refreshAndCacheLocked(Context context, String containerId, AuthTokens tokens,
             boolean force, String trigger) {
-        if (context == null || tokens == null) return;
+        if (context == null || tokens == null
+                || !AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
         long now = System.currentTimeMillis();
         String safeTrigger = trigger == null || trigger.trim().isEmpty()
                 ? "unspecified" : trigger.trim();
-        SubscriptionStore.seedFromJwt(context, containerId, tokens, now);
+        synchronized (AccountContainerLifecycleGuard.lock()) {
+            if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
+            SubscriptionStore.seedFromJwt(context, containerId, tokens, now);
+        }
         if (tokens.accountId.isEmpty()) {
             DiagnosticLog.warn(context, "refresh", "subscription_refresh_skipped",
                     "trigger", safeTrigger, "reason", "missing_account_id", "force", force);
@@ -62,7 +66,10 @@ final class SubscriptionApi {
                 "cached_expired", cachedExpired,
                 "stored_active_until", storedUntil,
                 "last_attempt", lastAttempt);
-        SubscriptionStore.markAttempt(context, containerId, now);
+        synchronized (AccountContainerLifecycleGuard.lock()) {
+            if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
+            SubscriptionStore.markAttempt(context, containerId, now);
+        }
         long started = SystemClock.elapsedRealtime();
         HttpsURLConnection connection = null;
         try {
@@ -107,20 +114,26 @@ final class SubscriptionApi {
                     "backend_stale", backendStale,
                     "parsed_at", now);
 
-            SubscriptionInfo cached = SubscriptionStore.load(context, containerId);
-            String plan = parsed.planType.isEmpty() && cached != null
-                    ? cached.planType : parsed.planType;
-            long until = parsed.activeUntilMillis <= 0L && cached != null
-                    ? cached.activeUntilMillis : parsed.activeUntilMillis;
-            long previousUntil = SubscriptionStore.storedActiveUntilMillis(context, containerId);
-            SubscriptionStore.save(context, containerId, new SubscriptionInfo(plan, until,
-                    parsed.willRenew, parsed.hasWillRenew, now));
-            DiagnosticLog.info(context, "refresh", "subscription_snapshot_replaced",
-                    "trigger", safeTrigger,
-                    "previous_active_until", previousUntil,
-                    "new_active_until", until,
-                    "backend_stale", backendStale,
-                    "fetched_at", now);
+            synchronized (AccountContainerLifecycleGuard.lock()) {
+                if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
+                SubscriptionInfo cached = SubscriptionStore.load(context, containerId);
+                String plan = parsed.planType.isEmpty() && cached != null
+                        ? cached.planType : parsed.planType;
+                long until = parsed.activeUntilMillis <= 0L && cached != null
+                        ? cached.activeUntilMillis : parsed.activeUntilMillis;
+                long previousUntil =
+                        SubscriptionStore.storedActiveUntilMillis(context, containerId);
+                SubscriptionStore.save(context, containerId,
+                        new SubscriptionInfo(plan, until,
+                                parsed.willRenew, parsed.hasWillRenew, now));
+                DiagnosticLog.info(context, "refresh", "subscription_snapshot_replaced",
+                        "container_id", containerId,
+                        "trigger", safeTrigger,
+                        "previous_active_until", previousUntil,
+                        "new_active_until", until,
+                        "backend_stale", backendStale,
+                        "fetched_at", now);
+            }
         } catch (Exception exception) {
             // This is an internal ChatGPT endpoint and must never break usage refresh.
             DiagnosticLog.warn(context, "network", "subscription_refresh_failed",

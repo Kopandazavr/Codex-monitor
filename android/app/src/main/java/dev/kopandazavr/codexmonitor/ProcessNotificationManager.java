@@ -391,8 +391,9 @@ final class ProcessNotificationManager {
             manager.notify(AccountNotificationNamespace.tag(accountId), id,
                     buildNotification(context, accountId,
                     group.processes, Collections.emptyList(),
-                    notificationIdentity(context, representative.project, representative.role,
-                            representative.topic, single),
+                    accountTitle(context, accountId,
+                            notificationIdentity(context, representative.project,
+                                    representative.role, representative.topic, single)),
                     nowMillis, CHANNEL_ID, NotificationSurfaceContract.sortRole(group.roleKey),
                     true));
         }
@@ -403,7 +404,8 @@ final class ProcessNotificationManager {
                 manager.notify(AccountNotificationNamespace.tag(accountId), id,
                         buildNotification(context, accountId,
                         Collections.emptyList(), Collections.singletonList(idle),
-                        notificationIdentity(context, idle.project, idle.role, "", false),
+                        accountTitle(context, accountId,
+                                notificationIdentity(context, idle.project, idle.role, "", false)),
                         nowMillis, CHANNEL_ID,
                         NotificationSurfaceContract.sortRole(idle.key), true));
             }

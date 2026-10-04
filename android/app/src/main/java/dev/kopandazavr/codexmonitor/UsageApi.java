@@ -135,10 +135,8 @@ public final class UsageApi {
                 } catch (Exception exception) {
                     DiagnosticLog.error(context, "refresh", "reset_credit_side_refresh_failed",
                             exception);
-                    if (selected) {
-                        ResetNotificationManager.onResetCreditSummaryUpdated(context,
-                                usageSnapshot.resetCreditsAvailable);
-                    }
+                    ResetNotificationManager.onResetCreditSummaryUpdated(
+                            context, containerId, usageSnapshot.resetCreditsAvailable);
                     AppPreferences.setResetCreditsError(context, containerId,
                             safeMessage(exception));
                 }

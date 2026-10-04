@@ -226,8 +226,9 @@ final class ProcessNotificationManager {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
         int notificationId = completionNotificationId(key);
-        manager.cancel(notificationId);
+        manager.cancel(AccountNotificationNamespace.tag(containerId), notificationId);
         DiagnosticLog.info(context, "notification", "completion_notification_cleared",
+                "container_id", containerId,
                 "notification_id", notificationId,
                 "role_key", key);
     }

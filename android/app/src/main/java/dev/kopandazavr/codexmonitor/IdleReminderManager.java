@@ -426,6 +426,10 @@ final class IdleReminderManager {
                 .apply();
     }
 
+    private static String scopedKey(String containerId, String base) {
+        return base + "::" + AccountNotificationNamespace.safe(containerId);
+    }
+
     private static String completionIntentKey(IdleProcessState.IdleRole idle) {
         if (idle == null) return "";
         return idle.key + ":" + idle.completionIdentity() + ":" + idle.lastFinishedMillis;

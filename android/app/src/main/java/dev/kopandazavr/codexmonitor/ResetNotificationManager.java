@@ -297,9 +297,12 @@ public final class ResetNotificationManager {
                 KEY_FIVE_HOUR_WINDOW, KEY_WEEKLY_WINDOW, KEY_MONTHLY_WINDOW,
                 KEY_CREDIT_COUNT, KEY_CREDIT_EXPIRY_ANNOUNCED,
                 KEY_USER_RESET_FIVE_HOUR_UNTIL, KEY_USER_RESET_WEEKLY_UNTIL,
-                KEY_USER_RESET_MONTHLY_UNTIL
+                KEY_USER_RESET_MONTHLY_UNTIL, KEY_ACCOUNT_STATE_MIGRATED
         };
         for (String key : keys) editor.remove(accountStateKey(containerId, key));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            for (String key : keys) editor.remove(key);
+        }
         editor.apply();
 
         NotificationManager manager = manager(context);
@@ -670,6 +673,55 @@ public final class ResetNotificationManager {
 
     private static SharedPreferences state(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private static synchronized void ensureContainerStateMigrated(
+            Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()
+                || !AccountContainerStore.isLegacyOwner(context, containerId)) {
+            return;
+        }
+        SharedPreferences preferences = state(context);
+        String marker = accountStateKey(containerId, KEY_ACCOUNT_STATE_MIGRATED);
+        if (preferences.getBoolean(marker, false)) return;
+
+        SharedPreferences.Editor editor = preferences.edit();
+        migrateLong(preferences, editor, containerId, KEY_FIVE_HOUR_WINDOW);
+        migrateLong(preferences, editor, containerId, KEY_WEEKLY_WINDOW);
+        migrateLong(preferences, editor, containerId, KEY_MONTHLY_WINDOW);
+        migrateLong(preferences, editor, containerId, KEY_USER_RESET_FIVE_HOUR_UNTIL);
+        migrateLong(preferences, editor, containerId, KEY_USER_RESET_WEEKLY_UNTIL);
+        migrateLong(preferences, editor, containerId, KEY_USER_RESET_MONTHLY_UNTIL);
+        if (preferences.contains(KEY_CREDIT_COUNT)) {
+            editor.putInt(accountStateKey(containerId, KEY_CREDIT_COUNT),
+                    preferences.getInt(KEY_CREDIT_COUNT, 0));
+        }
+        if (preferences.contains(KEY_CREDIT_EXPIRY_ANNOUNCED)) {
+            Set<String> announced = preferences.getStringSet(
+                    KEY_CREDIT_EXPIRY_ANNOUNCED, new HashSet<>());
+            editor.putStringSet(
+                    accountStateKey(containerId, KEY_CREDIT_EXPIRY_ANNOUNCED),
+                    announced == null ? new HashSet<>() : new HashSet<>(announced));
+        }
+
+        editor.putBoolean(marker, true)
+                .remove(KEY_FIVE_HOUR_WINDOW)
+                .remove(KEY_WEEKLY_WINDOW)
+                .remove(KEY_MONTHLY_WINDOW)
+                .remove(KEY_CREDIT_COUNT)
+                .remove(KEY_CREDIT_EXPIRY_ANNOUNCED)
+                .remove(KEY_USER_RESET_FIVE_HOUR_UNTIL)
+                .remove(KEY_USER_RESET_WEEKLY_UNTIL)
+                .remove(KEY_USER_RESET_MONTHLY_UNTIL)
+                .commit();
+    }
+
+    private static void migrateLong(SharedPreferences preferences,
+            SharedPreferences.Editor editor, String containerId, String key) {
+        if (preferences.contains(key)) {
+            editor.putLong(accountStateKey(containerId, key),
+                    preferences.getLong(key, 0L));
+        }
     }
 
     private static String accountStateKey(String containerId, String base) {

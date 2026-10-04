@@ -254,6 +254,246 @@ public final class SettingsActivity extends AppCompatActivity {
             });
         }
 
+        private void bindAccounts() {
+            accountsCategory = findPreference("accounts_list");
+            Preference add = findPreference("account_add");
+            if (add != null) {
+                add.setOnPreferenceClickListener(preference -> {
+                    AccountSwitcherView.promptCreate(
+                            (AppCompatActivity) requireActivity(),
+                            new AccountSwitcherView.Listener() {
+                                @Override
+                                public void onAccountSelected(AccountContainerStore.Account account) {
+                                    refreshAccountsPage();
+                                }
+
+                                @Override
+                                public void onAccountCreated(AccountContainerStore.Account account) {
+                                    refreshAccountsPage();
+                                    startActivity(new Intent(requireContext(),
+                                            OnboardingActivity.class));
+                                }
+                            });
+                    return true;
+                });
+            }
+            refreshAccountsPage();
+        }
+
+        private void refreshAccountsPage() {
+            if (!PAGE_ACCOUNTS.equals(page) || getContext() == null
+                    || accountsCategory == null) {
+                return;
+            }
+            Context context = requireContext();
+            accountsCategory.removeAll();
+            String selectedId = AccountContainerStore.selectedId(context);
+            for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+                Preference row = new Preference(context);
+                row.setPersistent(false);
+                SpannableString title = new SpannableString("● " + account.name);
+                title.setSpan(new ForegroundColorSpan(
+                                AccountContainerStore.accentColor(account)),
+                        0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                row.setTitle(title);
+                row.setSummary(accountSummary(context, account, selectedId));
+                row.setOnPreferenceClickListener(preference -> {
+                    showAccountActions(account.id);
+                    return true;
+                });
+                accountsCategory.addPreference(row);
+            }
+        }
+
+        private String accountSummary(Context context, AccountContainerStore.Account account,
+                String selectedId) {
+            List<String> parts = new ArrayList<>();
+            if (account.id.equals(selectedId)) parts.add("Selected");
+            parts.add(SecureTokenStore.isSignedIn(context, account.id)
+                    ? "ChatGPT connected" : "ChatGPT not connected");
+            String google = GoogleCalendarAuthorization.accountName(context, account.id);
+            parts.add(GoogleCalendarAuthorization.isConnected(context, account.id)
+                    ? (google.isEmpty() ? "Calendar connected" : google)
+                    : "Calendar not connected");
+            if (LocalCalendarFallbackOwner.isOwner(context, account.id)) {
+                parts.add("Local fallback");
+            }
+            return String.join(" · ", parts);
+        }
+
+        private void showAccountActions(String accountId) {
+            Context context = requireContext();
+            AccountContainerStore.Account account =
+                    AccountContainerStore.find(context, accountId);
+            if (account == null) {
+                refreshAccountsPage();
+                return;
+            }
+            List<String> labels = new ArrayList<>();
+            List<Runnable> actions = new ArrayList<>();
+            if (!account.id.equals(AccountContainerStore.selectedId(context))) {
+                labels.add("Select");
+                actions.add(() -> {
+                    AccountContainerStore.select(requireContext(), account.id);
+                    WidgetRenderer.updateAll(requireContext());
+                    DualUsageNotificationManager.repostFromCache(
+                            requireContext(), account.id);
+                    refreshAccountsPage();
+                });
+            }
+
+            labels.add("Rename");
+            actions.add(() -> showRenameAccountDialog(account.id));
+
+            labels.add("Change color");
+            actions.add(() -> showAccountColorDialog(account.id));
+
+            labels.add("Connections & permissions");
+            actions.add(() -> {
+                AccountContainerStore.select(requireContext(), account.id);
+                startActivity(new Intent(requireContext(), OnboardingActivity.class)
+                        .putExtra(OnboardingActivity.EXTRA_PERMISSIONS_CONNECTIONS, true));
+            });
+
+            AccountContainerStore.Account fallbackOwner =
+                    LocalCalendarFallbackOwner.owner(context);
+            labels.add(LocalCalendarFallbackOwner.isOwner(context, account.id)
+                    ? "Local Calendar fallback · assigned here"
+                    : "Move Local Calendar fallback here"
+                    + (fallbackOwner == null ? "" : " (from " + fallbackOwner.name + ")"));
+            actions.add(() -> showLocalFallbackTransfer(account.id));
+
+            if (AccountContainerStore.all(context).size() > 1) {
+                labels.add("Remove Account");
+                actions.add(() -> showRemoveAccountDialog(account.id));
+            }
+
+            new AlertDialog.Builder(context)
+                    .setTitle(account.name)
+                    .setItems(labels.toArray(new String[0]), (dialog, which) -> {
+                        if (which >= 0 && which < actions.size()) actions.get(which).run();
+                    })
+                    .setNegativeButton("Done", null)
+                    .show();
+        }
+
+        private void showRenameAccountDialog(String accountId) {
+            Context context = requireContext();
+            AccountContainerStore.Account account =
+                    AccountContainerStore.find(context, accountId);
+            if (account == null) return;
+            EditText input = new EditText(context);
+            input.setSingleLine(true);
+            input.setText(account.name);
+            input.selectAll();
+            int pad = Ui.dp(context, 20);
+            android.widget.FrameLayout box = new android.widget.FrameLayout(context);
+            box.setPadding(pad, 0, pad, 0);
+            box.addView(input, new android.widget.FrameLayout.LayoutParams(
+                    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.FrameLayout.LayoutParams.WRAP_CONTENT));
+            AlertDialog dialog = new AlertDialog.Builder(context)
+                    .setTitle("Rename Account")
+                    .setView(box)
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Save", null)
+                    .create();
+            dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                    .setOnClickListener(view -> {
+                        String name = input.getText() == null
+                                ? "" : input.getText().toString().trim();
+                        if (name.isEmpty()) {
+                            input.setError("Enter an account name.");
+                            return;
+                        }
+                        if (!AccountContainerStore.rename(context, accountId, name)) {
+                            Toast.makeText(context, "Could not rename account.",
+                                    Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        dialog.dismiss();
+                        refreshAccountsPage();
+                    }));
+            dialog.show();
+        }
+
+        private void showAccountColorDialog(String accountId) {
+            Context context = requireContext();
+            AccountContainerStore.Account account =
+                    AccountContainerStore.find(context, accountId);
+            if (account == null) return;
+            String[] keys = AccountContainerStore.colorKeys();
+            String[] labels = new String[keys.length];
+            int selected = 0;
+            for (int i = 0; i < keys.length; i++) {
+                labels[i] = keys[i].substring(0, 1).toUpperCase(Locale.US)
+                        + keys[i].substring(1);
+                if (keys[i].equals(account.colorKey)) selected = i;
+            }
+            final int initial = selected;
+            new AlertDialog.Builder(context)
+                    .setTitle("Account color")
+                    .setSingleChoiceItems(labels, initial, (dialog, which) -> {
+                        if (which >= 0 && which < keys.length
+                                && AccountContainerStore.setColor(
+                                        context, accountId, keys[which])) {
+                            dialog.dismiss();
+                            refreshAccountsPage();
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        }
+
+        private void showLocalFallbackTransfer(String accountId) {
+            Context context = requireContext();
+            AccountContainerStore.Account target =
+                    AccountContainerStore.find(context, accountId);
+            if (target == null) return;
+            AccountContainerStore.Account owner = LocalCalendarFallbackOwner.owner(context);
+            if (owner != null && owner.id.equals(target.id)) {
+                Toast.makeText(context,
+                        "Local Calendar fallback is already assigned to " + target.name + ".",
+                        Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String ownerName = owner == null ? "another account" : owner.name;
+            new AlertDialog.Builder(context)
+                    .setTitle("Move Local Calendar fallback?")
+                    .setMessage("Local calendar fallback can only be assigned to one account. "
+                            + "Currently " + ownerName + ". Move to " + target.name + "?")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Move", (dialog, which) -> {
+                        if (!LocalCalendarFallbackOwner.transfer(context, target.id)) {
+                            Toast.makeText(context, "Could not move Local Calendar fallback.",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                        refreshAccountsPage();
+                    })
+                    .show();
+        }
+
+        private void showRemoveAccountDialog(String accountId) {
+            Context context = requireContext();
+            AccountContainerStore.Account account =
+                    AccountContainerStore.find(context, accountId);
+            if (account == null || AccountContainerStore.all(context).size() <= 1) return;
+            new AlertDialog.Builder(context)
+                    .setTitle("Remove " + account.name + "?")
+                    .setMessage("This removes this Codex Monitor account, its encrypted ChatGPT "
+                            + "credentials, Calendar connection and local account history from "
+                            + "this device.")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Remove", (dialog, which) -> {
+                        if (!AccountContainerLifecycle.remove(context, account.id)) {
+                            Toast.makeText(context, "Could not remove account.",
+                                    Toast.LENGTH_LONG).show();
+                        }
+                        refreshAccountsPage();
+                    })
+                    .show();
+        }
+
         private void bindDiagnostics() {
             findPreference("export_diagnostic_logs").setOnPreferenceClickListener(preference -> {
                 launchDiagnosticExport();

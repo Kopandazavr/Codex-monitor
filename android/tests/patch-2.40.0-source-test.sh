@@ -85,6 +85,15 @@ grep -Fq 'notification_account_text' "$RES/layout/notification_processes_expande
 grep -Fq 'AccountContainerStore.accentColor(account)' "$SRC/DualUsageNotificationManager.java"
 grep -Fq 'AccountContainerStore.accentColor(account)' "$SRC/ProcessNotificationManager.java"
 
+# ChatGPT sign-out is container-scoped and must not kill another account's jobs/process loop.
+grep -Fq 'static AuthTokens disconnectChatGPT(Context context, String containerId)' "$SRC/AccountContainerLifecycle.java"
+grep -Fq 'DualUsageNotificationManager.clearUsageSurface(context, containerId)' "$SRC/AccountContainerLifecycle.java"
+grep -Fq 'RefreshScheduler.schedulePeriodic(context)' "$SRC/AccountContainerLifecycle.java"
+grep -Fq 'ProcessNotificationScheduler.schedule(context)' "$SRC/AccountContainerLifecycle.java"
+! grep -Fq 'RefreshScheduler.cancelAll(this);' "$SRC/MainActivity.java"
+! grep -Fq 'ProcessNotificationScheduler.cancel(this);' "$SRC/OnboardingActivity.java"
+grep -Fq 'if (!hasAnySignedInAccount(context))' "$SRC/AppPreferences.java"
+
 # Per-account reset alerts/bells/credits cannot collide or dedupe across containers.
 grep -Fq 'EXTRA_CONTAINER_ID = OAuthService.EXTRA_CONTAINER_ID' "$SRC/ResetAlertScheduler.java"
 grep -Fq 'scheduleFromSnapshot(Context context, String containerId' "$SRC/ResetAlertScheduler.java"

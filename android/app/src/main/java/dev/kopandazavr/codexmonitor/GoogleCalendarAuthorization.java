@@ -1,5 +1,6 @@
 package dev.kopandazavr.codexmonitor;
 
+import android.accounts.Account;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Context;
@@ -16,6 +17,8 @@ import com.google.android.gms.common.api.CommonStatusCodes;
 import com.google.android.gms.common.api.Scope;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** Google Calendar OAuth state, deliberately separate from the app's ChatGPT OAuth flow. */
 final class GoogleCalendarAuthorization {
@@ -25,10 +28,13 @@ final class GoogleCalendarAuthorization {
     private static final String KEY_CONNECTED = "connected";
     private static final String KEY_NEEDS_ACTION = "needs_action";
     private static final String KEY_LAST_ERROR = "last_error";
+    private static final String KEY_ACCOUNT_NAME = "account_name";
+    private static final String KEY_PENDING_ACCOUNT_NAME = "pending_account_name";
+    static final String GOOGLE_ACCOUNT_TYPE = "com.google";
     private static final long TOKEN_CACHE_MS = 45L * 60L * 1000L;
 
-    private static volatile String cachedToken;
-    private static volatile long cachedTokenAt;
+    private static final Map<String, String> CACHED_TOKENS = new ConcurrentHashMap<>();
+    private static final Map<String, Long> CACHED_TOKEN_AT = new ConcurrentHashMap<>();
 
     interface TokenCallback {
         void onResult(String token);
@@ -69,28 +75,50 @@ final class GoogleCalendarAuthorization {
     }
 
     static boolean isConnected(Context context) {
+        return isConnected(context, AccountContainerStore.selectedId(context));
+    }
+
+    static boolean isConnected(Context context, String containerId) {
         SharedPreferences prefs = prefs(context);
-        return prefs.getBoolean(KEY_CONNECTED, false)
-                && !prefs.getBoolean(KEY_NEEDS_ACTION, false);
+        String account = prefs.getString(key(containerId, KEY_ACCOUNT_NAME), "");
+        return account != null && !account.trim().isEmpty()
+                && prefs.getBoolean(key(containerId, KEY_CONNECTED), false)
+                && !prefs.getBoolean(key(containerId, KEY_NEEDS_ACTION), false);
+    }
+
+    static String accountName(Context context) {
+        return accountName(context, AccountContainerStore.selectedId(context));
+    }
+
+    static String accountName(Context context, String containerId) {
+        String value = prefs(context).getString(key(containerId, KEY_ACCOUNT_NAME), "");
+        return value == null ? "" : value.trim();
     }
 
     static String statusSummary(Context context) {
+        String containerId = AccountContainerStore.selectedId(context);
         SharedPreferences prefs = prefs(context);
-        if (prefs.getBoolean(KEY_CONNECTED, false)
-                && !prefs.getBoolean(KEY_NEEDS_ACTION, false)) {
-            return "Connected · direct Calendar API";
+        String account = accountName(context, containerId);
+        if (isConnected(context, containerId)) {
+            return account.isEmpty() ? "Connected · direct Calendar API"
+                    : "Connected · " + account;
         }
-        if (prefs.getBoolean(KEY_NEEDS_ACTION, false)) {
+        if (prefs.getBoolean(key(containerId, KEY_NEEDS_ACTION), false)) {
             return "Reconnect required";
         }
-        String error = prefs.getString(KEY_LAST_ERROR, "");
+        if (AccountContainerStore.isLegacyOwner(context, containerId)
+                && prefs.getBoolean(KEY_CONNECTED, false) && account.isEmpty()) {
+            return "Reconnect required · choose account";
+        }
+        String error = prefs.getString(key(containerId, KEY_LAST_ERROR), "");
         return error == null || error.isEmpty()
                 ? "Not connected · tap to authorize"
                 : "Not connected · tap to retry";
     }
 
     static boolean shouldRetryTransient(Context context) {
-        String error = prefs(context).getString(KEY_LAST_ERROR, "");
+        String containerId = AccountContainerStore.selectedId(context);
+        String error = prefs(context).getString(key(containerId, KEY_LAST_ERROR), "");
         return "transient:NETWORK_ERROR".equals(error)
                 || "transient:INTERNAL_ERROR".equals(error);
     }
@@ -397,6 +425,11 @@ final class GoogleCalendarAuthorization {
         prefs(context).edit().clear().apply();
         cachedToken = null;
         cachedTokenAt = 0L;
+    }
+
+    private static String key(String containerId, String base) {
+        String id = containerId == null ? "" : containerId.trim();
+        return base + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
     private static SharedPreferences prefs(Context context) {

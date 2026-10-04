@@ -375,6 +375,7 @@ final class GoogleCalendarAuthorization {
 
     private static boolean accept(Context context, String containerId,
             AuthorizationResult result, String accountName) {
+        if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) return false;
         if (result == null) return false;
         String token = result.getAccessToken();
         String account = accountName == null ? "" : accountName.trim();

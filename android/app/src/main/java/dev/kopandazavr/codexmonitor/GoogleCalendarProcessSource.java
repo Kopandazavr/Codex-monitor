@@ -154,6 +154,10 @@ final class GoogleCalendarProcessSource {
 
     private static void refresh(Context context, String containerId, Runnable completion) {
         Context app = context.getApplicationContext();
+        if (!AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+            run(completion);
+            return;
+        }
         synchronized (LOCK) {
             RefreshState state = stateLocked(containerId);
             if (completion != null) state.waiters.add(completion);
@@ -167,18 +171,30 @@ final class GoogleCalendarProcessSource {
             boolean retriedUnauthorized) {
         GoogleCalendarAuthorization.accessToken(app, containerId, token -> {
             if (token == null || token.isEmpty()) {
-                MonitorHealthDiagnostics.recordPollFailure(
-                        app, containerId, "authorization_token_unavailable");
+                if (AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                    MonitorHealthDiagnostics.recordPollFailure(
+                            app, containerId, "authorization_token_unavailable");
+                }
                 finishRefresh(containerId);
                 return;
             }
             new Thread(() -> {
                 try {
+                    if (!AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                        finishRefresh(containerId);
+                        return;
+                    }
                     List<CalendarProcess> processes =
                             fetch(app, token, System.currentTimeMillis());
-                    store(app, containerId, processes, System.currentTimeMillis());
-                    MonitorHealthDiagnostics.recordDirectPollSuccess(
-                            app, containerId, processes.size());
+                    synchronized (AccountContainerLifecycleGuard.lock()) {
+                        if (!AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                            finishRefresh(containerId);
+                            return;
+                        }
+                        store(app, containerId, processes, System.currentTimeMillis());
+                        MonitorHealthDiagnostics.recordDirectPollSuccess(
+                                app, containerId, processes.size());
+                    }
                     if (retriedUnauthorized) {
                         DiagnosticLog.info(app, "calendar_api",
                                 "calendar_http_401_recovered_after_token_refresh",
@@ -187,7 +203,8 @@ final class GoogleCalendarProcessSource {
                     }
                     finishRefresh(containerId);
                 } catch (CalendarHttpException exception) {
-                    if (exception.status == 401 && !retriedUnauthorized) {
+                    if (exception.status == 401 && !retriedUnauthorized
+                            && AccountContainerLifecycleGuard.isAlive(app, containerId)) {
                         GoogleCalendarAuthorization.invalidateCachedToken(
                                 app, containerId, "calendar_http_401");
                         DiagnosticLog.warn(app, "calendar_api",
@@ -196,7 +213,9 @@ final class GoogleCalendarProcessSource {
                         requestAndFetch(app, containerId, true);
                         return;
                     }
-                    MonitorHealthDiagnostics.recordPollFailure(app, containerId, exception);
+                    if (AccountContainerLifecycleGuard.isAlive(app, containerId)) {
+                        MonitorHealthDiagnostics.recordPollFailure(app, containerId, exception);
+                    }
                     finishRefresh(containerId);
                 } catch (Exception exception) {
                     MonitorHealthDiagnostics.recordPollFailure(app, exception);
@@ -356,7 +375,8 @@ final class GoogleCalendarProcessSource {
     private static void finishRefresh(String containerId) {
         List<Runnable> callbacks;
         synchronized (LOCK) {
-            RefreshState state = stateLocked(containerId);
+            RefreshState state = REFRESH_STATES.get(containerId == null ? "" : containerId);
+            if (state == null) return;
             state.inFlight = false;
             callbacks = new ArrayList<>(state.waiters);
             state.waiters.clear();
@@ -392,9 +412,16 @@ final class GoogleCalendarProcessSource {
             editor.remove(KEY_EVENTS).remove(KEY_LAST_REFRESH);
         }
         editor.apply();
+        List<Runnable> callbacks = new ArrayList<>();
         synchronized (LOCK) {
-            REFRESH_STATES.remove(containerId);
+            RefreshState state = REFRESH_STATES.remove(containerId);
+            if (state != null) {
+                state.inFlight = false;
+                callbacks.addAll(state.waiters);
+                state.waiters.clear();
+            }
         }
+        for (Runnable callback : callbacks) run(callback);
     }
 
     private static String key(String containerId, String base) {

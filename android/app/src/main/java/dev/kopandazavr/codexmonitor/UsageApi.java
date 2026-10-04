@@ -46,8 +46,12 @@ public final class UsageApi {
         String safeTrigger = trigger == null || trigger.trim().isEmpty()
                 ? "unspecified" : trigger.trim();
         DiagnosticLog.info(context, "refresh", "usage_refresh_started",
+                "container_id", containerId,
                 "trigger", safeTrigger,
                 "force_subscription", forceSubscription);
+        if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+            throw new Exception("Account container was removed.");
+        }
         try {
             synchronized (NETWORK_LOCK) {
                 AuthTokens authTokensUsableTokens = usableTokens(context, containerId);
@@ -58,7 +62,12 @@ public final class UsageApi {
                             "trigger", safeTrigger);
                     AuthTokens authTokensRefresh = OAuthClient.refresh(context,
                             authTokensUsableTokens);
-                    SecureTokenStore.save(context, containerId, authTokensRefresh);
+                    synchronized (AccountContainerLifecycleGuard.lock()) {
+                        if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                            throw new Exception("Account container was removed.");
+                        }
+                        SecureTokenStore.save(context, containerId, authTokensRefresh);
+                    }
                     authTokens = authTokensRefresh;
                     responseRequestUsage = requestUsage(context, authTokensRefresh, safeTrigger);
                 } else {
@@ -82,6 +91,13 @@ public final class UsageApi {
                             "trigger", safeTrigger, "reason", "no_displayable_data");
                     throw new Exception("OpenAI returned no recognizable Codex usage data.");
                 }
+                synchronized (AccountContainerLifecycleGuard.lock()) {
+                    if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                        DiagnosticLog.info(context, "refresh", "usage_commit_skipped_removed",
+                                "container_id", containerId,
+                                "trigger", safeTrigger);
+                        return usageSnapshot;
+                    }
                 UsageSnapshot previousSnapshot =
                         AppPreferences.loadSnapshot(context, containerId);
                 DiagnosticLog.info(context, "refresh", "usage_snapshot_parsed",
@@ -139,6 +155,7 @@ public final class UsageApi {
                             context, containerId, usageSnapshot.resetCreditsAvailable);
                     AppPreferences.setResetCreditsError(context, containerId,
                             safeMessage(exception));
+                }
                 }
             }
         } catch (Exception exception) {

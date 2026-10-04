@@ -63,7 +63,10 @@ public final class OAuthService extends Service {
                 "action", action == null ? "" : action,
                 "container_id", requestedContainer);
         if (ACTION_CANCEL.equals(action) || ACTION_CANCEL_SILENT.equals(action)) {
-            if (flowContainerId.isEmpty() || flowContainerId.equals(requestedContainer)) {
+            if (flowContainerId.isEmpty()) {
+                AppPreferences.setOAuthPending(this, requestedContainer, false, "");
+                finishService();
+            } else if (flowContainerId.equals(requestedContainer)) {
                 cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
             }
             return START_NOT_STICKY;
@@ -164,9 +167,14 @@ public final class OAuthService extends Service {
                 updateNotification("Securing your ChatGPT session…", null);
                 AuthTokens tokens = OAuthClient.exchangeCode(this, code, redirectUri,
                         pkce.verifier);
-                SecureTokenStore.save(this, containerId, tokens);
-                credentialsCommitted = true;
-                AppPreferences.setOAuthPending(this, containerId, false, "");
+                synchronized (AccountContainerLifecycleGuard.lock()) {
+                    if (!AccountContainerLifecycleGuard.isAlive(this, containerId)) {
+                        throw new Exception("Account container was removed.");
+                    }
+                    SecureTokenStore.save(this, containerId, tokens);
+                    credentialsCommitted = true;
+                    AppPreferences.setOAuthPending(this, containerId, false, "");
+                }
 
                 // The browser callback is complete as soon as credentials are safely stored.
                 // Usage retrieval and JobScheduler setup must never turn a successful OAuth
@@ -395,13 +403,16 @@ public final class OAuthService extends Service {
         Intent openIntent;
         if (authUrl == null || authUrl.isEmpty()) {
             openIntent = new Intent(this, MainActivity.class)
+                    .putExtra(EXTRA_CONTAINER_ID, flowContainerId)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         } else {
             openIntent = new Intent(Intent.ACTION_VIEW, Uri.parse(authUrl));
         }
         PendingIntent open = PendingIntent.getActivity(this, 7302, openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        Intent cancelIntent = new Intent(this, OAuthService.class).setAction(ACTION_CANCEL);
+        Intent cancelIntent = new Intent(this, OAuthService.class)
+                .setAction(ACTION_CANCEL)
+                .putExtra(EXTRA_CONTAINER_ID, flowContainerId);
         PendingIntent cancel = PendingIntent.getService(this, 7303, cancelIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_ID)

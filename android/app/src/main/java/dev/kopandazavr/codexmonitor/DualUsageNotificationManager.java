@@ -40,16 +40,16 @@ final class DualUsageNotificationManager {
             return false;
         }
         AlertSoundManager.ensureChannels(context);
-        SurfaceState state = surfaceState(context, snapshot);
+        SurfaceState state = surfaceState(context, containerId, snapshot);
         if (state == null) return false;
-        Notification notification = buildSurface(context, CHANNEL_ID, state,
+        Notification notification = buildSurface(context, containerId, CHANNEL_ID, state,
                 "Codex usage", state.fallbackText, true);
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null || notification == null) return false;
         try {
-            manager.notify(NOTIFICATION_ID, notification);
-            ProcessNotificationManager.sync(context, state.processes, state.idleRoles,
+            manager.notify(AccountNotificationNamespace.tag(containerId), NOTIFICATION_ID, notification);
+            ProcessNotificationManager.sync(context, containerId, state.processes, state.idleRoles,
                     state.processMode, state.now);
             // Keep local timer presentation independent from the remote refresh scheduler.
             ProcessNotificationScheduler.schedule(context);

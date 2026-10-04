@@ -26,7 +26,7 @@ public final class RefreshScheduler {
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!hasAnySignedInAccount(contextAppContext)) {
             DiagnosticLog.info(contextAppContext, "scheduler",
                     "refresh_schedule_skipped_signed_out");
             cancelAll(contextAppContext);
@@ -95,7 +95,7 @@ public final class RefreshScheduler {
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!hasAnySignedInAccount(contextAppContext)) {
             return true;
         }
         if (!AppPreferences.getAutomaticRefresh(contextAppContext)
@@ -139,12 +139,19 @@ public final class RefreshScheduler {
         }
         long now = System.currentTimeMillis();
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        return AdaptiveRefreshPolicy.chooseMinutes(
-                AppPreferences.loadSnapshot(app),
-                RefreshEngagement.score(app, now),
-                hour,
-                AppPreferences.getRefreshFailures(app),
-                now);
+        int engagement = RefreshEngagement.score(app, now);
+        int best = Integer.MAX_VALUE;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(app)) {
+            if (!SecureTokenStore.isSignedIn(app, account.id)) continue;
+            int minutes = AdaptiveRefreshPolicy.chooseMinutes(
+                    AppPreferences.loadSnapshot(app, account.id),
+                    engagement,
+                    hour,
+                    AppPreferences.getRefreshFailures(app, account.id),
+                    now);
+            best = Math.min(best, minutes);
+        }
+        return best == Integer.MAX_VALUE ? AppPreferences.getRefreshMinutes(app) : best;
     }
 
     public static boolean scheduleImmediate(Context context) {
@@ -152,7 +159,7 @@ public final class RefreshScheduler {
         if (contextAppContext == null) {
             return false;
         }
-        if (!SecureTokenStore.isSignedIn(contextAppContext)) {
+        if (!hasAnySignedInAccount(contextAppContext)) {
             WidgetRenderer.updateAll(contextAppContext);
             return true;
         }
@@ -253,6 +260,14 @@ public final class RefreshScheduler {
         }
         Context applicationContext = context.getApplicationContext();
         return applicationContext != null ? applicationContext : context;
+    }
+
+    private static boolean hasAnySignedInAccount(Context context) {
+        if (context == null) return false;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            if (SecureTokenStore.isSignedIn(context, account.id)) return true;
+        }
+        return false;
     }
 
     private static boolean failed(Context context, RuntimeException runtimeException) {

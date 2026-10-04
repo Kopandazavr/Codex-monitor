@@ -554,6 +554,17 @@ final class IdleProcessState {
         editor.apply();
     }
 
+    static void clearContainer(Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()) return;
+        android.content.SharedPreferences.Editor editor =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .remove(rowsKey(containerId));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(KEY_ROWS);
+        }
+        editor.apply();
+    }
+
     private static String rowsKey(String containerId) {
         String id = containerId == null ? "" : containerId.trim();
         return KEY_ROWS + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");

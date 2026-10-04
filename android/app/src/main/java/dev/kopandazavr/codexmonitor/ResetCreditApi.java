@@ -57,9 +57,8 @@ public final class ResetCreditApi {
         if (!AppPreferences.saveResetCredits(context, containerId, resetCreditsSnapshot)) {
             throw new Exception("Reset credits were received, but could not be saved on this device.");
         }
-        if (containerId.equals(AccountContainerStore.selectedId(context))) {
-            ResetNotificationManager.onResetCreditsUpdated(context, resetCreditsSnapshot);
-        }
+        ResetNotificationManager.onResetCreditsUpdated(
+                context, containerId, resetCreditsSnapshot);
         notifyUpdated(context, containerId);
         DiagnosticLog.info(context, "refresh", "reset_credit_refresh_succeeded",
                 "duration_ms", SystemClock.elapsedRealtime() - started,

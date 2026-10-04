@@ -28,6 +28,8 @@ public final class ResetCreditActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        AccountContainerStore.ensureInitialized(this);
+        selectAccountFromIntent(getIntent());
         this.dark = Ui.isDark(this);
         this.content = Ui.installPage(this, "Codex reset", true).content;
         rebuild();
@@ -41,8 +43,17 @@ public final class ResetCreditActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        selectAccountFromIntent(intent);
         rebuild();
         maybePromptUseReset(intent);
+    }
+
+    private void selectAccountFromIntent(Intent intent) {
+        if (intent == null) return;
+        String containerId = intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
+        if (containerId != null && !containerId.trim().isEmpty()) {
+            AccountContainerStore.select(this, containerId.trim());
+        }
     }
 
     @Override // android.app.Activity

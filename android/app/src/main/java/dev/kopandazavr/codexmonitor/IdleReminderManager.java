@@ -515,6 +515,16 @@ final class IdleReminderManager {
                 .apply();
     }
 
+    private static String containerFromIntent(Context context, Intent intent) {
+        String requested = intent == null ? "" : intent.getStringExtra(EXTRA_CONTAINER_ID);
+        if (requested != null) requested = requested.trim();
+        if (requested != null && !requested.isEmpty()
+                && AccountContainerStore.find(context, requested) != null) {
+            return requested;
+        }
+        return AccountContainerStore.selectedId(context);
+    }
+
     private static String scopedKey(String containerId, String base) {
         return base + "::" + AccountNotificationNamespace.safe(containerId);
     }

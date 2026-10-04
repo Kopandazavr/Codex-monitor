@@ -35,6 +35,7 @@ public final class OAuthService extends Service {
     public static final String ACTION_START = "dev.kopandazavr.codexmonitor.oauth.START";
     public static final String ACTION_CANCEL = "dev.kopandazavr.codexmonitor.oauth.CANCEL";
     public static final String ACTION_CANCEL_SILENT = "dev.kopandazavr.codexmonitor.oauth.CANCEL_SILENT";
+    public static final String EXTRA_CONTAINER_ID = "container_id";
     private static final String CHANNEL_ID = AlertSoundManager.OPERATIONAL_CHANNEL_ID;
     private static final int NOTIFICATION_ID = 7301;
 
@@ -42,6 +43,7 @@ public final class OAuthService extends Service {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private volatile ServerSocket serverSocket;
     private volatile boolean cancelled;
+    private volatile String flowContainerId = "";
 
     @Override
     public void onCreate() {
@@ -52,19 +54,28 @@ public final class OAuthService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? ACTION_START : intent.getAction();
+        String requestedContainer = intent == null ? "" :
+                cleanContainerId(intent.getStringExtra(EXTRA_CONTAINER_ID));
+        if (requestedContainer.isEmpty()) {
+            requestedContainer = AccountContainerStore.selectedId(this);
+        }
         DiagnosticLog.info(this, "auth", "oauth_service_command",
-                "action", action == null ? "" : action);
+                "action", action == null ? "" : action,
+                "container_id", requestedContainer);
         if (ACTION_CANCEL.equals(action) || ACTION_CANCEL_SILENT.equals(action)) {
-            cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
+            if (flowContainerId.isEmpty() || flowContainerId.equals(requestedContainer)) {
+                cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
+            }
             return START_NOT_STICKY;
         }
-        if (SecureTokenStore.isSignedIn(this)) {
-            AppPreferences.setOAuthPending(this, false, "");
-            broadcastResult(true, "Already signed in.");
+        if (SecureTokenStore.isSignedIn(this, requestedContainer)) {
+            AppPreferences.setOAuthPending(this, requestedContainer, false, "");
+            broadcastResult(requestedContainer, true, "Already signed in.");
             finishService();
             return START_NOT_STICKY;
         }
         if (running.compareAndSet(false, true)) {
+            flowContainerId = requestedContainer;
             cancelled = false;
             startForegroundCompat(buildNotification("Preparing secure sign-in…", null));
             executor.execute(new Runnable() {
@@ -73,9 +84,12 @@ public final class OAuthService extends Service {
                     runFlow();
                 }
             });
+        } else if (flowContainerId.equals(requestedContainer)) {
+            String url = AppPreferences.getOAuthUrl(this, requestedContainer);
+            if (!url.isEmpty()) broadcastReady(requestedContainer, url);
         } else {
-            String url = AppPreferences.getOAuthUrl(this);
-            if (!url.isEmpty()) broadcastReady(url);
+            broadcastResult(requestedContainer, false,
+                    "Another account sign-in is already in progress.");
         }
         return START_NOT_STICKY;
     }
@@ -93,6 +107,7 @@ public final class OAuthService extends Service {
     }
 
     private void runFlow() {
+        final String containerId = flowContainerId;
         Socket browser = null;
         boolean credentialsCommitted = false;
         long started = android.os.SystemClock.elapsedRealtime();
@@ -102,9 +117,9 @@ public final class OAuthService extends Service {
             int port = bindServer();
             String redirectUri = "http://localhost:" + port + "/auth/callback";
             String authUrl = buildAuthorizeUrl(redirectUri, pkce);
-            AppPreferences.setOAuthPending(this, true, authUrl);
+            AppPreferences.setOAuthPending(this, containerId, true, authUrl);
             updateNotification("Complete sign-in in your browser", authUrl);
-            broadcastReady(authUrl);
+            broadcastReady(containerId, authUrl);
 
             while (!cancelled) {
                 try {
@@ -149,9 +164,9 @@ public final class OAuthService extends Service {
                 updateNotification("Securing your ChatGPT session…", null);
                 AuthTokens tokens = OAuthClient.exchangeCode(this, code, redirectUri,
                         pkce.verifier);
-                SecureTokenStore.save(this, tokens);
+                SecureTokenStore.save(this, containerId, tokens);
                 credentialsCommitted = true;
-                AppPreferences.setOAuthPending(this, false, "");
+                AppPreferences.setOAuthPending(this, containerId, false, "");
 
                 // The browser callback is complete as soon as credentials are safely stored.
                 // Usage retrieval and JobScheduler setup must never turn a successful OAuth
@@ -165,10 +180,10 @@ public final class OAuthService extends Service {
                 }
                 closeQuietly(browser);
                 browser = null;
-                broadcastResult(true, "Signed in successfully.");
+                broadcastResult(containerId, true, "Signed in successfully.");
 
                 updateNotification("Loading Codex usage…", null);
-                performPostAuthenticationSetup();
+                performPostAuthenticationSetup(containerId);
                 DiagnosticLog.info(this, "auth", "oauth_flow_succeeded",
                         "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
                 finishService();
@@ -181,9 +196,10 @@ public final class OAuthService extends Service {
             if (credentialsCommitted) {
                 // A post-commit failure is not an authentication failure. Preserve the session,
                 // show a valid success state, and let manual refresh recover later.
-                AppPreferences.setOAuthPending(this, false, "");
+                AppPreferences.setOAuthPending(this, containerId, false, "");
                 AppPreferences.setLastError(this, cleanMessage(exception));
-                broadcastResult(true, "Signed in. Usage can be refreshed from the app.");
+                broadcastResult(containerId, true,
+                        "Signed in. Usage can be refreshed from the app.");
                 safeWidgetUpdate();
                 finishService();
                 return;
@@ -197,8 +213,8 @@ public final class OAuthService extends Service {
             }
             if (!cancelled) {
                 String message = cleanMessage(exception);
-                AppPreferences.setOAuthPending(this, false, "");
-                broadcastResult(false, message);
+                AppPreferences.setOAuthPending(this, containerId, false, "");
+                broadcastResult(containerId, false, message);
             }
             finishService();
         } finally {
@@ -207,10 +223,12 @@ public final class OAuthService extends Service {
         }
     }
 
-    private void performPostAuthenticationSetup() {
+    private void performPostAuthenticationSetup(String containerId) {
         try {
-            UsageSnapshot snapshot = UsageApi.refreshAndCache(this);
-            RefreshScheduler.scheduleAtNextReset(this, snapshot);
+            UsageSnapshot snapshot = UsageApi.refreshAndCache(this, containerId);
+            if (containerId.equals(AccountContainerStore.selectedId(this))) {
+                RefreshScheduler.scheduleAtNextReset(this, snapshot);
+            }
         } catch (Exception refreshError) {
             AppPreferences.setLastError(this, cleanMessage(refreshError));
         }
@@ -304,16 +322,19 @@ public final class OAuthService extends Service {
 
     private void cancelFlow(String message, boolean broadcast) {
         cancelled = true;
-        AppPreferences.setOAuthPending(this, false, "");
+        String containerId = flowContainerId.isEmpty()
+                ? AccountContainerStore.selectedId(this) : flowContainerId;
+        AppPreferences.setOAuthPending(this, containerId, false, "");
         closeServer();
         if (broadcast) {
-            broadcastResult(false, message);
+            broadcastResult(containerId, false, message);
         }
         finishService();
     }
 
     private void finishService() {
         running.set(false);
+        flowContainerId = "";
         try {
             stopForeground(STOP_FOREGROUND_REMOVE);
         } catch (RuntimeException ignored) {
@@ -344,16 +365,18 @@ public final class OAuthService extends Service {
         }
     }
 
-    private void broadcastReady(String authUrl) {
+    private void broadcastReady(String containerId, String authUrl) {
         Intent intent = new Intent(AppConstants.ACTION_OAUTH_READY)
                 .setPackage(getPackageName())
+                .putExtra(EXTRA_CONTAINER_ID, containerId)
                 .putExtra(AppConstants.EXTRA_AUTH_URL, authUrl);
         sendBroadcast(intent, AppConstants.INTERNAL_PERMISSION);
     }
 
-    private void broadcastResult(boolean success, String message) {
+    private void broadcastResult(String containerId, boolean success, String message) {
         Intent intent = new Intent(AppConstants.ACTION_OAUTH_RESULT)
                 .setPackage(getPackageName())
+                .putExtra(EXTRA_CONTAINER_ID, containerId)
                 .putExtra(AppConstants.EXTRA_SUCCESS, success)
                 .putExtra(AppConstants.EXTRA_MESSAGE, message);
         sendBroadcast(intent, AppConstants.INTERNAL_PERMISSION);
@@ -403,6 +426,10 @@ public final class OAuthService extends Service {
         } else {
             startForeground(NOTIFICATION_ID, notification);
         }
+    }
+
+    private static String cleanContainerId(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private static boolean secureEquals(String expected, String actual) {

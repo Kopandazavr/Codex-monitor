@@ -294,12 +294,16 @@ public final class IdleReminderOverlayService extends Service {
     private void rebuildEntries() {
         if (entries == null) return;
         entries.removeAllViews();
-        for (IdleProcessState.IdleRole idle : roles.values()) {
-            entries.addView(entryView(idle), entryParams());
+        for (Map.Entry<String, IdleProcessState.IdleRole> entry : roles.entrySet()) {
+            String containerId = roleAccounts.get(entry.getKey());
+            if (containerId == null || containerId.trim().isEmpty()) {
+                containerId = AccountContainerStore.selectedId(this);
+            }
+            entries.addView(entryView(containerId, entry.getValue()), entryParams());
         }
     }
 
-    private View entryView(IdleProcessState.IdleRole idle) {
+    private View entryView(String containerId, IdleProcessState.IdleRole idle) {
         LinearLayout card = new LinearLayout(this);
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);

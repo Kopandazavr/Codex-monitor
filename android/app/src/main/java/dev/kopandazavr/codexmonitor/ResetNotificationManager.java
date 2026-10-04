@@ -282,22 +282,28 @@ public final class ResetNotificationManager {
                 ? fallbackToken : creditId).hashCode(), 1000);
     }
 
-    private static void notifyLowWindow(Context context, UsageWindow window, long fetchedAt,
-            String label, String stateKey, int notificationId) {
-        if (window == null || window.remainingPercent() > ResetAlertPreferences.getThreshold(context)) return;
+    private static void notifyLowWindow(Context context, String containerId,
+            UsageWindow window, long fetchedAt, String label, String baseStateKey,
+            int notificationId) {
+        if (window == null
+                || window.remainingPercent() > ResetAlertPreferences.getThreshold(context)) {
+            return;
+        }
         long windowId = window.effectiveResetAtMillis(fetchedAt);
         if (windowId <= 0L) return;
         SharedPreferences state = state(context);
+        String stateKey = accountStateKey(containerId, baseStateKey);
         long previousWindowId = state.getLong(stateKey, 0L);
-        if (!UsageWindow.shouldAnnounceLowUsage(previousWindowId, windowId, window.windowSeconds)) {
-            // Keep the stored reset aligned with API drift so slow skew cannot re-arm the alert.
+        if (!UsageWindow.shouldAnnounceLowUsage(
+                previousWindowId, windowId, window.windowSeconds)) {
             if (previousWindowId != windowId) {
                 state.edit().putLong(stateKey, windowId).apply();
             }
             return;
         }
         int remaining = window.remainingPercent();
-        if (post(context, notificationId, label + " Codex usage is low",
+        if (post(context, containerId, notificationId,
+                accountTitle(context, containerId, label + " Codex usage is low"),
                 remaining + "% remaining in the current "
                         + label.toLowerCase(Locale.ROOT) + " window.",
                 notificationId, true)) {
@@ -305,28 +311,34 @@ public final class ResetNotificationManager {
         }
     }
 
-    private static void notifyUnexpectedRefill(Context context, int refills) {
+    private static void notifyUnexpectedRefill(
+            Context context, String containerId, int refills) {
         if (refills == 0) return;
         boolean fiveHour = (refills & CelebrationDetector.FIVE_HOUR) != 0;
         boolean weekly = (refills & CelebrationDetector.WEEKLY) != 0;
         boolean monthly = (refills & CelebrationDetector.MONTHLY) != 0;
+        int id;
+        String title;
+        String text;
         if ((fiveHour && weekly) || (fiveHour && monthly)) {
-            post(context, NOTIFICATION_REFILL_BOTH, "Surprise Codex refill",
-                    "Your Codex allowances jumped to 100% before their scheduled resets. Enjoy the bonus capacity.",
-                    NOTIFICATION_REFILL_BOTH);
+            id = NOTIFICATION_REFILL_BOTH;
+            title = "Surprise Codex refill";
+            text = "Your Codex allowances jumped to 100% before their scheduled resets. Enjoy the bonus capacity.";
         } else if (weekly) {
-            post(context, NOTIFICATION_REFILL_WEEKLY, "Surprise weekly Codex refill",
-                    "Your weekly allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
-                    NOTIFICATION_REFILL_WEEKLY);
+            id = NOTIFICATION_REFILL_WEEKLY;
+            title = "Surprise weekly Codex refill";
+            text = "Your weekly allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.";
         } else if (monthly) {
-            post(context, NOTIFICATION_REFILL_MONTHLY, "Surprise monthly Codex refill",
-                    "Your monthly allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
-                    NOTIFICATION_REFILL_MONTHLY);
+            id = NOTIFICATION_REFILL_MONTHLY;
+            title = "Surprise monthly Codex refill";
+            text = "Your monthly allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.";
         } else {
-            post(context, NOTIFICATION_REFILL_FIVE_HOUR, "Surprise 5-hour Codex refill",
-                    "Your 5-hour allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.",
-                    NOTIFICATION_REFILL_FIVE_HOUR);
+            id = NOTIFICATION_REFILL_FIVE_HOUR;
+            title = "Surprise 5-hour Codex refill";
+            text = "Your 5-hour allowance jumped to 100% before its scheduled reset. Enjoy the bonus capacity.";
         }
+        post(context, containerId, id, accountTitle(context, containerId, title),
+                text, id, false);
     }
 
     private static int suppressUserResetRefills(Context context, int refills, long observedAt) {

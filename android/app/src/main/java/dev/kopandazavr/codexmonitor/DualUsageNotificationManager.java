@@ -91,6 +91,56 @@ final class DualUsageNotificationManager {
         }
     }
 
+    static boolean realertResetSurface(Context context, String alertChannelId,
+            String alertTitle, String alertText, int layoutResId) {
+        if (context == null || alertChannelId == null || !NowBarManager.isActive(context)) {
+            return false;
+        }
+        RemoteViews alert = new RemoteViews(context.getPackageName(), layoutResId);
+        alert.setTextViewText(R.id.notification_reset_alert_title,
+                alertTitle == null ? "Codex usage reset" : alertTitle);
+        alert.setTextViewText(R.id.notification_reset_alert_text,
+                alertText == null ? "" : alertText);
+
+        Intent open = new Intent(context, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Notification notification = new Notification.Builder(context, alertChannelId)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
+                .setContentTitle(alertTitle)
+                .setContentText(alertText)
+                .setContentIntent(contentIntent)
+                .setOngoing(true)
+                .setOnlyAlertOnce(false)
+                .setCategory(Notification.CATEGORY_STATUS)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setShowWhen(false)
+                .setGroup(NotificationSurfaceContract.GROUP_KEY)
+                .setSortKey(NotificationSurfaceContract.SORT_USAGE)
+                .setStyle(new Notification.DecoratedCustomViewStyle())
+                .setCustomContentView(alert)
+                .setCustomBigContentView(alert)
+                .build();
+
+        NotificationManager manager = (NotificationManager)
+                context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return false;
+        try {
+            manager.notify(NOTIFICATION_ID, notification);
+            DiagnosticLog.info(context, "notification", "persistent_reset_surface_realerted",
+                    "notification_id", NOTIFICATION_ID,
+                    "channel", alertChannelId,
+                    "layout", layoutResId);
+            return true;
+        } catch (RuntimeException exception) {
+            DiagnosticLog.error(context, "now_bar",
+                    "persistent_reset_surface_realert_failed", exception);
+            return false;
+        }
+    }
+
     static boolean repostFromCache(Context context) {
         if (context == null) return false;
         if (!NowBarManager.isActive(context)) {

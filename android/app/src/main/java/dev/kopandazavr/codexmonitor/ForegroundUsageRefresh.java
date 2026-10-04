@@ -72,7 +72,7 @@ final class ForegroundUsageRefresh {
 
     private static boolean request(Context context, String trigger, boolean forceSubscription) {
         Context app = appContext(context);
-        if (app == null || !SecureTokenStore.isSignedIn(app)) return false;
+        if (app == null || !hasAnySignedInAccount(app)) return false;
         String safeTrigger = trigger == null || trigger.trim().isEmpty()
                 ? "foreground" : trigger.trim();
         if (!IN_FLIGHT.compareAndSet(false, true)) {
@@ -106,22 +106,45 @@ final class ForegroundUsageRefresh {
 
     private static void run(Context app, String trigger, boolean forceSubscription) {
         long started = SystemClock.elapsedRealtime();
-        boolean success = false;
+        int attempted = 0;
+        int succeeded = 0;
+        boolean selectedAttempted = false;
+        boolean selectedSucceeded = false;
+        String selectedId = AccountContainerStore.selectedId(app);
         try {
-            UsageApi.refreshAndCacheScheduled(app, forceSubscription, trigger);
-            success = true;
-            stale = false;
-        } catch (Exception exception) {
-            stale = true;
-            DiagnosticLog.warn(app, "refresh", "foreground_refresh_retained_cached_snapshot",
-                    "trigger", trigger,
-                    "error", exception.getClass().getSimpleName());
+            for (AccountContainerStore.Account account : AccountContainerStore.all(app)) {
+                if (!SecureTokenStore.isSignedIn(app, account.id)) continue;
+                attempted++;
+                boolean selected = account.id.equals(selectedId);
+                if (selected) selectedAttempted = true;
+                try {
+                    UsageApi.refreshAndCacheScheduled(
+                            app, account.id, forceSubscription, trigger);
+                    AppPreferences.recordRefreshSuccess(app, account.id);
+                    succeeded++;
+                    if (selected) selectedSucceeded = true;
+                } catch (Exception exception) {
+                    AppPreferences.setLastError(
+                            app, account.id, UsageRefreshJobService.safeMessage(exception));
+                    AppPreferences.recordRefreshFailure(app, account.id);
+                    DiagnosticLog.warn(app, "refresh",
+                            "foreground_refresh_retained_cached_snapshot",
+                            "container_id", account.id,
+                            "trigger", trigger,
+                            "error", exception.getClass().getSimpleName());
+                }
+            }
+            stale = selectedAttempted && !selectedSucceeded;
+            RefreshScheduler.scheduleAtNextKnownReset(app);
         } finally {
+            boolean success = attempted > 0 && succeeded > 0;
             IN_FLIGHT.set(false);
             activeTrigger = "";
             DiagnosticLog.info(app, "refresh", "foreground_refresh_finished",
                     "trigger", trigger,
                     "success", success,
+                    "accounts_attempted", attempted,
+                    "accounts_succeeded", succeeded,
                     "stale", stale,
                     "duration_ms", SystemClock.elapsedRealtime() - started);
             notifyUiState(app, success ? "succeeded" : "failed", trigger);
@@ -145,6 +168,14 @@ final class ForegroundUsageRefresh {
                     "trigger", trigger,
                     "error", exception.getClass().getSimpleName());
         }
+    }
+
+    private static boolean hasAnySignedInAccount(Context context) {
+        if (context == null) return false;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            if (SecureTokenStore.isSignedIn(context, account.id)) return true;
+        }
+        return false;
     }
 
     private static Context appContext(Context context) {

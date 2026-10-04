@@ -186,38 +186,57 @@ public final class ResetNotificationManager {
 
     public static boolean showResetCreditExpiryNotification(Context context, String creditId,
             long expiresAtMillis, long leadTimeMillis) {
+        return showResetCreditExpiryNotification(context,
+                AccountContainerStore.selectedId(context),
+                creditId, expiresAtMillis, leadTimeMillis);
+    }
+
+    static boolean showResetCreditExpiryNotification(Context context, String containerId,
+            String creditId, long expiresAtMillis, long leadTimeMillis) {
         if (context == null || expiresAtMillis <= System.currentTimeMillis()
                 || !ResetAlertPreferences.enabled(context)
                 || !ResetAlertPreferences.resetCreditExpiryEnabled(context)) {
             return false;
         }
-        String token = ResetCreditExpiryReminder.token(creditId, expiresAtMillis,
-                leadTimeMillis);
+        String token = ResetCreditExpiryReminder.token(
+                creditId, expiresAtMillis, leadTimeMillis);
         synchronized (EXPIRY_STATE_LOCK) {
-            if (isResetCreditExpiryReminderAnnouncedLocked(context, token)) return false;
+            if (isResetCreditExpiryReminderAnnouncedLocked(
+                    context, containerId, token)) {
+                return false;
+            }
             int notificationId = notificationIdForCredit(creditId, token);
             long now = System.currentTimeMillis();
             String text = "One reset credit expires "
                     + UsageFormat.absolute(context, expiresAtMillis, now) + " ("
                     + UsageFormat.relative(expiresAtMillis, now)
                     + "). Use it before it expires.";
-            if (!postResetCreditExpiry(context, notificationId,
-                    "Codex reset credit expires soon", text)) {
+            if (!postResetCreditExpiry(context, containerId, notificationId,
+                    accountTitle(context, containerId,
+                            "Codex reset credit expires soon"), text)) {
                 return false;
             }
+            String stateKey = accountStateKey(
+                    containerId, KEY_CREDIT_EXPIRY_ANNOUNCED);
             Set<String> announced = new HashSet<>(state(context).getStringSet(
-                    KEY_CREDIT_EXPIRY_ANNOUNCED, new HashSet<>()));
+                    stateKey, new HashSet<>()));
             announced.add(token);
-            state(context).edit().putStringSet(
-                    KEY_CREDIT_EXPIRY_ANNOUNCED, announced).apply();
+            state(context).edit().putStringSet(stateKey, announced).apply();
             return true;
         }
     }
 
     static boolean isResetCreditExpiryReminderAnnounced(Context context, String token) {
+        return isResetCreditExpiryReminderAnnounced(
+                context, AccountContainerStore.selectedId(context), token);
+    }
+
+    static boolean isResetCreditExpiryReminderAnnounced(
+            Context context, String containerId, String token) {
         if (context == null || token == null) return false;
         synchronized (EXPIRY_STATE_LOCK) {
-            return isResetCreditExpiryReminderAnnouncedLocked(context, token);
+            return isResetCreditExpiryReminderAnnouncedLocked(
+                    context, containerId, token);
         }
     }
 

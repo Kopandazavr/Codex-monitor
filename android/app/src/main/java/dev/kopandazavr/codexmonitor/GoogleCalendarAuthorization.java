@@ -220,100 +220,131 @@ final class GoogleCalendarAuthorization {
     }
 
     static void invalidateCachedToken(Context context, String reason) {
-        cachedToken = null;
-        cachedTokenAt = 0L;
+        invalidateCachedToken(context, AccountContainerStore.selectedId(context), reason);
+    }
+
+    static void invalidateCachedToken(Context context, String containerId, String reason) {
+        CACHED_TOKENS.remove(containerId);
+        CACHED_TOKEN_AT.remove(containerId);
         if (context != null) {
             DiagnosticLog.warn(context, "calendar_api", "cached_access_token_invalidated",
+                    "container_id", containerId,
                     "reason", reason == null ? "" : reason);
         }
     }
 
     static void accessToken(Context context, TokenCallback callback) {
+        accessToken(context, AccountContainerStore.selectedId(context), callback);
+    }
+
+    static void accessToken(Context context, String containerId, TokenCallback callback) {
         if (context == null) {
             callback.onResult(null);
             return;
         }
-        String token = cachedToken;
-        long age = System.currentTimeMillis() - cachedTokenAt;
+        String accountName = accountName(context, containerId);
+        if (accountName.isEmpty()) {
+            markNeedsAction(context, containerId, "account_missing");
+            callback.onResult(null);
+            return;
+        }
+        String token = CACHED_TOKENS.get(containerId);
+        Long cachedAt = CACHED_TOKEN_AT.get(containerId);
+        long age = cachedAt == null ? Long.MAX_VALUE : System.currentTimeMillis() - cachedAt;
         if (token != null && !token.isEmpty() && age >= 0L && age < TOKEN_CACHE_MS) {
             callback.onResult(token);
             return;
         }
-        Identity.getAuthorizationClient(context).authorize(request())
+        Account account = new Account(accountName, GOOGLE_ACCOUNT_TYPE);
+        Identity.getAuthorizationClient(context).authorize(request(account))
                 .addOnSuccessListener(result -> {
                     if (result.hasResolution()) {
-                        markNeedsAction(context, "resolution_required");
+                        markNeedsAction(context, containerId, "resolution_required");
                         DiagnosticLog.warn(context, "calendar_api",
                                 "token_resolution_required",
+                                "container_id", containerId,
                                 "recoverable", true);
                         callback.onResult(null);
                         return;
                     }
-                    if (!accept(context, result)) {
-                        markNeedsAction(context, "token_missing");
+                    if (!accept(context, containerId, result, accountName)) {
+                        markNeedsAction(context, containerId, "token_missing");
                         DiagnosticLog.warn(context, "calendar_api",
                                 "token_refresh_missing",
+                                "container_id", containerId,
                                 "recoverable", false);
                         callback.onResult(null);
                         return;
                     }
-                    callback.onResult(cachedToken);
+                    callback.onResult(CACHED_TOKENS.get(containerId));
                 })
                 .addOnFailureListener(exception -> {
-                    recordFailure(context, "token_refresh", exception);
+                    recordFailure(context, containerId, "token_refresh", exception);
                     callback.onResult(null);
                 });
     }
 
     static void revoke(Context context, ActionCallback callback) {
-        if (context == null) {
-            callback.onFinished(false, "Context unavailable.");
+        String containerId = AccountContainerStore.selectedId(context);
+        String accountName = accountName(context, containerId);
+        if (context == null || accountName.isEmpty()) {
+            clearState(context, containerId);
+            callback.onFinished(true, "Google Calendar disconnected.");
             return;
         }
+        Account account = new Account(accountName, GOOGLE_ACCOUNT_TYPE);
         RevokeAccessRequest revoke = RevokeAccessRequest.builder()
+                .setAccount(account)
                 .setScopes(scopes())
                 .build();
         Identity.getAuthorizationClient(context).revokeAccess(revoke)
                 .addOnSuccessListener(unused -> {
-                    clearState(context);
-                    DiagnosticLog.info(context, "calendar_api", "authorization_revoked");
+                    clearState(context, containerId);
+                    DiagnosticLog.info(context, "calendar_api", "authorization_revoked",
+                            "container_id", containerId);
                     callback.onFinished(true, "Google Calendar disconnected.");
                 })
                 .addOnFailureListener(exception -> {
                     FailureInfo info = failureInfo(exception);
                     prefs(context).edit()
-                            .putString(KEY_LAST_ERROR,
+                            .putString(key(containerId, KEY_LAST_ERROR),
                                     info.kind + ":" + info.statusName)
                             .apply();
-                    logFailure(context, "revoke", info);
+                    logFailure(context, containerId, "revoke", info);
                     callback.onFinished(false,
                             userMessage(info, "Could not disconnect Google Calendar."));
                 });
     }
 
-    private static AuthorizationRequest request() {
-        return AuthorizationRequest.builder()
-                .setRequestedScopes(scopes())
-                .build();
+    private static AuthorizationRequest request(Account account) {
+        AuthorizationRequest.Builder builder = AuthorizationRequest.builder()
+                .setRequestedScopes(scopes());
+        if (account != null) builder.setAccount(account);
+        return builder.build();
     }
 
     private static List<Scope> scopes() {
         return Collections.singletonList(new Scope(CALENDAR_SCOPE));
     }
 
-    private static boolean accept(Context context, AuthorizationResult result) {
+    private static boolean accept(Context context, String containerId,
+            AuthorizationResult result, String accountName) {
         if (result == null) return false;
         String token = result.getAccessToken();
-        if (token == null || token.trim().isEmpty()) return false;
-        cachedToken = token;
-        cachedTokenAt = System.currentTimeMillis();
+        String account = accountName == null ? "" : accountName.trim();
+        if (token == null || token.trim().isEmpty() || account.isEmpty()) return false;
+        CACHED_TOKENS.put(containerId, token);
+        CACHED_TOKEN_AT.put(containerId, System.currentTimeMillis());
         prefs(context).edit()
-                .putBoolean(KEY_CONNECTED, true)
-                .putBoolean(KEY_NEEDS_ACTION, false)
-                .remove(KEY_LAST_ERROR)
+                .putBoolean(key(containerId, KEY_CONNECTED), true)
+                .putBoolean(key(containerId, KEY_NEEDS_ACTION), false)
+                .putString(key(containerId, KEY_ACCOUNT_NAME), account)
+                .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME))
+                .remove(key(containerId, KEY_LAST_ERROR))
                 .apply();
         DiagnosticLog.info(context, "calendar_api", "authorized",
-                "scope", "calendar.events.readonly");
+                "scope", "calendar.events.readonly",
+                "container_id", containerId);
         return true;
     }
 

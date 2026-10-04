@@ -88,7 +88,10 @@ grep -Fq 'android:drawable="@drawable/codex_monitor_monochrome_safe"' "$LAUNCHER
 # Critical refresh contract: explicit refresh is a real network cycle, subscription TTL can be
 # bypassed, stale stored expiry is not surfaced, persistence emits ACTION_USAGE_UPDATED, and the
 # notification rebuild is explicitly logged from the newly persisted snapshot.
-grep -Fq 'refreshAndCacheInternal(context, true, "manual_direct")' "$USAGE_API"
+grep -Fq 'refreshAndCacheInternal(context, containerId, true, "manual_direct")' "$USAGE_API"
+grep -Fq 'refreshAndCacheScheduled(context, AccountContainerStore.selectedId(context),' "$USAGE_API"
+grep -Fq 'SecureTokenStore.load(context, containerId)' "$USAGE_API"
+grep -Fq 'A process-global CookieHandler would let one account leak cookies' "$USAGE_API"
 grep -Fq 'refreshAndCacheScheduled' "$USAGE_API"
 grep -Fq 'boolean forceSubscription = "immediate".equals(this.reason);' "$USAGE_JOB"
 grep -Fq 'SubscriptionApi.refreshAndCacheLocked(context, authTokens,' "$USAGE_API"

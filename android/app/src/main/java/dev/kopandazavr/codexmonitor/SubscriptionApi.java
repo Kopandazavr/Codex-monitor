@@ -37,15 +37,15 @@ final class SubscriptionApi {
         long now = System.currentTimeMillis();
         String safeTrigger = trigger == null || trigger.trim().isEmpty()
                 ? "unspecified" : trigger.trim();
-        SubscriptionStore.seedFromJwt(context, tokens, now);
+        SubscriptionStore.seedFromJwt(context, containerId, tokens, now);
         if (tokens.accountId.isEmpty()) {
             DiagnosticLog.warn(context, "refresh", "subscription_refresh_skipped",
                     "trigger", safeTrigger, "reason", "missing_account_id", "force", force);
             return;
         }
-        long storedUntil = SubscriptionStore.storedActiveUntilMillis(context);
+        long storedUntil = SubscriptionStore.storedActiveUntilMillis(context, containerId);
         boolean cachedExpired = storedUntil > 0L && storedUntil <= now;
-        long lastAttempt = SubscriptionStore.lastAttemptMillis(context);
+        long lastAttempt = SubscriptionStore.lastAttemptMillis(context, containerId);
         long attemptAge = lastAttempt <= 0L ? -1L : Math.max(0L, now - lastAttempt);
         if (!force && !cachedExpired && lastAttempt > 0L && attemptAge < REFRESH_INTERVAL_MS) {
             DiagnosticLog.info(context, "refresh", "subscription_refresh_skipped",
@@ -62,7 +62,7 @@ final class SubscriptionApi {
                 "cached_expired", cachedExpired,
                 "stored_active_until", storedUntil,
                 "last_attempt", lastAttempt);
-        SubscriptionStore.markAttempt(context, now);
+        SubscriptionStore.markAttempt(context, containerId, now);
         long started = SystemClock.elapsedRealtime();
         HttpsURLConnection connection = null;
         try {
@@ -107,13 +107,13 @@ final class SubscriptionApi {
                     "backend_stale", backendStale,
                     "parsed_at", now);
 
-            SubscriptionInfo cached = SubscriptionStore.load(context);
+            SubscriptionInfo cached = SubscriptionStore.load(context, containerId);
             String plan = parsed.planType.isEmpty() && cached != null
                     ? cached.planType : parsed.planType;
             long until = parsed.activeUntilMillis <= 0L && cached != null
                     ? cached.activeUntilMillis : parsed.activeUntilMillis;
-            long previousUntil = SubscriptionStore.storedActiveUntilMillis(context);
-            SubscriptionStore.save(context, new SubscriptionInfo(plan, until,
+            long previousUntil = SubscriptionStore.storedActiveUntilMillis(context, containerId);
+            SubscriptionStore.save(context, containerId, new SubscriptionInfo(plan, until,
                     parsed.willRenew, parsed.hasWillRenew, now));
             DiagnosticLog.info(context, "refresh", "subscription_snapshot_replaced",
                     "trigger", safeTrigger,

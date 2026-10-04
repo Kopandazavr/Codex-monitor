@@ -139,10 +139,16 @@ final class ProcessNotificationManager {
      */
     static synchronized boolean postCompletionAlert(Context context,
             IdleProcessState.IdleRole idle, long nowMillis) {
+        return postCompletionAlert(context, AccountContainerStore.selectedId(context),
+                idle, nowMillis);
+    }
+
+    static synchronized boolean postCompletionAlert(Context context, String containerId,
+            IdleProcessState.IdleRole idle, long nowMillis) {
         if (context == null || idle == null) return false;
         SharedPreferences state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String postedKey = KEY_COMPLETION_POSTED_PREFIX
-                + idle.key + ":" + idle.completionIdentity();
+        String postedKey = scopedKey(containerId, KEY_COMPLETION_POSTED_PREFIX
+                + idle.key + ":" + idle.completionIdentity());
         if (idle.lastFinishedMillis > 0L
                 && state.getLong(postedKey, 0L) == idle.lastFinishedMillis) {
             DiagnosticLog.info(context, "notification", "completion_notification_deduped",
@@ -182,7 +188,8 @@ final class ProcessNotificationManager {
                 .build();
         try {
             int notificationId = completionNotificationId(idle.key);
-            manager.notify(notificationId, notification);
+            manager.notify(AccountNotificationNamespace.tag(containerId),
+                    notificationId, notification);
             if (idle.lastFinishedMillis > 0L) {
                 state.edit().putLong(postedKey, idle.lastFinishedMillis).apply();
             }
@@ -420,7 +427,8 @@ final class ProcessNotificationManager {
             boolean onlyAlertOnce) {
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
+        PendingIntent contentIntent = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(containerId, "completion_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         int textColor = textColor(context);
         int activeCount = processes == null ? 0 : processes.size();

@@ -131,7 +131,7 @@ public final class UsageApi {
                             exception);
                 }
                 try {
-                    if (selected) ResetCreditApi.refreshAndCacheLocked(context, authTokens);
+                    ResetCreditApi.refreshAndCacheLocked(context, containerId, authTokens);
                 } catch (Exception exception) {
                     DiagnosticLog.error(context, "refresh", "reset_credit_side_refresh_failed",
                             exception);

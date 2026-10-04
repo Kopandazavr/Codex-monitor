@@ -142,7 +142,8 @@ final class ProcessNotificationManager {
 
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
+        PendingIntent contentIntent = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(accountId, "process_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String identity = notificationIdentity(
                 context, idle.project, idle.role, idle.topic, false);
@@ -387,9 +388,10 @@ final class ProcessNotificationManager {
         clear.apply();
     }
 
-    private static Notification buildNotification(Context context, List<CalendarProcess> processes,
-            List<IdleProcessState.IdleRole> idleRoles, String title, long nowMillis,
-            String channelId, String sortKey, boolean onlyAlertOnce) {
+    private static Notification buildNotification(Context context, String accountId,
+            List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
+            String title, long nowMillis, String channelId, String sortKey,
+            boolean onlyAlertOnce) {
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
@@ -407,7 +409,7 @@ final class ProcessNotificationManager {
                 R.layout.notification_processes_expanded);
         bindHeader(expanded, title, activeCount, idleCount, summary, textColor);
         // Active and idle rows both own their per-role bell in every notification mode.
-        addRows(context, expanded, R.id.notification_processes_container,
+        addRows(context, accountId, expanded, R.id.notification_processes_container,
                 processes, idleRoles, nowMillis, true);
 
         String content = summary.isEmpty() ? countLabel(activeCount, idleCount) : summary;
@@ -425,7 +427,7 @@ final class ProcessNotificationManager {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setColor(Color.rgb(3, 129, 254))
                 .setShowWhen(false)
-                .setGroup(NotificationSurfaceContract.GROUP_KEY)
+                .setGroup(NotificationSurfaceContract.groupKey(accountId))
                 .setSortKey(sortKey)
                 .setStyle(new Notification.DecoratedCustomViewStyle())
                 .setCustomContentView(compact)

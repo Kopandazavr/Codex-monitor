@@ -108,8 +108,10 @@ public final class AppPreferences {
         ResetNotificationManager.clearContainerState(context, containerId);
         ResetCreditExpiryScheduler.cancelAll(context, containerId);
         if (containerId.equals(AccountContainerStore.selectedId(context))) {
-            NowBarManager.stop(context);
-            NowBarPreferences.clearSuppression(context);
+            if (!hasAnySignedInAccount(context)) {
+                NowBarManager.stop(context);
+                NowBarPreferences.clearSuppression(context);
+            }
             PhoneWearSync.pushUsage(context, null);
         }
     }
@@ -890,6 +892,13 @@ public final class AppPreferences {
             for (String base : bases) editor.remove(base);
         }
         editor.apply();
+    }
+
+    private static boolean hasAnySignedInAccount(Context context) {
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            if (SecureTokenStore.isSignedIn(context, account.id)) return true;
+        }
+        return false;
     }
 
     private static String accountKey(String containerId, String base) {

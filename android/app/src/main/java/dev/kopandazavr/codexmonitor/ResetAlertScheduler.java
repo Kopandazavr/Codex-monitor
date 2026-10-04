@@ -62,6 +62,11 @@ public final class ResetAlertScheduler {
         alarms.cancel(pending(app, containerId, "five_hour", 0L, REQUEST_FIVE_HOUR));
         alarms.cancel(pending(app, containerId, "weekly", 0L, REQUEST_WEEKLY));
         alarms.cancel(pending(app, containerId, "monthly", 0L, REQUEST_MONTHLY));
+        if (AccountContainerStore.isLegacyOwner(app, containerId)) {
+            cancelLegacy(alarms, legacyPending(app, REQUEST_FIVE_HOUR));
+            cancelLegacy(alarms, legacyPending(app, REQUEST_WEEKLY));
+            cancelLegacy(alarms, legacyPending(app, REQUEST_MONTHLY));
+        }
     }
 
     public static boolean canScheduleExact(Context context) {
@@ -105,6 +110,19 @@ public final class ResetAlertScheduler {
                 containerId, "reset_alert_" + metric + "_" + legacyRequestCode);
         return PendingIntent.getBroadcast(context, requestCode, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private static PendingIntent legacyPending(Context context, int requestCode) {
+        Intent intent = new Intent(context, ResetAlertReceiver.class)
+                .setAction(AppConstants.ACTION_RESET_ALERT);
+        return PendingIntent.getBroadcast(context, requestCode, intent,
+                PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private static void cancelLegacy(AlarmManager alarms, PendingIntent pending) {
+        if (alarms == null || pending == null) return;
+        alarms.cancel(pending);
+        pending.cancel();
     }
 
     private static Context appContext(Context context) {

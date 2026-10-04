@@ -341,11 +341,15 @@ public final class ResetNotificationManager {
                 text, id, false);
     }
 
-    private static int suppressUserResetRefills(Context context, int refills, long observedAt) {
+    private static int suppressUserResetRefills(
+            Context context, String containerId, int refills, long observedAt) {
         SharedPreferences preferences = state(context);
-        long fiveHourUntil = preferences.getLong(KEY_USER_RESET_FIVE_HOUR_UNTIL, 0L);
-        long weeklyUntil = preferences.getLong(KEY_USER_RESET_WEEKLY_UNTIL, 0L);
-        long monthlyUntil = preferences.getLong(KEY_USER_RESET_MONTHLY_UNTIL, 0L);
+        String fiveKey = accountStateKey(containerId, KEY_USER_RESET_FIVE_HOUR_UNTIL);
+        String weeklyKey = accountStateKey(containerId, KEY_USER_RESET_WEEKLY_UNTIL);
+        String monthlyKey = accountStateKey(containerId, KEY_USER_RESET_MONTHLY_UNTIL);
+        long fiveHourUntil = preferences.getLong(fiveKey, 0L);
+        long weeklyUntil = preferences.getLong(weeklyKey, 0L);
+        long monthlyUntil = preferences.getLong(monthlyKey, 0L);
         if (fiveHourUntil <= 0L && weeklyUntil <= 0L && monthlyUntil <= 0L) return refills;
         int filtered = CelebrationDetector.withoutUserResetRefills(refills, observedAt,
                 fiveHourUntil, weeklyUntil, monthlyUntil);
@@ -357,9 +361,9 @@ public final class ResetNotificationManager {
                 refills, filtered, observedAt, monthlyUntil);
         if (clearFiveHour || clearWeekly || clearMonthly) {
             SharedPreferences.Editor editor = preferences.edit();
-            if (clearFiveHour) editor.remove(KEY_USER_RESET_FIVE_HOUR_UNTIL);
-            if (clearWeekly) editor.remove(KEY_USER_RESET_WEEKLY_UNTIL);
-            if (clearMonthly) editor.remove(KEY_USER_RESET_MONTHLY_UNTIL);
+            if (clearFiveHour) editor.remove(fiveKey);
+            if (clearWeekly) editor.remove(weeklyKey);
+            if (clearMonthly) editor.remove(monthlyKey);
             editor.apply();
         }
         return filtered;
@@ -434,12 +438,20 @@ public final class ResetNotificationManager {
         return true;
     }
 
-    private static boolean post(Context context, int id, String title, String text, int requestCode) {
-        return post(context, id, title, text, requestCode, false);
+    private static boolean post(Context context, int id, String title, String text,
+            int requestCode) {
+        return post(context, AccountContainerStore.selectedId(context),
+                id, title, text, requestCode, false);
     }
 
     private static boolean post(Context context, int id, String title, String text, int requestCode,
             boolean onlyAlertOnce) {
+        return post(context, AccountContainerStore.selectedId(context),
+                id, title, text, requestCode, onlyAlertOnce);
+    }
+
+    private static boolean post(Context context, String containerId, int id, String title,
+            String text, int requestCode, boolean onlyAlertOnce) {
         NotificationManager manager = manager(context);
         if (manager == null) return false;
         String channel = createOperationalChannel(context, manager);
@@ -449,14 +461,19 @@ public final class ResetNotificationManager {
         // exact persistent ID instead of leaving a second low/reset/refill card in the shade.
         if (NowBarManager.isActive(context)) {
             boolean alerted = DualUsageNotificationManager.realertUsageSurface(
-                    context, channel, title, text);
-            if (alerted) DualUsageNotificationManager.repostDelayed(context, 5_000L);
+                    context, containerId, channel, title, text);
+            if (alerted) {
+                DualUsageNotificationManager.repostDelayed(context, containerId, 5_000L);
+            }
             return alerted;
         }
 
-        PendingIntent contentIntent = PendingIntent.getActivity(context, requestCode,
-                new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        Intent open = new Intent(context, MainActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(
+                        containerId, "usage_notice_" + requestCode), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(context, channel)
                 .setSmallIcon(R.drawable.ic_notification_codex_monitor)
@@ -470,7 +487,7 @@ public final class ResetNotificationManager {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setShowWhen(true)
                 .build();
-        manager.notify(id, notification);
+        manager.notify(AccountNotificationNamespace.tag(containerId), id, notification);
         return true;
     }
 
@@ -526,6 +543,10 @@ public final class ResetNotificationManager {
 
     private static SharedPreferences state(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private static String accountStateKey(String containerId, String base) {
+        return base + "::" + AccountNotificationNamespace.safe(containerId);
     }
 
     private static String accountTitle(Context context, String containerId, String title) {

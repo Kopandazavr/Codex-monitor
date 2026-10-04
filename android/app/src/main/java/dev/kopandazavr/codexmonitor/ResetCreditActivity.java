@@ -23,13 +23,14 @@ public final class ResetCreditActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private int expiryNotificationId = -1;
     private Button useButton;
+    private String targetContainerId = "";
 
     @Override // android.app.Activity
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         AccountContainerStore.ensureInitialized(this);
-        selectAccountFromIntent(getIntent());
+        pinAccountFromIntent(getIntent());
         this.dark = Ui.isDark(this);
         this.content = Ui.installPage(this, "Codex reset", true).content;
         rebuild();
@@ -43,16 +44,27 @@ public final class ResetCreditActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        selectAccountFromIntent(intent);
+        pinAccountFromIntent(intent);
         rebuild();
         maybePromptUseReset(intent);
     }
 
-    private void selectAccountFromIntent(Intent intent) {
-        if (intent == null) return;
-        String containerId = intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
-        if (containerId != null && !containerId.trim().isEmpty()) {
-            AccountContainerStore.select(this, containerId.trim());
+    private void pinAccountFromIntent(Intent intent) {
+        String requested = intent == null ? "" :
+                intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
+        requested = requested == null ? "" : requested.trim();
+        if (!requested.isEmpty()) {
+            if (AccountContainerStore.find(this, requested) == null) {
+                this.targetContainerId = "";
+                finish();
+                return;
+            }
+            this.targetContainerId = requested;
+            AccountContainerStore.select(this, requested);
+            return;
+        }
+        if (this.targetContainerId.isEmpty()) {
+            this.targetContainerId = AccountContainerStore.selectedId(this);
         }
     }
 
@@ -64,7 +76,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
     public void rebuild() {
         this.content.removeAllViews();
-        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this);
+        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(this, this.targetContainerId);
         int available = snapshot == null ? 0 : snapshot.availableCount;
         long now = System.currentTimeMillis();
         List<RateLimitResetCredit> availableCredits = snapshot == null
@@ -100,7 +112,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
 
         this.useButton = Ui.nativePrimaryButton(
                 this, available > 0 ? "Use 1 reset" : "No resets available");
-        this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this));
+        this.useButton.setEnabled(available > 0 && SecureTokenStore.isSignedIn(this, this.targetContainerId));
         LinearLayout.LayoutParams useButtonParams =
                 new LinearLayout.LayoutParams(-1, Ui.dp(this, 60.0f));
         useButtonParams.setMargins(0, Ui.dp(this, 22.0f), 0, Ui.dp(this, 8.0f));
@@ -166,7 +178,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
                 @Override // java.lang.Runnable
                 public void run() {
                     try {
-                        ResetCreditApi.refreshAndCache(applicationContext);
+                        ResetCreditApi.refreshAndCache(applicationContext, ResetCreditActivity.this.targetContainerId);
                         ResetCreditActivity.this.runOnUiThread(new Runnable() { // from class: dev.kopandazavr.codexmonitor.ResetCreditActivity.4.1
                             @Override // java.lang.Runnable
                             public void run() {
@@ -217,7 +229,7 @@ public final class ResetCreditActivity extends AppCompatActivity {
             @Override // java.lang.Runnable
             public void run() {
                 try {
-                    final ResetConsumeResult resetConsumeResultConsumeBestAvailable = ResetCreditApi.consumeBestAvailable(applicationContext);
+                    final ResetConsumeResult resetConsumeResultConsumeBestAvailable = ResetCreditApi.consumeBestAvailable(applicationContext, ResetCreditActivity.this.targetContainerId);
                     ResetCreditActivity.this.runOnUiThread(new Runnable() { // from class: dev.kopandazavr.codexmonitor.ResetCreditActivity.6.1
                         @Override // java.lang.Runnable
                         public void run() {

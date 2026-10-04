@@ -117,7 +117,10 @@ final class GoogleCalendarAuthorization {
     }
 
     static boolean shouldRetryTransient(Context context) {
-        String containerId = AccountContainerStore.selectedId(context);
+        return shouldRetryTransient(context, AccountContainerStore.selectedId(context));
+    }
+
+    static boolean shouldRetryTransient(Context context, String containerId) {
         String error = prefs(context).getString(key(containerId, KEY_LAST_ERROR), "");
         return "transient:NETWORK_ERROR".equals(error)
                 || "transient:INTERNAL_ERROR".equals(error);
@@ -133,7 +136,12 @@ final class GoogleCalendarAuthorization {
 
     static void beginInteractive(Activity activity, int requestCode, Account account,
             ActionCallback callback) {
-        String containerId = AccountContainerStore.selectedId(activity);
+        beginInteractive(activity, AccountContainerStore.selectedId(activity),
+                requestCode, account, callback);
+    }
+
+    static void beginInteractive(Activity activity, String containerId, int requestCode,
+            Account account, ActionCallback callback) {
         if (account == null || account.name == null || account.name.trim().isEmpty()) {
             callback.onFinished(false, "Choose a Google account first.");
             return;
@@ -186,7 +194,12 @@ final class GoogleCalendarAuthorization {
      * Diagnostics intentionally record only status/result metadata, never tokens/account data.
      */
     static AuthOutcome consumeInteractiveResult(Activity activity, int resultCode, Intent data) {
-        String containerId = AccountContainerStore.selectedId(activity);
+        return consumeInteractiveResult(activity, AccountContainerStore.selectedId(activity),
+                resultCode, data);
+    }
+
+    static AuthOutcome consumeInteractiveResult(Activity activity, String containerId,
+            int resultCode, Intent data) {
         String pendingAccount = prefs(activity).getString(
                 key(containerId, KEY_PENDING_ACCOUNT_NAME), "");
         DiagnosticLog.info(activity, "calendar_api", "authorization_activity_result",
@@ -291,11 +304,21 @@ final class GoogleCalendarAuthorization {
     }
 
     static void revoke(Context context, ActionCallback callback) {
-        String containerId = AccountContainerStore.selectedId(context);
+        revoke(context, AccountContainerStore.selectedId(context), callback);
+    }
+
+    static void revoke(Context context, String containerId, ActionCallback callback) {
         String accountName = accountName(context, containerId);
         if (context == null || accountName.isEmpty()) {
             clearState(context, containerId);
             callback.onFinished(true, "Google Calendar disconnected.");
+            return;
+        }
+        if (isAccountSharedWithAnotherContainer(context, containerId, accountName)) {
+            clearState(context, containerId);
+            DiagnosticLog.info(context, "calendar_api", "authorization_detached_shared_grant",
+                    "container_id", containerId);
+            callback.onFinished(true, "Google Calendar disconnected from this account.");
             return;
         }
         Account account = new Account(accountName, GOOGLE_ACCOUNT_TYPE);
@@ -320,6 +343,20 @@ final class GoogleCalendarAuthorization {
                     callback.onFinished(false,
                             userMessage(info, "Could not disconnect Google Calendar."));
                 });
+    }
+
+    private static boolean isAccountSharedWithAnotherContainer(
+            Context context, String containerId, String accountName) {
+        if (context == null || accountName == null || accountName.trim().isEmpty()) return false;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            if (account.id.equals(containerId)) continue;
+            String other = accountName(context, account.id);
+            if (!other.isEmpty() && other.equalsIgnoreCase(accountName.trim())
+                    && isConnected(context, account.id)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static AuthorizationRequest request(Account account) {

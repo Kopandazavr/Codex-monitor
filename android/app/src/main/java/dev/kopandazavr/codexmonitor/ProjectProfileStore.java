@@ -189,8 +189,12 @@ final class ProjectProfileStore {
     }
 
     static String effectiveShort(Profile profile) {
+        return effectiveShort(profile, "");
+    }
+
+    static String effectiveShort(Profile profile, String watchdogShort) {
         return profile == null ? "" : ProjectProfileRules.effectiveShort(
-                profile.shortOverride, "", profile.primaryAlias);
+                profile.shortOverride, watchdogShort, profile.primaryAlias);
     }
 
     static synchronized EditSession beginEdit(Context context, String id) {

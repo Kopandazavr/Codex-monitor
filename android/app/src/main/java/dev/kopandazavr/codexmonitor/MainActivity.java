@@ -1456,28 +1456,32 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     public void startOrContinueSignIn() {
-        String str;
+        String message;
+        String containerId = AccountContainerStore.selectedId(this);
         DiagnosticLog.info(this, "user", "sign_in_requested",
-                "already_signed_in", SecureTokenStore.isSignedIn(this));
-        if (SecureTokenStore.isSignedIn(this)) {
-            AppPreferences.setOAuthPending(this, false, "");
+                "container_id", containerId,
+                "already_signed_in", SecureTokenStore.isSignedIn(this, containerId));
+        if (SecureTokenStore.isSignedIn(this, containerId)) {
+            AppPreferences.setOAuthPending(this, containerId, false, "");
             rebuild();
             return;
         }
         try {
             startForegroundService(new Intent(this, (Class<?>) OAuthService.class)
-                    .setAction(OAuthService.ACTION_START));
-            if (AppPreferences.isOAuthPending(this)) {
-                str = "Resuming secure OpenAI sign-in…";
+                    .setAction(OAuthService.ACTION_START)
+                    .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId));
+            if (AppPreferences.isOAuthPending(this, containerId)) {
+                message = "Resuming secure OpenAI sign-in…";
             } else {
-                str = "Opening secure OpenAI sign-in…";
+                message = "Opening secure OpenAI sign-in…";
             }
-            Toast.makeText(this, str, 0).show();
-        } catch (RuntimeException e) {
-            DiagnosticLog.error(this, "auth", "sign_in_service_start_failed", e);
-            AppPreferences.setOAuthPending(this, false, "");
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+        } catch (RuntimeException exception) {
+            DiagnosticLog.error(this, "auth", "sign_in_service_start_failed", exception,
+                    "container_id", containerId);
+            AppPreferences.setOAuthPending(this, containerId, false, "");
             Toast.makeText(this,
-                    "Could not start sign-in: " + safeMessage(e), 1).show();
+                    "Could not start sign-in: " + safeMessage(exception), Toast.LENGTH_LONG).show();
         }
     }
 

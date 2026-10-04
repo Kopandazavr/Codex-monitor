@@ -342,7 +342,7 @@ public final class IdleReminderOverlayService extends Service {
         if (hasProject) {
             ProjectProfileStore.Profile projectProfile =
                     ProjectProfileStore.resolve(this, idle.project);
-            String projectShort = ProjectProfileStore.badgeText(
+            String projectShort = ProjectProfileStore.effectiveShort(
                     projectProfile, idle.projectShort);
             SpannableStringBuilder projectIdentity = new SpannableStringBuilder();
             if (projectShort != null && !projectShort.trim().isEmpty()) {

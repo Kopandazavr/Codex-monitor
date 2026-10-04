@@ -197,7 +197,7 @@ public final class OAuthService extends Service {
                 // A post-commit failure is not an authentication failure. Preserve the session,
                 // show a valid success state, and let manual refresh recover later.
                 AppPreferences.setOAuthPending(this, containerId, false, "");
-                AppPreferences.setLastError(this, cleanMessage(exception));
+                AppPreferences.setLastError(this, containerId, cleanMessage(exception));
                 broadcastResult(containerId, true,
                         "Signed in. Usage can be refreshed from the app.");
                 safeWidgetUpdate();
@@ -230,7 +230,7 @@ public final class OAuthService extends Service {
                 RefreshScheduler.scheduleAtNextReset(this, snapshot);
             }
         } catch (Exception refreshError) {
-            AppPreferences.setLastError(this, cleanMessage(refreshError));
+            AppPreferences.setLastError(this, containerId, cleanMessage(refreshError));
         }
         RefreshScheduler.schedulePeriodic(this);
         safeWidgetUpdate();

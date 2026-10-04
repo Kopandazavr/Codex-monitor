@@ -67,19 +67,25 @@ public final class ResetCreditApi {
     }
 
     public static ResetConsumeResult consumeBestAvailable(Context context) throws Exception {
+        return consumeBestAvailable(context, AccountContainerStore.selectedId(context));
+    }
+
+    static ResetConsumeResult consumeBestAvailable(Context context, String containerId)
+            throws Exception {
         Context app = context.getApplicationContext() == null ? context : context.getApplicationContext();
         long started = SystemClock.elapsedRealtime();
-        DiagnosticLog.info(app, "user", "reset_credit_use_requested");
+        DiagnosticLog.info(app, "user", "reset_credit_use_requested",
+                "container_id", containerId);
         synchronized (UsageApi.NETWORK_LOCK) {
-            AuthTokens tokens = UsageApi.usableTokens(app);
-            ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(app);
+            AuthTokens tokens = UsageApi.usableTokens(app, containerId);
+            ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(app, containerId);
             long now = System.currentTimeMillis();
 
             if (credits == null || now - credits.fetchedAtMillis > DETAIL_FRESH_MS
                     || credits.availableCount <= 0) {
                 try {
-                    credits = refreshAndCacheLocked(app, tokens);
-                    tokens = UsageApi.usableTokens(app);
+                    credits = refreshAndCacheLocked(app, containerId, tokens);
+                    tokens = UsageApi.usableTokens(app, containerId);
                 } catch (Exception exception) {
                     if (credits == null || credits.availableCount <= 0) throw exception;
                 }
@@ -100,9 +106,10 @@ public final class ResetCreditApi {
             Response response = request(app, "reset_credit_consume", "POST",
                     AppConstants.RESET_CREDITS_CONSUME_URL, tokens, payload);
             if (response.status == 401) {
-                DiagnosticLog.warn(app, "auth", "reset_consume_token_rejected_refreshing");
+                DiagnosticLog.warn(app, "auth", "reset_consume_token_rejected_refreshing",
+                        "container_id", containerId);
                 tokens = OAuthClient.refresh(app, tokens);
-                SecureTokenStore.save(app, tokens);
+                SecureTokenStore.save(app, containerId, tokens);
                 response = request(app, "reset_credit_consume", "POST",
                         AppConstants.RESET_CREDITS_CONSUME_URL, tokens, payload);
             }
@@ -114,25 +121,29 @@ public final class ResetCreditApi {
             String message = "";
 
             if (ResetConsumeResult.RESET.equals(code)) {
-                ResetNotificationManager.markUserReset(app, AppPreferences.loadSnapshot(app));
+                ResetNotificationManager.markUserReset(
+                        app, containerId, AppPreferences.loadSnapshot(app, containerId));
                 try {
-                    UsageSnapshot snapshot = UsageApi.refreshAndCache(app);
-                    RefreshScheduler.scheduleAtNextReset(app, snapshot);
-                    ResetAlertScheduler.scheduleFromSnapshot(app, snapshot);
+                    UsageSnapshot snapshot = UsageApi.refreshAndCache(app, containerId);
+                    RefreshScheduler.scheduleAtNextKnownReset(app);
+                    ResetAlertScheduler.scheduleFromSnapshot(app, containerId, snapshot);
                 } catch (Exception exception) {
                     message = "The reset succeeded, but the new usage values could not be loaded yet.";
-                    AppPreferences.setLastError(app, UsageApi.safeMessage(exception));
+                    AppPreferences.setLastError(
+                            app, containerId, UsageApi.safeMessage(exception));
                 }
             }
 
             try {
-                refreshAndCacheLocked(app, UsageApi.usableTokens(app));
+                refreshAndCacheLocked(app, containerId, UsageApi.usableTokens(app, containerId));
             } catch (Exception exception) {
-                AppPreferences.setResetCreditsError(app, UsageApi.safeMessage(exception));
+                AppPreferences.setResetCreditsError(
+                        app, containerId, UsageApi.safeMessage(exception));
             }
             WidgetRenderer.updateAll(app);
-            notifyUpdated(app);
+            notifyUpdated(app, containerId);
             DiagnosticLog.info(app, "user", "reset_credit_use_finished",
+                    "container_id", containerId,
                     "result", code,
                     "windows_reset", windowsReset,
                     "duration_ms", SystemClock.elapsedRealtime() - started);

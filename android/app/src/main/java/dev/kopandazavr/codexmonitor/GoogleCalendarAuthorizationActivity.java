@@ -24,21 +24,38 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
     private boolean flowStarted;
     private boolean transientRetryUsed;
     private Account chosenAccount;
+    private String flowContainerId = "";
 
     @Override
     protected void onCreate(Bundle state) {
         Ui.applySelectedTheme(this);
         super.onCreate(state);
         AccountContainerStore.ensureInitialized(this);
-        if (GoogleCalendarAuthorization.isConnected(this)) {
+        this.flowContainerId = state == null ? "" : state.getString("flow_container_id", "");
+        if (this.flowContainerId == null || this.flowContainerId.isEmpty()
+                || AccountContainerStore.find(this, this.flowContainerId) == null) {
+            String requested = getIntent() == null ? "" :
+                    getIntent().getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
+            requested = requested == null ? "" : requested.trim();
+            this.flowContainerId = AccountContainerStore.find(this, requested) == null
+                    ? AccountContainerStore.selectedId(this) : requested;
+        }
+        if (GoogleCalendarAuthorization.isConnected(this, this.flowContainerId)) {
             showConnectedDialog();
         } else {
             showConnectionChoice();
         }
     }
 
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putString("flow_container_id", this.flowContainerId);
+        super.onSaveInstanceState(outState);
+    }
+
     private void showConnectionChoice() {
-        AccountContainerStore.Account container = AccountContainerStore.selected(this);
+        AccountContainerStore.Account container =
+                AccountContainerStore.find(this, this.flowContainerId);
         String name = container == null ? "this account" : container.name;
         new AlertDialog.Builder(this)
                 .setTitle("Connect Google Calendar")
@@ -85,12 +102,14 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
         if (flowStarted || account == null) return;
         this.chosenAccount = account;
         flowStarted = true;
-        GoogleCalendarAuthorization.beginInteractive(this, REQUEST_AUTHORIZE, account,
+        GoogleCalendarAuthorization.beginInteractive(
+                this, this.flowContainerId, REQUEST_AUTHORIZE, account,
                 (success, message) -> runOnUiThread(() -> {
                     if (success) {
                         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-                        GoogleCalendarProcessSource.forceRefresh(this,
-                                () -> DualUsageNotificationManager.repostDelayed(this, 120L));
+                        GoogleCalendarProcessSource.forceRefresh(this, this.flowContainerId,
+                                () -> DualUsageNotificationManager.repostDelayed(
+                                        this, this.flowContainerId, 120L));
                         finish();
                     } else if (!isFinishing()
                             && !message.startsWith("Allow Calendar access")) {
@@ -131,11 +150,12 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
         if (requestCode != REQUEST_AUTHORIZE) return;
         GoogleCalendarAuthorization.AuthOutcome outcome =
                 GoogleCalendarAuthorization.consumeInteractiveResult(
-                        this, resultCode, data);
+                        this, this.flowContainerId, resultCode, data);
         if (outcome.success) {
             Toast.makeText(this, outcome.message, Toast.LENGTH_SHORT).show();
-            GoogleCalendarProcessSource.forceRefresh(this,
-                    () -> DualUsageNotificationManager.repostDelayed(this, 120L));
+            GoogleCalendarProcessSource.forceRefresh(this, this.flowContainerId,
+                    () -> DualUsageNotificationManager.repostDelayed(
+                            this, this.flowContainerId, 120L));
             finish();
             return;
         }
@@ -146,7 +166,8 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
 
     private boolean scheduleTransientRetry(String source) {
         if (transientRetryUsed || chosenAccount == null
-                || !GoogleCalendarAuthorization.shouldRetryTransient(this)) {
+                || !GoogleCalendarAuthorization.shouldRetryTransient(
+                        this, this.flowContainerId)) {
             return false;
         }
         transientRetryUsed = true;
@@ -167,9 +188,11 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
     }
 
     private void showConnectedDialog() {
-        AccountContainerStore.Account container = AccountContainerStore.selected(this);
+        AccountContainerStore.Account container =
+                AccountContainerStore.find(this, this.flowContainerId);
         String localName = container == null ? "this account" : container.name;
-        String googleName = GoogleCalendarAuthorization.accountName(this);
+        String googleName = GoogleCalendarAuthorization.accountName(
+                this, this.flowContainerId);
         String detail = googleName.isEmpty()
                 ? "Direct read-only event access is enabled for " + localName + "."
                 : googleName + " supplies read-only Calendar data for " + localName + ".";
@@ -178,7 +201,8 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
                 .setMessage(detail + " Local Android Calendar remains a fallback.")
                 .setNegativeButton("Done", (dialog, which) -> finish())
                 .setPositiveButton("Disconnect", (dialog, which) ->
-                        GoogleCalendarAuthorization.revoke(this,
+                        GoogleCalendarAuthorization.revoke(
+                                this, this.flowContainerId,
                                 (success, message) -> runOnUiThread(() -> {
                                     Toast.makeText(this, message,
                                             success ? Toast.LENGTH_SHORT

@@ -18,36 +18,49 @@ public final class ResetCreditApi {
     }
 
     public static ResetCreditsSnapshot refreshAndCache(Context context) throws Exception {
-        ResetCreditsSnapshot resetCreditsSnapshotRefreshAndCacheLocked;
-        synchronized (UsageApi.NETWORK_LOCK) {
-            UsageApi.installCookieManager();
-            resetCreditsSnapshotRefreshAndCacheLocked = refreshAndCacheLocked(context, UsageApi.usableTokens(context));
-        }
-        return resetCreditsSnapshotRefreshAndCacheLocked;
+        return refreshAndCache(context, AccountContainerStore.selectedId(context));
     }
 
-    static ResetCreditsSnapshot refreshAndCacheLocked(Context context, AuthTokens authTokens) throws Exception {
+    static ResetCreditsSnapshot refreshAndCache(Context context, String containerId) throws Exception {
+        ResetCreditsSnapshot result;
+        synchronized (UsageApi.NETWORK_LOCK) {
+            result = refreshAndCacheLocked(context, containerId,
+                    UsageApi.usableTokens(context, containerId));
+        }
+        return result;
+    }
+
+    static ResetCreditsSnapshot refreshAndCacheLocked(Context context, AuthTokens authTokens)
+            throws Exception {
+        return refreshAndCacheLocked(context, AccountContainerStore.selectedId(context),
+                authTokens);
+    }
+
+    static ResetCreditsSnapshot refreshAndCacheLocked(Context context, String containerId,
+            AuthTokens authTokens) throws Exception {
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(context, "refresh", "reset_credit_refresh_started");
         if (authTokens == null) {
-            authTokens = UsageApi.usableTokens(context);
+            authTokens = UsageApi.usableTokens(context, containerId);
         }
         Response responseRequest = request(context, "reset_credit_list", "GET",
                 AppConstants.RESET_CREDITS_URL, authTokens, null);
         if (responseRequest.status == 401) {
             DiagnosticLog.warn(context, "auth", "reset_credit_token_rejected_refreshing");
             AuthTokens authTokensRefresh = OAuthClient.refresh(context, authTokens);
-            SecureTokenStore.save(context, authTokensRefresh);
+            SecureTokenStore.save(context, containerId, authTokensRefresh);
             responseRequest = request(context, "reset_credit_list", "GET",
                     AppConstants.RESET_CREDITS_URL, authTokensRefresh, null);
         }
         ensureSuccess(responseRequest, "Could not load Codex reset credits");
         ResetCreditsSnapshot resetCreditsSnapshot = ResetCreditsParser.parse(responseRequest.body, System.currentTimeMillis());
-        if (!AppPreferences.saveResetCredits(context, resetCreditsSnapshot)) {
+        if (!AppPreferences.saveResetCredits(context, containerId, resetCreditsSnapshot)) {
             throw new Exception("Reset credits were received, but could not be saved on this device.");
         }
-        ResetNotificationManager.onResetCreditsUpdated(context, resetCreditsSnapshot);
-        notifyUpdated(context);
+        if (containerId.equals(AccountContainerStore.selectedId(context))) {
+            ResetNotificationManager.onResetCreditsUpdated(context, resetCreditsSnapshot);
+        }
+        notifyUpdated(context, containerId);
         DiagnosticLog.info(context, "refresh", "reset_credit_refresh_succeeded",
                 "duration_ms", SystemClock.elapsedRealtime() - started,
                 "available", resetCreditsSnapshot.availableCount);
@@ -188,9 +201,16 @@ public final class ResetCreditApi {
     }
 
     private static void notifyUpdated(Context context) {
+        notifyUpdated(context, AccountContainerStore.selectedId(context));
+    }
+
+    private static void notifyUpdated(Context context, String containerId) {
         try {
-            context.sendBroadcast(new Intent(AppConstants.ACTION_RESET_CREDITS_UPDATED).setPackage(context.getPackageName()), "dev.kopandazavr.codexmonitor.permission.INTERNAL");
-        } catch (RuntimeException e) {
+            context.sendBroadcast(new Intent(AppConstants.ACTION_RESET_CREDITS_UPDATED)
+                    .setPackage(context.getPackageName())
+                    .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId),
+                    "dev.kopandazavr.codexmonitor.permission.INTERNAL");
+        } catch (RuntimeException ignored) {
         }
     }
 

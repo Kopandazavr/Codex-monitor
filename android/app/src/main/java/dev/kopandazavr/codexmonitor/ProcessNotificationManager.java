@@ -349,7 +349,8 @@ final class ProcessNotificationManager {
         for (String id : previous) {
             if (nextIds.contains(id)) continue;
             try {
-                manager.cancel(Integer.parseInt(id));
+                manager.cancel(AccountNotificationNamespace.tag(containerId),
+                        Integer.parseInt(id));
             } catch (NumberFormatException ignored) {
             }
         }
@@ -359,15 +360,22 @@ final class ProcessNotificationManager {
     private static void clearPerProcess(Context context, String containerId,
             NotificationManager manager) {
         SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        Set<String> activeIds = new HashSet<>(preferences.getStringSet(KEY_ACTIVE_IDS,
-                Collections.emptySet()));
+        String activeKey = scopedKey(containerId, KEY_ACTIVE_IDS);
+        Set<String> activeIds = new HashSet<>(preferences.getStringSet(activeKey,
+                AccountContainerStore.isLegacyOwner(context, containerId)
+                        ? preferences.getStringSet(KEY_ACTIVE_IDS, Collections.emptySet())
+                        : Collections.emptySet()));
         for (String id : activeIds) {
             try {
                 manager.cancel(Integer.parseInt(id));
             } catch (NumberFormatException ignored) {
             }
         }
-        preferences.edit().remove(KEY_ACTIVE_IDS).apply();
+        SharedPreferences.Editor clear = preferences.edit().remove(activeKey);
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            clear.remove(KEY_ACTIVE_IDS);
+        }
+        clear.apply();
     }
 
     private static Notification buildNotification(Context context, List<CalendarProcess> processes,

@@ -214,9 +214,14 @@ final class IdleReminderManager {
     }
 
     private static void markCompletionBaseline(Context context, IdleProcessState.IdleRole idle) {
+        markCompletionBaseline(context, AccountContainerStore.selectedId(context), idle);
+    }
+
+    private static void markCompletionBaseline(Context context, String containerId,
+            IdleProcessState.IdleRole idle) {
         if (context == null || idle == null || idle.lastFinishedMillis <= 0L) return;
         preferences(context).edit()
-                .putLong(completionPreferenceKey(idle), idle.lastFinishedMillis)
+                .putLong(completionPreferenceKey(containerId, idle), idle.lastFinishedMillis)
                 .apply();
     }
 

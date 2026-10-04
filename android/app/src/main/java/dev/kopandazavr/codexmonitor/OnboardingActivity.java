@@ -87,6 +87,7 @@ public final class OnboardingActivity extends AppCompatActivity {
     protected void onCreate(Bundle bundle) {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        AccountContainerStore.ensureInitialized(this);
         this.settingsEntry =
                 getIntent().getBooleanExtra(EXTRA_PERMISSIONS_CONNECTIONS, false);
         if (AppPreferences.isOnboardingComplete(this) && !this.settingsEntry) {
@@ -199,10 +200,40 @@ public final class OnboardingActivity extends AppCompatActivity {
         readinessPill.setCornerRadius(Ui.dp(this, 16));
         readinessPill.setColor(readinessBackground(readinessStatus));
         readiness.setBackground(readinessPill);
+
+        LinearLayout accountBar = new LinearLayout(this);
+        accountBar.setOrientation(LinearLayout.HORIZONTAL);
+        accountBar.setGravity(Gravity.CENTER_VERTICAL);
+        TextView accountPill = AccountSwitcherView.create(this, this.dark,
+                new AccountSwitcherView.Listener() {
+                    @Override
+                    public void onAccountSelected(AccountContainerStore.Account account) {
+                        oauthRequested = AppPreferences.isOAuthPending(OnboardingActivity.this);
+                        authMessage = "";
+                        render();
+                    }
+
+                    @Override
+                    public void onAccountCreated(AccountContainerStore.Account account) {
+                        oauthRequested = false;
+                        authMessage = "";
+                        render();
+                    }
+                });
+        LinearLayout.LayoutParams accountPillParams =
+                new LinearLayout.LayoutParams(0, -2, 1.0f);
+        accountPillParams.setMargins(Ui.dp(this, 8), 0, Ui.dp(this, 10), 0);
+        accountBar.addView(accountPill, accountPillParams);
+
         LinearLayout.LayoutParams readinessParams =
                 new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, -2);
-        readinessParams.setMargins(Ui.dp(this, 8), 0, Ui.dp(this, 8), Ui.dp(this, 7));
-        this.content.addView(readiness, readinessParams);
+        readinessParams.setMargins(0, 0, Ui.dp(this, 8), 0);
+        accountBar.addView(readiness, readinessParams);
+
+        LinearLayout.LayoutParams accountBarParams =
+                new LinearLayout.LayoutParams(-1, -2);
+        accountBarParams.setMargins(0, 0, 0, Ui.dp(this, 7));
+        this.content.addView(accountBar, accountBarParams);
 
         addSectionHeader("Required");
 

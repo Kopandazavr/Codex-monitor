@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "2.29 source contract failed at line $LINENO" >&2' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
@@ -29,10 +30,11 @@ grep -Fq 'mergeMutable(target, legacy)' "$SRC/IdleProcessState.java"
 grep -Fq 'target.history.add(record)' "$SRC/IdleProcessState.java"
 
 grep -Fq '"completion_dispatched"' "$SRC/IdleReminderManager.java"
-grep -Fq 'ProcessNotificationManager.postCompletionAlert(context, idle, nowMillis)' "$SRC/IdleReminderManager.java"
+grep -Fq 'ProcessNotificationManager.postCompletionAlert(' "$SRC/IdleReminderManager.java"
+grep -Fq 'context, containerId, idle, nowMillis' "$SRC/IdleReminderManager.java"
 grep -Fq 'completionNotificationChannelId(' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'PROCESS_COMPLETION_CHANNEL_ID' "$SRC/AlertSoundManager.java"
-grep -Fq 'markCompletionBaseline(context, idle)' "$SRC/IdleReminderManager.java"
+grep -Fq 'markCompletionBaseline(context, containerId, idle)' "$SRC/IdleReminderManager.java"
 ! grep -Fq 'AlertSoundManager.playProcessCompletion(context)' "$SRC/IdleReminderManager.java"
 ! grep -Fq 'overlayShownHaptic' "$SRC/IdleReminderOverlayService.java"
 ! grep -Fq 'vibrate(330L)' "$SRC/IdleReminderOverlayService.java"

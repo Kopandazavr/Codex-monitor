@@ -177,7 +177,8 @@ final class ProcessNotificationManager {
                 context, silentSpeakerDelivery);
         Notification notification = new Notification.Builder(context, completionChannelId)
                 .setSmallIcon(R.drawable.ic_notification_codex_monitor)
-                .setContentTitle(identity + " finished")
+                .setContentTitle(accountTitle(
+                        context, containerId, identity + " finished"))
                 .setContentText("Watched process completed")
                 .setContentIntent(contentIntent)
                 .setAutoCancel(true)
@@ -473,10 +474,12 @@ final class ProcessNotificationManager {
 
         RemoteViews compact = new RemoteViews(context.getPackageName(),
                 R.layout.notification_processes);
+        bindAccountProvenance(context, accountId, compact);
         bindHeader(compact, title, activeCount, idleCount, summary, textColor);
 
         RemoteViews expanded = new RemoteViews(context.getPackageName(),
                 R.layout.notification_processes_expanded);
+        bindAccountProvenance(context, accountId, expanded);
         bindHeader(expanded, title, activeCount, idleCount, summary, textColor);
         // Active and idle rows both own their per-role bell in every notification mode.
         addRows(context, accountId, expanded, R.id.notification_processes_container,
@@ -503,6 +506,24 @@ final class ProcessNotificationManager {
                 .setCustomContentView(compact)
                 .setCustomBigContentView(expanded)
                 .build();
+    }
+
+    private static void bindAccountProvenance(
+            Context context, String containerId, RemoteViews views) {
+        if (AccountContainerStore.all(context).size() <= 1) {
+            views.setViewVisibility(R.id.notification_account_text, View.GONE);
+            return;
+        }
+        AccountContainerStore.Account account =
+                AccountContainerStore.find(context, containerId);
+        if (account == null || account.name == null || account.name.trim().isEmpty()) {
+            views.setViewVisibility(R.id.notification_account_text, View.GONE);
+            return;
+        }
+        views.setViewVisibility(R.id.notification_account_text, View.VISIBLE);
+        views.setTextViewText(R.id.notification_account_text, account.name.trim());
+        views.setTextColor(R.id.notification_account_text,
+                AccountContainerStore.accentColor(account));
     }
 
     private static void bindHeader(RemoteViews views, String title, int activeCount,
@@ -628,6 +649,7 @@ final class ProcessNotificationManager {
     }
 
     private static String accountTitle(Context context, String containerId, String title) {
+        if (AccountContainerStore.all(context).size() <= 1) return title;
         AccountContainerStore.Account account = AccountContainerStore.find(context, containerId);
         String name = account == null ? "" : account.name;
         return name.isEmpty() ? title : title + " · " + name;

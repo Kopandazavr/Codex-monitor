@@ -43,7 +43,8 @@ final class DualUsageNotificationManager {
         SurfaceState state = surfaceState(context, containerId, snapshot);
         if (state == null) return false;
         Notification notification = buildSurface(context, containerId, CHANNEL_ID, state,
-                "Codex usage", state.fallbackText, true);
+                accountTitle(context, containerId, "Codex usage"),
+                state.fallbackText, true);
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null || notification == null) return false;
@@ -360,6 +361,8 @@ final class DualUsageNotificationManager {
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
                 ? Color.WHITE : Color.rgb(32, 33, 36);
 
+        bindAccountProvenance(context, containerId, views);
+
         if (planText.isEmpty()) {
             views.setViewVisibility(R.id.notification_plan_text, View.GONE);
         } else {
@@ -423,6 +426,32 @@ final class DualUsageNotificationManager {
             }
         }
         return views;
+    }
+
+    private static void bindAccountProvenance(
+            Context context, String containerId, RemoteViews views) {
+        if (AccountContainerStore.all(context).size() <= 1) {
+            views.setViewVisibility(R.id.notification_account_text, View.GONE);
+            return;
+        }
+        AccountContainerStore.Account account =
+                AccountContainerStore.find(context, containerId);
+        if (account == null || account.name == null || account.name.trim().isEmpty()) {
+            views.setViewVisibility(R.id.notification_account_text, View.GONE);
+            return;
+        }
+        views.setViewVisibility(R.id.notification_account_text, View.VISIBLE);
+        views.setTextViewText(R.id.notification_account_text, account.name.trim());
+        views.setTextColor(R.id.notification_account_text,
+                AccountContainerStore.accentColor(account));
+    }
+
+    private static String accountTitle(Context context, String containerId, String title) {
+        if (AccountContainerStore.all(context).size() <= 1) return title;
+        AccountContainerStore.Account account =
+                AccountContainerStore.find(context, containerId);
+        return account == null || account.name == null || account.name.trim().isEmpty()
+                ? title : title + " · " + account.name.trim();
     }
 
     private static void bindLimitProgress(RemoteViews views, int normalId, int resetId,

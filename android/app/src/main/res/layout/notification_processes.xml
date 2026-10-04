@@ -8,6 +8,16 @@
     android:paddingTop="1dp"
     android:paddingBottom="1dp">
 
+    <TextView
+        android:id="@+id/notification_account_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

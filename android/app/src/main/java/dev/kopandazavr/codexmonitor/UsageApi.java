@@ -117,7 +117,7 @@ public final class UsageApi {
                 if (selected) NowBarManager.onUsageUpdated(context, usageSnapshot);
                 // NowBarManager remains authoritative for monitor state/alarms; the compact renderer
                 // then rebuilds the current persistent usage/process surfaces from saved state.
-                if (selected) DualUsageNotificationManager.postFromSnapshot(context, usageSnapshot);
+                DualUsageNotificationManager.postFromSnapshot(context, containerId, usageSnapshot);
                 DiagnosticLog.info(context, "refresh", "usage_notification_rebuilt",
                         "trigger", safeTrigger,
                         "snapshot_id", snapshotIdentity(usageSnapshot));

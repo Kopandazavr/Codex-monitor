@@ -16,16 +16,36 @@ final class ProcessNotificationMode {
     }
 
     static String current(Context context) {
+        return current(context, AccountContainerStore.selectedId(context));
+    }
+
+    static String current(Context context, String containerId) {
         if (context == null) return COMBINED;
         SharedPreferences preferences = context.getSharedPreferences(
                 SETTINGS_PREFS, Context.MODE_PRIVATE);
-        return normalize(preferences.getString(PREFERENCE_KEY, COMBINED));
+        String scopedKey = scopedKey(containerId);
+        if (preferences.contains(scopedKey)) {
+            return normalize(preferences.getString(scopedKey, COMBINED));
+        }
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            return normalize(preferences.getString(PREFERENCE_KEY, COMBINED));
+        }
+        return COMBINED;
     }
 
     static void set(Context context, String value) {
+        set(context, AccountContainerStore.selectedId(context), value);
+    }
+
+    static void set(Context context, String containerId, String value) {
         if (context == null) return;
         context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
-                .edit().putString(PREFERENCE_KEY, normalize(value)).apply();
+                .edit().putString(scopedKey(containerId), normalize(value)).apply();
+    }
+
+    private static String scopedKey(String containerId) {
+        String id = containerId == null ? "" : containerId.trim();
+        return PREFERENCE_KEY + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
     static String normalize(String value) {

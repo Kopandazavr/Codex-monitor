@@ -16,4 +16,7 @@
     <color name="about_gradient_start">#010102</color>
     <color name="about_gradient_center">#242148</color>
     <color name="about_gradient_end">#263A68</color>
+    <color name="allowance_five_hour">#70A7FF</color>
+    <color name="allowance_long_window">#F4B95F</color>
+    <color name="allowance_alert_foreground">#202124</color>
 </resources>

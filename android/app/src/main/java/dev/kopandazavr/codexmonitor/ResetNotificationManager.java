@@ -121,14 +121,21 @@ public final class ResetNotificationManager {
      * an external refill on a later refresh.
      */
     public static void markUserReset(Context context, UsageSnapshot snapshot) {
+        markUserReset(context, AccountContainerStore.selectedId(context), snapshot);
+    }
+
+    static void markUserReset(Context context, String containerId, UsageSnapshot snapshot) {
         if (context == null || snapshot == null) return;
         long now = System.currentTimeMillis();
         SharedPreferences.Editor editor = state(context).edit();
-        markUserResetWindow(editor, KEY_USER_RESET_FIVE_HOUR_UNTIL,
+        markUserResetWindow(editor,
+                accountStateKey(containerId, KEY_USER_RESET_FIVE_HOUR_UNTIL),
                 snapshot, snapshot.fiveHour, now);
-        markUserResetWindow(editor, KEY_USER_RESET_WEEKLY_UNTIL,
+        markUserResetWindow(editor,
+                accountStateKey(containerId, KEY_USER_RESET_WEEKLY_UNTIL),
                 snapshot, snapshot.weekly, now);
-        markUserResetWindow(editor, KEY_USER_RESET_MONTHLY_UNTIL,
+        markUserResetWindow(editor,
+                accountStateKey(containerId, KEY_USER_RESET_MONTHLY_UNTIL),
                 snapshot, snapshot.monthly, now);
         editor.apply();
     }

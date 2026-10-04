@@ -217,6 +217,10 @@ final class ProcessNotificationManager {
     }
 
     static void clearCompletionAlert(Context context, String key) {
+        clearCompletionAlert(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    static void clearCompletionAlert(Context context, String containerId, String key) {
         if (context == null || key == null || key.trim().isEmpty()) return;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);

@@ -15,7 +15,7 @@ public final class UsageRefreshJobService extends JobService {
 
     @Override // android.app.job.JobService
     public boolean onStartJob(final JobParameters jobParameters) {
-        if (!SecureTokenStore.isSignedIn(this)) {
+        if (!hasAnySignedInAccount(this)) {
             DiagnosticLog.info(this, "scheduler", "refresh_job_skipped_signed_out",
                     "job_id", jobParameters.getJobId());
             WidgetRenderer.updateAll(this);
@@ -81,83 +81,89 @@ public final class UsageRefreshJobService extends JobService {
 
         @Override // java.lang.Runnable
         public void run() {
+            android.content.Context app =
+                    UsageRefreshJobService.this.getApplicationContext();
             long started = android.os.SystemClock.elapsedRealtime();
             boolean forceSubscription = "immediate".equals(this.reason);
+            int attempted = 0;
+            int succeeded = 0;
+            String selectedId = AccountContainerStore.selectedId(app);
             DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
                     "refresh_job_started",
                     "job_id", this.params.getJobId(),
                     "reason", this.reason,
-                    "force_subscription", forceSubscription);
+                    "force_subscription", forceSubscription,
+                    "account_count", AccountContainerStore.all(app).size());
             try {
-                try {
-                    UsageSnapshot snapshot = UsageApi.refreshAndCacheScheduled(
-                            UsageRefreshJobService.this.getApplicationContext(),
-                            forceSubscription, this.reason);
-                    RefreshScheduler.scheduleAtNextReset(
-                            UsageRefreshJobService.this.getApplicationContext(), snapshot);
-                    AppPreferences.recordRefreshSuccess(
-                            UsageRefreshJobService.this.getApplicationContext());
-                    WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
-                    ContextStartMonitor.startIfRequested(
-                            UsageRefreshJobService.this.getApplicationContext());
-                    DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
-                            "refresh_job_succeeded",
-                            "job_id", this.params.getJobId(),
-                            "reason", this.reason,
-                            "force_subscription", forceSubscription,
-                            "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
-                    UsageRefreshJobService.this.active.remove(
-                            Integer.valueOf(this.params.getJobId()), this);
-                    if (!this.stopped) {
-                        UsageRefreshJobService.this.jobFinished(this.params, false);
-                        if (this.chainedCycle && SecureTokenStore.isSignedIn(
-                                UsageRefreshJobService.this.getApplicationContext())) {
-                            RefreshScheduler.scheduleNextShort(
-                                    UsageRefreshJobService.this.getApplicationContext(),
-                                    this.params.getJobId());
+                for (AccountContainerStore.Account account : AccountContainerStore.all(app)) {
+                    if (this.stopped || Thread.currentThread().isInterrupted()) break;
+                    if (!SecureTokenStore.isSignedIn(app, account.id)) continue;
+                    attempted++;
+                    long accountStarted = android.os.SystemClock.elapsedRealtime();
+                    try {
+                        UsageSnapshot snapshot = UsageApi.refreshAndCacheScheduled(
+                                app, account.id, forceSubscription, this.reason);
+                        AppPreferences.recordRefreshSuccess(app, account.id);
+                        succeeded++;
+                        if (account.id.equals(selectedId)) {
+                            RefreshScheduler.scheduleAtNextReset(app, snapshot);
+                            ContextStartMonitor.startIfRequested(app);
                         }
-                    }
-                } catch (Exception e) {
-                    DiagnosticLog.error(UsageRefreshJobService.this, "scheduler",
-                            "refresh_job_failed", e,
-                            "job_id", this.params.getJobId(),
-                            "reason", this.reason,
-                            "force_subscription", forceSubscription,
-                            "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
-                    AppPreferences.setLastError(
-                            UsageRefreshJobService.this.getApplicationContext(),
-                            UsageRefreshJobService.safeMessage(e));
-                    AppPreferences.recordRefreshFailure(
-                            UsageRefreshJobService.this.getApplicationContext());
-                    WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
-                    UsageRefreshJobService.this.active.remove(
-                            Integer.valueOf(this.params.getJobId()), this);
-                    if (!this.stopped) {
-                        UsageRefreshJobService.this.jobFinished(this.params, !this.chainedCycle);
-                        if (this.chainedCycle && SecureTokenStore.isSignedIn(
-                                UsageRefreshJobService.this.getApplicationContext())) {
-                            RefreshScheduler.scheduleNextShort(
-                                    UsageRefreshJobService.this.getApplicationContext(),
-                                    this.params.getJobId());
-                        }
+                        DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
+                                "refresh_account_succeeded",
+                                "container_id", account.id,
+                                "reason", this.reason,
+                                "duration_ms",
+                                android.os.SystemClock.elapsedRealtime() - accountStarted);
+                    } catch (Exception accountError) {
+                        AppPreferences.setLastError(app, account.id, safeMessage(accountError));
+                        AppPreferences.recordRefreshFailure(app, account.id);
+                        DiagnosticLog.error(UsageRefreshJobService.this, "scheduler",
+                                "refresh_account_failed", accountError,
+                                "container_id", account.id,
+                                "reason", this.reason,
+                                "duration_ms",
+                                android.os.SystemClock.elapsedRealtime() - accountStarted);
                     }
                 }
-            } catch (Throwable th) {
-                WidgetRenderer.updateAll(UsageRefreshJobService.this.getApplicationContext());
+
+                WidgetRenderer.updateAll(app);
+                boolean retry = attempted > 0 && succeeded == 0 && !this.chainedCycle;
+                DiagnosticLog.info(UsageRefreshJobService.this, "scheduler",
+                        "refresh_job_finished",
+                        "job_id", this.params.getJobId(),
+                        "reason", this.reason,
+                        "accounts_attempted", attempted,
+                        "accounts_succeeded", succeeded,
+                        "duration_ms", android.os.SystemClock.elapsedRealtime() - started);
+                UsageRefreshJobService.this.active.remove(
+                        Integer.valueOf(this.params.getJobId()), this);
+                if (!this.stopped) {
+                    UsageRefreshJobService.this.jobFinished(this.params, retry);
+                    if (this.chainedCycle && hasAnySignedInAccount(app)) {
+                        RefreshScheduler.scheduleNextShort(app, this.params.getJobId());
+                    }
+                }
+            } catch (Throwable failure) {
+                WidgetRenderer.updateAll(app);
                 UsageRefreshJobService.this.active.remove(
                         Integer.valueOf(this.params.getJobId()), this);
                 if (!this.stopped) {
                     UsageRefreshJobService.this.jobFinished(this.params, false);
-                    if (this.chainedCycle && SecureTokenStore.isSignedIn(
-                            UsageRefreshJobService.this.getApplicationContext())) {
-                        RefreshScheduler.scheduleNextShort(
-                                UsageRefreshJobService.this.getApplicationContext(),
-                                this.params.getJobId());
+                    if (this.chainedCycle && hasAnySignedInAccount(app)) {
+                        RefreshScheduler.scheduleNextShort(app, this.params.getJobId());
                     }
                 }
-                throw th;
+                throw failure;
             }
         }
+    }
+
+    private static boolean hasAnySignedInAccount(android.content.Context context) {
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            if (SecureTokenStore.isSignedIn(context, account.id)) return true;
+        }
+        return false;
     }
 
     private static final class ContextStartMonitor {

@@ -245,6 +245,11 @@ final class IdleReminderManager {
 
     private static boolean scheduleCompletionOverlay(Context context,
             IdleProcessState.IdleRole idle) {
+        return scheduleCompletionOverlay(context, AccountContainerStore.selectedId(context), idle);
+    }
+
+    private static boolean scheduleCompletionOverlay(Context context, String containerId,
+            IdleProcessState.IdleRole idle) {
         if (!IdleReminderOverlayService.canDraw(context)) {
             DiagnosticLog.warn(context, "idle_process", "completion_overlay_not_scheduled",
                     "reason", "overlay_permission_missing");

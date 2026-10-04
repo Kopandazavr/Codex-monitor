@@ -23,22 +23,24 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
             NowBarManager.onScheduledEnd(context);
             DualUsageNotificationManager.repostDelayed(context, 450L);
         } else if (NowBarManager.ACTION_REFRESH.equals(action)) {
+            String containerId = containerFromIntent(context, intent);
             String correlationId = "manual-calendar-" + System.currentTimeMillis();
             DiagnosticLog.info(context, "notification", "remote_refresh_requested",
                     "source", "manual_notification_refresh",
+                    "container_id", containerId,
                     "correlation_id", correlationId);
             PendingResult pending = goAsync();
             Context app = context.getApplicationContext();
-            GoogleCalendarProcessSource.forceRefresh(app, () -> {
+            GoogleCalendarProcessSource.forceRefresh(app, containerId, () -> {
                 try {
-                    boolean posted = DualUsageNotificationManager.repostForProcessChange(app);
+                    boolean posted = DualUsageNotificationManager.repostForProcessChange(
+                            app, containerId);
                     DiagnosticLog.info(app, "notification", "manual_calendar_refresh_completed",
+                            "container_id", containerId,
                             "correlation_id", correlationId,
                             "posted", posted,
                             "calendar_api_connected",
-                            GoogleCalendarAuthorization.isConnected(app));
-                    // Usage refresh is independent and may complete later; Calendar never repaints
-                    // stale cache first.
+                            GoogleCalendarAuthorization.isConnected(app, containerId));
                     RefreshScheduler.scheduleImmediate(app);
                 } finally {
                     pending.finish();
@@ -63,13 +65,11 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
                     "source", "limit_bell_toggle",
                     "metric", intent == null ? "" : intent.getStringExtra(NowBarResetReminder.EXTRA_METRIC));
             NowBarResetReminder.toggleFromIntent(context, intent);
-            DualUsageNotificationManager.repostDelayed(context, 150L);
         } else if (NowBarResetReminder.ACTION_FIRE.equals(action)) {
             DiagnosticLog.info(context, "notification", "notification_action",
                     "source", "limit_reset_fire",
                     "metric", intent == null ? "" : intent.getStringExtra(NowBarResetReminder.EXTRA_METRIC));
             NowBarResetReminder.fireFromIntent(context, intent);
-            DualUsageNotificationManager.repostDelayed(context, 500L);
         } else if (IdleReminderManager.ACTION_TOGGLE.equals(action)) {
             DiagnosticLog.info(context, "notification", "notification_action",
                     "source", "role_bell_toggle");
@@ -87,5 +87,15 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
                     "source", "completion_overlay_exact_alarm");
             IdleReminderManager.completionOverlayFromIntent(context, intent);
         }
+    private static String containerFromIntent(Context context, Intent intent) {
+        String containerId = intent == null
+                ? "" : intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
+        if (containerId != null && !containerId.trim().isEmpty()
+                && AccountContainerStore.find(context, containerId.trim()) != null) {
+            return containerId.trim();
+        }
+        return AccountContainerStore.selectedId(context);
+    }
+
     }
 }

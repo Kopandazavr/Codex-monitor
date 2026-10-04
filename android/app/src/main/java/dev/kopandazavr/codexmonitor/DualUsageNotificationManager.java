@@ -122,6 +122,7 @@ final class DualUsageNotificationManager {
                 alertText == null ? "" : alertText);
 
         Intent open = new Intent(context, MainActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context, AccountNotificationNamespace.requestCode(containerId, "usage_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -295,12 +296,18 @@ final class DualUsageNotificationManager {
         PendingIntent contentIntent = PendingIntent.getActivity(context,
                 AccountNotificationNamespace.requestCode(containerId, "reset_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent refreshIntent = PendingIntent.getBroadcast(context, AccountNotificationNamespace.requestCode(containerId, "usage_refresh"),
-                new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_REFRESH),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent dismissedIntent = PendingIntent.getBroadcast(context, AccountNotificationNamespace.requestCode(containerId, "usage_dismissed"),
-                new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_DISMISSED),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent refresh = new Intent(context, NowBarActionReceiver.class)
+                .setAction(NowBarManager.ACTION_REFRESH)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId);
+        PendingIntent refreshIntent = PendingIntent.getBroadcast(context,
+                AccountNotificationNamespace.requestCode(containerId, "usage_refresh"),
+                refresh, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent dismissed = new Intent(context, NowBarActionReceiver.class)
+                .setAction(NowBarManager.ACTION_DISMISSED)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId);
+        PendingIntent dismissedIntent = PendingIntent.getBroadcast(context,
+                AccountNotificationNamespace.requestCode(containerId, "usage_dismissed"),
+                dismissed, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Icon refreshIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
         RemoteViews compact = buildViews(context, containerId, R.layout.notification_usage_dual_bars,

@@ -39,8 +39,11 @@ grep -Fq 'markCompletionBaseline(context, idle)' "$SRC/IdleReminderManager.java"
 
 grep -Fq 'nowMillis < beginMillis' "$SRC/CalendarProcess.java"
 grep -Fq 'Math.max(0L, beginMillis - nowMillis)' "$SRC/CalendarProcess.java"
-grep -Fq 'return String.valueOf(eventId);' "$SRC/CalendarProcess.java"
-grep -Fq 'row.pendingDeadlineMillis = process.beginMillis;' "$SRC/IdleProcessState.java"
+grep -Fq 'String instanceIdentity()' "$SRC/CalendarProcess.java"
+grep -Fq '"legacy-event:" + eventId' "$SRC/CalendarProcess.java"
+grep -Fq '"instance:" + instanceId' "$SRC/CalendarProcess.java"
+grep -Fq 'WatchdogInstanceState.remember(pending, row.key, process)' "$SRC/IdleProcessState.java"
+grep -Fq 'instance.deadlineMillis' "$SRC/IdleProcessState.java"
 grep -Fq 'watchdog_deadline_reached' "$SRC/IdleProcessState.java"
 
 test -f "$SRC/WatchdogCanonicalizer.java"

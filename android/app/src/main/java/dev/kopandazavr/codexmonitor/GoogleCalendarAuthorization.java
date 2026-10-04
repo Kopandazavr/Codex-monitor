@@ -125,47 +125,58 @@ final class GoogleCalendarAuthorization {
 
     static void beginInteractive(Activity activity, int requestCode,
             ActionCallback callback) {
+        String accountName = accountName(activity);
+        Account account = accountName.isEmpty()
+                ? null : new Account(accountName, GOOGLE_ACCOUNT_TYPE);
+        beginInteractive(activity, requestCode, account, callback);
+    }
+
+    static void beginInteractive(Activity activity, int requestCode, Account account,
+            ActionCallback callback) {
+        String containerId = AccountContainerStore.selectedId(activity);
+        if (account == null || account.name == null || account.name.trim().isEmpty()) {
+            callback.onFinished(false, "Choose a Google account first.");
+            return;
+        }
+        String chosen = account.name.trim();
+        prefs(activity).edit()
+                .putString(key(containerId, KEY_PENDING_ACCOUNT_NAME), chosen)
+                .apply();
         DiagnosticLog.info(activity, "calendar_api", "authorization_started",
-                "scope", "calendar.events.readonly");
+                "scope", "calendar.events.readonly",
+                "container_id", containerId);
         AuthorizationClient client = Identity.getAuthorizationClient(activity);
-        client.authorize(request())
+        client.authorize(request(account))
                 .addOnSuccessListener(result -> {
                     if (result.hasResolution()) {
                         PendingIntent pending = result.getPendingIntent();
                         if (pending == null) {
-                            markNeedsAction(activity, "resolution_missing");
-                            DiagnosticLog.warn(activity, "calendar_api",
-                                    "authorization_resolution_missing",
-                                    "recoverable", false);
+                            markNeedsAction(activity, containerId, "resolution_missing");
                             callback.onFinished(false,
                                     "Google Calendar authorization is unavailable.");
                             return;
                         }
                         try {
-                            DiagnosticLog.info(activity, "calendar_api",
-                                    "authorization_resolution_launched");
                             activity.startIntentSenderForResult(pending.getIntentSender(),
                                     requestCode, null, 0, 0, 0);
                             callback.onFinished(false,
-                                    "Choose a Google account and allow Calendar.");
+                                    "Allow Calendar access for the selected Google account.");
                         } catch (IntentSender.SendIntentException exception) {
-                            AuthOutcome outcome = recordFailure(activity,
+                            AuthOutcome outcome = recordFailure(activity, containerId,
                                     "resolution_launch", exception);
                             callback.onFinished(false, outcome.message);
                         }
-                    } else if (accept(activity, result)) {
+                    } else if (accept(activity, containerId, result, chosen)) {
                         callback.onFinished(true, "Google Calendar connected.");
                     } else {
-                        markNeedsAction(activity, "token_missing");
-                        DiagnosticLog.warn(activity, "calendar_api",
-                                "authorization_token_missing",
-                                "recoverable", false);
+                        markNeedsAction(activity, containerId, "token_missing");
                         callback.onFinished(false,
                                 "Google Calendar authorization returned no access token.");
                     }
                 })
                 .addOnFailureListener(exception -> {
-                    AuthOutcome outcome = recordFailure(activity, "authorize", exception);
+                    AuthOutcome outcome = recordFailure(activity, containerId,
+                            "authorize", exception);
                     callback.onFinished(false, outcome.message);
                 });
     }
@@ -175,41 +186,36 @@ final class GoogleCalendarAuthorization {
      * Diagnostics intentionally record only status/result metadata, never tokens/account data.
      */
     static AuthOutcome consumeInteractiveResult(Activity activity, int resultCode, Intent data) {
+        String containerId = AccountContainerStore.selectedId(activity);
+        String pendingAccount = prefs(activity).getString(
+                key(containerId, KEY_PENDING_ACCOUNT_NAME), "");
         DiagnosticLog.info(activity, "calendar_api", "authorization_activity_result",
+                "container_id", containerId,
                 "result_code", resultCode,
                 "data_present", data != null);
-        // Some Google Play services failures return a non-OK Activity result together with
-        // diagnostic result data. Parse that data first so OAuth/client misconfiguration is not
-        // accidentally flattened into a generic user-cancel path.
         if (data != null) {
             try {
                 AuthorizationResult result = Identity.getAuthorizationClient(activity)
                         .getAuthorizationResultFromIntent(data);
-                if (accept(activity, result)) {
+                if (accept(activity, containerId, result, pendingAccount)) {
                     return new AuthOutcome(true, "Google Calendar connected.");
                 }
-                markNeedsAction(activity, "token_missing");
-                DiagnosticLog.warn(activity, "calendar_api", "authorization_token_missing",
-                        "stage", "activity_result",
-                        "result_code", resultCode,
-                        "recoverable", false);
+                markNeedsAction(activity, containerId, "token_missing");
                 return new AuthOutcome(false,
                         "Google Calendar authorization returned no access token.");
             } catch (Exception exception) {
-                return recordFailure(activity, "activity_result", exception);
+                return recordFailure(activity, containerId, "activity_result", exception);
             }
         }
         if (resultCode != Activity.RESULT_OK) {
-            markDisconnected(activity);
+            markDisconnected(activity, containerId);
             DiagnosticLog.info(activity, "calendar_api", "authorization_cancelled",
+                    "container_id", containerId,
                     "result_code", resultCode,
                     "data_present", false);
             return new AuthOutcome(false, "Google Calendar authorization was canceled.");
         }
-        markNeedsAction(activity, "result_missing");
-        DiagnosticLog.warn(activity, "calendar_api", "authorization_result_missing",
-                "result_code", resultCode,
-                "recoverable", true);
+        markNeedsAction(activity, containerId, "result_missing");
         return new AuthOutcome(false,
                 "Google Calendar returned no authorization result. Try again.");
     }
@@ -348,25 +354,29 @@ final class GoogleCalendarAuthorization {
         return true;
     }
 
-    private static AuthOutcome recordFailure(Context context, String stage, Exception exception) {
+    private static AuthOutcome recordFailure(Context context, String containerId,
+            String stage, Exception exception) {
         FailureInfo info = failureInfo(exception);
         if ("cancelled".equals(info.kind)) {
-            markDisconnected(context);
+            markDisconnected(context, containerId);
             DiagnosticLog.info(context, "calendar_api", "authorization_cancelled",
+                    "container_id", containerId,
                     "stage", stage,
                     "error_class", info.errorClass,
                     "status_code", info.statusCode,
                     "status_name", info.statusName);
             return new AuthOutcome(false, "Google Calendar authorization was canceled.");
         }
-        markNeedsAction(context, info.kind + ":" + info.statusName);
-        logFailure(context, stage, info);
+        markNeedsAction(context, containerId, info.kind + ":" + info.statusName);
+        logFailure(context, containerId, stage, info);
         return new AuthOutcome(false,
                 userMessage(info, "Google Calendar authorization failed."));
     }
 
-    private static void logFailure(Context context, String stage, FailureInfo info) {
+    private static void logFailure(Context context, String containerId,
+            String stage, FailureInfo info) {
         DiagnosticLog.warn(context, "calendar_api", "authorization_failed",
+                "container_id", containerId,
                 "stage", stage,
                 "kind", info.kind,
                 "error_class", info.errorClass,
@@ -430,32 +440,43 @@ final class GoogleCalendarAuthorization {
         return fallback + " See Diagnostics.";
     }
 
-    private static void markNeedsAction(Context context, String error) {
+    private static void markNeedsAction(Context context, String containerId, String error) {
         if (context == null) return;
         prefs(context).edit()
-                .putBoolean(KEY_CONNECTED, false)
-                .putBoolean(KEY_NEEDS_ACTION, true)
-                .putString(KEY_LAST_ERROR, error == null ? "" : error)
+                .putBoolean(key(containerId, KEY_CONNECTED), false)
+                .putBoolean(key(containerId, KEY_NEEDS_ACTION), true)
+                .putString(key(containerId, KEY_LAST_ERROR), error == null ? "" : error)
                 .apply();
-        cachedToken = null;
-        cachedTokenAt = 0L;
+        CACHED_TOKENS.remove(containerId);
+        CACHED_TOKEN_AT.remove(containerId);
     }
 
-    private static void markDisconnected(Context context) {
+    private static void markDisconnected(Context context, String containerId) {
         if (context == null) return;
         prefs(context).edit()
-                .putBoolean(KEY_CONNECTED, false)
-                .putBoolean(KEY_NEEDS_ACTION, false)
-                .remove(KEY_LAST_ERROR)
+                .putBoolean(key(containerId, KEY_CONNECTED), false)
+                .putBoolean(key(containerId, KEY_NEEDS_ACTION), false)
+                .remove(key(containerId, KEY_LAST_ERROR))
+                .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME))
                 .apply();
-        cachedToken = null;
-        cachedTokenAt = 0L;
+        CACHED_TOKENS.remove(containerId);
+        CACHED_TOKEN_AT.remove(containerId);
     }
 
-    private static void clearState(Context context) {
-        prefs(context).edit().clear().apply();
-        cachedToken = null;
-        cachedTokenAt = 0L;
+    private static void clearState(Context context, String containerId) {
+        if (context == null) return;
+        SharedPreferences.Editor editor = prefs(context).edit()
+                .remove(key(containerId, KEY_CONNECTED))
+                .remove(key(containerId, KEY_NEEDS_ACTION))
+                .remove(key(containerId, KEY_LAST_ERROR))
+                .remove(key(containerId, KEY_ACCOUNT_NAME))
+                .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(KEY_CONNECTED).remove(KEY_NEEDS_ACTION).remove(KEY_LAST_ERROR);
+        }
+        editor.apply();
+        CACHED_TOKENS.remove(containerId);
+        CACHED_TOKEN_AT.remove(containerId);
     }
 
     private static String key(String containerId, String base) {

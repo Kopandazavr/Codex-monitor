@@ -98,21 +98,26 @@ final class IdleReminderManager {
 
     static void dismissRowFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
+        String containerId = containerFromIntent(context, intent);
         String key = intent.getStringExtra(EXTRA_ROLE_KEY);
         long finished = intent.getLongExtra(EXTRA_FINISHED_AT, 0L);
         if (key == null || key.trim().isEmpty() || finished <= 0L) return;
-        IdleProcessState.dismiss(context, key, finished);
-        DualUsageNotificationManager.repostForProcessChangeDelayed(context, 120L);
+        IdleProcessState.dismiss(context, containerId, key, finished);
+        DualUsageNotificationManager.repostForProcessChangeDelayed(
+                context, containerId, 120L);
     }
 
     static void toggleFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
+        String containerId = containerFromIntent(context, intent);
         String key = intent.getStringExtra(EXTRA_ROLE_KEY);
         if (key == null || key.trim().isEmpty()) return;
         long now = System.currentTimeMillis();
-        boolean enabled = IdleProcessState.toggleReminder(context, key, now);
-        onReminderToggled(context, key, enabled, now);
-        DualUsageNotificationManager.repostForProcessChangeDelayed(context, 120L);
+        boolean enabled = IdleProcessState.toggleReminder(
+                context, containerId, key, now);
+        onReminderToggled(context, containerId, key, enabled, now);
+        DualUsageNotificationManager.repostForProcessChangeDelayed(
+                context, containerId, 120L);
     }
 
     static void fireFromIntent(Context context, Intent intent) {

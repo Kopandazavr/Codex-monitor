@@ -645,57 +645,124 @@ public final class AppPreferences {
                 .apply();
     }
 
-    public static void setOAuthPending(Context context, boolean z, String str) {
-        SharedPreferences.Editor editorPutBoolean = prefs(context).edit().putBoolean(KEY_OAUTH_PENDING, z);
-        if (str == null) {
-            str = "";
-        }
-        SharedPreferences.Editor editorPutString = editorPutBoolean.putString(KEY_OAUTH_URL, str);
-        if (z) {
-            editorPutString.putLong(KEY_OAUTH_STARTED_AT, System.currentTimeMillis());
+    public static void setOAuthPending(Context context, boolean pending, String url) {
+        setOAuthPending(context, AccountContainerStore.selectedId(context), pending, url);
+    }
+
+    static void setOAuthPending(Context context, String containerId, boolean pending, String url) {
+        SharedPreferences prefs = prefs(context);
+        String pendingKey = accountKey(containerId, KEY_OAUTH_PENDING);
+        String urlKey = accountKey(containerId, KEY_OAUTH_URL);
+        String startedKey = accountKey(containerId, KEY_OAUTH_STARTED_AT);
+        SharedPreferences.Editor editor = prefs.edit().putBoolean(pendingKey, pending)
+                .putString(urlKey, url == null ? "" : url);
+        if (pending) {
+            editor.putLong(startedKey, System.currentTimeMillis());
         } else {
-            editorPutString.remove(KEY_OAUTH_STARTED_AT);
+            editor.remove(startedKey);
         }
-        editorPutString.apply();
+        editor.apply();
     }
 
     public static boolean isOAuthPending(Context context) {
-        SharedPreferences sharedPreferencesPrefs = prefs(context);
-        if (!sharedPreferencesPrefs.getBoolean(KEY_OAUTH_PENDING, false)) {
-            return false;
-        }
-        long j = sharedPreferencesPrefs.getLong(KEY_OAUTH_STARTED_AT, 0L);
-        if (j <= 0 || System.currentTimeMillis() - j > OAUTH_STALE_AFTER_MS) {
-            setOAuthPending(context, false, "");
+        return isOAuthPending(context, AccountContainerStore.selectedId(context));
+    }
+
+    static boolean isOAuthPending(Context context, String containerId) {
+        SharedPreferences shared = prefs(context);
+        String pendingKey = accountKey(containerId, KEY_OAUTH_PENDING);
+        String startedKey = accountKey(containerId, KEY_OAUTH_STARTED_AT);
+        boolean scoped = shared.contains(pendingKey);
+        boolean pending = scoped
+                ? shared.getBoolean(pendingKey, false)
+                : legacyBoolean(context, containerId, KEY_OAUTH_PENDING, false);
+        if (!pending) return false;
+        long started = scoped
+                ? shared.getLong(startedKey, 0L)
+                : legacyLong(context, containerId, KEY_OAUTH_STARTED_AT, 0L);
+        if (started <= 0 || System.currentTimeMillis() - started > OAUTH_STALE_AFTER_MS) {
+            setOAuthPending(context, containerId, false, "");
             return false;
         }
         return true;
     }
 
     public static String getOAuthUrl(Context context) {
-        return isOAuthPending(context) ? prefs(context).getString(KEY_OAUTH_URL, "") : "";
+        return getOAuthUrl(context, AccountContainerStore.selectedId(context));
+    }
+
+    static String getOAuthUrl(Context context, String containerId) {
+        if (!isOAuthPending(context, containerId)) return "";
+        SharedPreferences shared = prefs(context);
+        String key = accountKey(containerId, KEY_OAUTH_URL);
+        return shared.contains(key)
+                ? shared.getString(key, "")
+                : legacyString(context, containerId, KEY_OAUTH_URL, "");
     }
 
     public static boolean isOnboardingComplete(Context context) {
-        return prefs(context).getBoolean(KEY_ONBOARDING_COMPLETE, false);
+        String containerId = AccountContainerStore.selectedId(context);
+        SharedPreferences shared = prefs(context);
+        String key = accountKey(containerId, KEY_ONBOARDING_COMPLETE);
+        if (shared.contains(key)) return shared.getBoolean(key, false);
+        return legacyBoolean(context, containerId, KEY_ONBOARDING_COMPLETE, false);
     }
 
     public static int getOnboardingStep(Context context) {
-        return OnboardingFlow.normalizeStep(
-                prefs(context).getInt(KEY_ONBOARDING_STEP, OnboardingFlow.STEP_WELCOME));
+        String containerId = AccountContainerStore.selectedId(context);
+        SharedPreferences shared = prefs(context);
+        String key = accountKey(containerId, KEY_ONBOARDING_STEP);
+        int value = shared.contains(key)
+                ? shared.getInt(key, OnboardingFlow.STEP_WELCOME)
+                : (int) legacyLong(context, containerId, KEY_ONBOARDING_STEP,
+                        OnboardingFlow.STEP_WELCOME);
+        return OnboardingFlow.normalizeStep(value);
     }
 
     public static void setOnboardingStep(Context context, int step) {
         prefs(context).edit()
-                .putInt(KEY_ONBOARDING_STEP, OnboardingFlow.normalizeStep(step))
+                .putInt(accountKey(AccountContainerStore.selectedId(context), KEY_ONBOARDING_STEP),
+                        OnboardingFlow.normalizeStep(step))
                 .apply();
     }
 
     public static void completeOnboarding(Context context) {
+        String containerId = AccountContainerStore.selectedId(context);
         prefs(context).edit()
-                .putBoolean(KEY_ONBOARDING_COMPLETE, true)
-                .remove(KEY_ONBOARDING_STEP)
+                .putBoolean(accountKey(containerId, KEY_ONBOARDING_COMPLETE), true)
+                .remove(accountKey(containerId, KEY_ONBOARDING_STEP))
                 .apply();
+    }
+
+    private static String accountKey(String containerId, String base) {
+        String id = containerId == null ? "" : containerId.trim();
+        return base + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");
+    }
+
+    private static boolean legacyBoolean(Context context, String containerId,
+            String key, boolean fallback) {
+        return AccountContainerStore.isLegacyOwner(context, containerId)
+                ? prefs(context).getBoolean(key, fallback) : fallback;
+    }
+
+    private static long legacyLong(Context context, String containerId,
+            String key, long fallback) {
+        if (!AccountContainerStore.isLegacyOwner(context, containerId)) return fallback;
+        SharedPreferences shared = prefs(context);
+        try {
+            if (!shared.contains(key)) return fallback;
+            Object value = shared.getAll().get(key);
+            return value instanceof Integer ? ((Integer) value).longValue()
+                    : value instanceof Long ? (Long) value : fallback;
+        } catch (RuntimeException ignored) {
+            return fallback;
+        }
+    }
+
+    private static String legacyString(Context context, String containerId,
+            String key, String fallback) {
+        return AccountContainerStore.isLegacyOwner(context, containerId)
+                ? prefs(context).getString(key, fallback) : fallback;
     }
 
     private static String trim(String str, String str2) {

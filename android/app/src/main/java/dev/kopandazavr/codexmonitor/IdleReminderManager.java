@@ -378,14 +378,26 @@ final class IdleReminderManager {
     }
 
     private static PendingIntent fireIntent(Context context, IdleProcessState.IdleRole idle) {
-        return PendingIntent.getBroadcast(context, requestCode(idle.key, 1),
-                baseIntent(context, ACTION_FIRE, idle),
+        return fireIntent(context, AccountContainerStore.selectedId(context), idle);
+    }
+
+    private static PendingIntent fireIntent(Context context, String containerId,
+            IdleProcessState.IdleRole idle) {
+        return PendingIntent.getBroadcast(context,
+                requestCode(containerId, idle.key, 1),
+                baseIntent(context, containerId, ACTION_FIRE, idle),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static Intent baseIntent(Context context, String action, IdleProcessState.IdleRole idle) {
+        return baseIntent(context, AccountContainerStore.selectedId(context), action, idle);
+    }
+
+    private static Intent baseIntent(Context context, String containerId, String action,
+            IdleProcessState.IdleRole idle) {
         return new Intent(context, NowBarActionReceiver.class)
                 .setAction(action)
+                .putExtra(EXTRA_CONTAINER_ID, containerId)
                 .putExtra(EXTRA_ROLE_KEY, idle.key)
                 .putExtra(EXTRA_INSTANCE_ID, idle.instanceId)
                 .putExtra(EXTRA_EVENT_ID, idle.eventId)

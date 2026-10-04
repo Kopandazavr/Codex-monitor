@@ -382,6 +382,20 @@ final class GoogleCalendarProcessSource {
         }
     }
 
+    static void clearContainer(Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()) return;
+        SharedPreferences.Editor editor = prefs(context).edit()
+                .remove(key(containerId, KEY_EVENTS))
+                .remove(key(containerId, KEY_LAST_REFRESH));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(KEY_EVENTS).remove(KEY_LAST_REFRESH);
+        }
+        editor.apply();
+        synchronized (LOCK) {
+            REFRESH_STATES.remove(containerId);
+        }
+    }
+
     private static String key(String containerId, String base) {
         return base + "::" + safeSuffix(containerId);
     }

@@ -2,6 +2,13 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
+    <Preference
+        android:key="settings_accounts"
+        android:icon="@drawable/ic_settings_accounts"
+        android:title="Accounts"
+        android:summary="Manage Codex Monitor accounts"
+        app:iconSpaceReserved="true" />
+
     <dev.kopandazavr.codexmonitor.PermissionsConnectionsPreference
         android:key="permissions_connections"
         android:icon="@drawable/ic_permissions_checklist"

@@ -227,32 +227,33 @@ final class IdleReminderManager {
 
     static void completionOverlayFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
+        String containerId = containerFromIntent(context, intent);
         String key = intent.getStringExtra(EXTRA_ROLE_KEY);
         String instanceId = intent.getStringExtra(EXTRA_INSTANCE_ID);
         long eventId = intent.getLongExtra(EXTRA_EVENT_ID, 0L);
         long expectedFinished = intent.getLongExtra(EXTRA_FINISHED_AT, 0L);
         IdleProcessState.IdleRole idle = IdleProcessState.findCompletion(
-                context, key, instanceId, eventId, expectedFinished);
+                context, containerId, key, instanceId, eventId, expectedFinished);
         if (idle == null || !idle.reminderEnabled) {
             DiagnosticLog.info(context, "idle_process", "completion_overlay_alarm_ignored",
+                    "container_id", containerId,
                     "reason", "stale_or_disabled");
             return;
         }
-        boolean requested = IdleReminderOverlayService.showCompletion(context, idle);
+        boolean requested = IdleReminderOverlayService.showCompletion(
+                context, containerId, idle);
         if (!requested) {
-            ProcessNotificationManager.postCompletionAlert(context, idle,
-                    System.currentTimeMillis());
+            ProcessNotificationManager.postCompletionAlert(
+                    context, containerId, idle, System.currentTimeMillis());
         } else {
-            // startForegroundService() is asynchronous. A short idempotent fallback guarantees
-            // the completion notification even if service startup is accepted but onStartCommand
-            // never reaches the post. In the normal path the service posts first and this no-ops.
             Context app = context.getApplicationContext();
             new Handler(Looper.getMainLooper()).postDelayed(
                     () -> ProcessNotificationManager.postCompletionAlert(
-                            app, idle, System.currentTimeMillis()),
+                            app, containerId, idle, System.currentTimeMillis()),
                     2_000L);
         }
         DiagnosticLog.info(context, "idle_process", "completion_overlay_alarm_received",
+                "container_id", containerId,
                 "role", idle.displayLabel(),
                 "overlay_start_requested", requested,
                 "notification_owned_by_overlay_service", requested);

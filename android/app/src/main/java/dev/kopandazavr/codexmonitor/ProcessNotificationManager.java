@@ -234,8 +234,12 @@ final class ProcessNotificationManager {
     }
 
     static void clearCompletionAlerts(Context context, Iterable<String> keys) {
+        clearCompletionAlerts(context, AccountContainerStore.selectedId(context), keys);
+    }
+
+    static void clearCompletionAlerts(Context context, String containerId, Iterable<String> keys) {
         if (keys == null) return;
-        for (String key : keys) clearCompletionAlert(context, key);
+        for (String key : keys) clearCompletionAlert(context, containerId, key);
     }
 
     private static void reconcileStaleCompletionAlerts(Context context) {

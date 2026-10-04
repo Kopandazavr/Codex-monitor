@@ -463,6 +463,11 @@ final class GoogleCalendarAuthorization {
         CACHED_TOKEN_AT.remove(containerId);
     }
 
+    static void clearContainerState(Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()) return;
+        clearState(context, containerId);
+    }
+
     private static void clearState(Context context, String containerId) {
         if (context == null) return;
         SharedPreferences.Editor editor = prefs(context).edit()

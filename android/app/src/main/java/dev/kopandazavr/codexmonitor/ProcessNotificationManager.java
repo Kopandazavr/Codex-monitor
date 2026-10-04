@@ -458,8 +458,8 @@ final class ProcessNotificationManager {
                 summary.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
-    private static RemoteViews buildActiveGroupRow(Context context, ProcessRoleGroup group,
-            long nowMillis, boolean showReminder) {
+    private static RemoteViews buildActiveGroupRow(Context context, String accountId,
+            ProcessRoleGroup group, long nowMillis, boolean showReminder) {
         CalendarProcess process = group == null ? null : group.representative();
         if (process == null) {
             return new RemoteViews(context.getPackageName(), R.layout.notification_process_group_row);

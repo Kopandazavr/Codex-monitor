@@ -124,7 +124,9 @@ grep -q 'setGroup(NotificationSurfaceContract.groupKey(containerId))' "$SRC/Dual
 grep -q 'setSortKey(NotificationSurfaceContract.SORT_USAGE)' "$SRC/DualUsageNotificationManager.java"
 grep -q 'setGroup(NotificationSurfaceContract.groupKey(accountId))' "$SRC/ProcessNotificationManager.java"
 grep -q 'reAlertIdleReminder' "$SRC/ProcessNotificationManager.java"
-grep -q 'realertUsageSurface' "$SRC/ResetNotificationManager.java"
+grep -q 'realertResetSurface' "$SRC/ResetNotificationManager.java"
+grep -q 'notification_reset_alert_five' "$SRC/ResetNotificationManager.java"
+grep -q 'notification_reset_alert_long' "$SRC/ResetNotificationManager.java"
 ! grep -q 'showFallbackNotification' "$SRC/IdleReminderManager.java"
 
 # Install/update first reconciliation removes stale app-owned SystemUI surfaces, then the existing

@@ -229,13 +229,23 @@ final class IdleProcessState {
     }
 
     static IdleRole find(Context context, String key) {
-        MutableRole row = load(context).get(clean(key));
+        return find(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    static IdleRole find(Context context, String containerId, String key) {
+        MutableRole row = load(context, containerId).get(clean(key));
         return row == null || row.lastFinishedMillis <= 0L ? null : row.freeze();
     }
 
     static IdleRole findCompletion(Context context, String key, String instanceId,
             long eventId, long finishedMillis) {
-        MutableRole row = load(context).get(clean(key));
+        return findCompletion(context, AccountContainerStore.selectedId(context),
+                key, instanceId, eventId, finishedMillis);
+    }
+
+    static IdleRole findCompletion(Context context, String containerId, String key,
+            String instanceId, long eventId, long finishedMillis) {
+        MutableRole row = load(context, containerId).get(clean(key));
         if (row == null || finishedMillis <= 0L) return null;
         String wantedInstance = clean(instanceId);
         for (SessionRecord record : row.history) {
@@ -250,10 +260,16 @@ final class IdleProcessState {
     }
 
     static List<IdleRole> recentCompletions(Context context, long nowMillis, long maxAgeMillis) {
+        return recentCompletions(context, AccountContainerStore.selectedId(context),
+                nowMillis, maxAgeMillis);
+    }
+
+    static List<IdleRole> recentCompletions(Context context, String containerId,
+            long nowMillis, long maxAgeMillis) {
         List<IdleRole> result = new ArrayList<>();
         if (context == null) return result;
         long cutoff = Math.max(0L, nowMillis - Math.max(0L, maxAgeMillis));
-        for (MutableRole row : load(context).values()) {
+        for (MutableRole row : load(context, containerId).values()) {
             for (SessionRecord record : row.history) {
                 if (record.finishedMillis < cutoff || record.finishedMillis > nowMillis) continue;
                 result.add(row.freeze(record));
@@ -265,7 +281,11 @@ final class IdleProcessState {
     }
 
     static List<SessionRecord> history(Context context, String key) {
-        MutableRole row = load(context).get(clean(key));
+        return history(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    static List<SessionRecord> history(Context context, String containerId, String key) {
+        MutableRole row = load(context, containerId).get(clean(key));
         if (row == null || row.history.isEmpty()) return Collections.emptyList();
         List<SessionRecord> newestFirst = new ArrayList<>(row.history);
         newestFirst.sort(Comparator.comparingLong(
@@ -274,34 +294,53 @@ final class IdleProcessState {
     }
 
     static boolean isReminderEnabled(Context context, String key) {
-        MutableRole row = load(context).get(clean(key));
+        return isReminderEnabled(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    static boolean isReminderEnabled(Context context, String containerId, String key) {
+        MutableRole row = load(context, containerId).get(clean(key));
         return row != null && row.reminderEnabled;
     }
 
     static void dismiss(Context context, String key, long finishedMillis) {
-        Map<String, MutableRole> rows = load(context);
+        dismiss(context, AccountContainerStore.selectedId(context), key, finishedMillis);
+    }
+
+    static void dismiss(Context context, String containerId, String key, long finishedMillis) {
+        Map<String, MutableRole> rows = load(context, containerId);
         MutableRole row = rows.get(clean(key));
         if (row == null) return;
         row.dismissedThroughMillis = Math.max(row.dismissedThroughMillis, finishedMillis);
-        save(context, rows);
+        save(context, containerId, rows);
     }
 
     static boolean toggleReminder(Context context, String key, long nowMillis) {
-        Map<String, MutableRole> rows = load(context);
+        return toggleReminder(context, AccountContainerStore.selectedId(context), key, nowMillis);
+    }
+
+    static boolean toggleReminder(Context context, String containerId,
+            String key, long nowMillis) {
+        Map<String, MutableRole> rows = load(context, containerId);
         MutableRole row = rows.get(clean(key));
         if (row == null) return false;
         row.reminderEnabled = !row.reminderEnabled;
         row.nextReminderAtMillis = row.reminderEnabled ? nowMillis + cadenceMillis(context) : 0L;
-        save(context, rows);
+        save(context, containerId, rows);
         return row.reminderEnabled;
     }
 
     static void setNextReminderAt(Context context, String key, long whenMillis) {
-        Map<String, MutableRole> rows = load(context);
+        setNextReminderAt(context, AccountContainerStore.selectedId(context),
+                key, whenMillis);
+    }
+
+    static void setNextReminderAt(Context context, String containerId,
+            String key, long whenMillis) {
+        Map<String, MutableRole> rows = load(context, containerId);
         MutableRole row = rows.get(clean(key));
         if (row == null) return;
         row.nextReminderAtMillis = Math.max(0L, whenMillis);
-        save(context, rows);
+        save(context, containerId, rows);
     }
 
     static int cadenceMinutes(Context context) {
@@ -309,12 +348,20 @@ final class IdleProcessState {
     }
 
     static void setCadenceMinutes(Context context, int ignoredMinutes, long nowMillis) {
-        Map<String, MutableRole> rows = load(context);
+        setCadenceMinutes(context, AccountContainerStore.selectedId(context),
+                ignoredMinutes, nowMillis);
+    }
+
+    static void setCadenceMinutes(Context context, String containerId,
+            int ignoredMinutes, long nowMillis) {
+        Map<String, MutableRole> rows = load(context, containerId);
         long next = nowMillis + DEFAULT_CADENCE_MINUTES * 60_000L;
         for (MutableRole row : rows.values()) {
-            if (row.reminderEnabled && row.lastFinishedMillis > 0L) row.nextReminderAtMillis = next;
+            if (row.reminderEnabled && row.lastFinishedMillis > 0L) {
+                row.nextReminderAtMillis = next;
+            }
         }
-        save(context, rows);
+        save(context, containerId, rows);
     }
 
     static long cadenceMillis(Context context) {

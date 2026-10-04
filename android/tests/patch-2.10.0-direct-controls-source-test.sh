@@ -9,7 +9,8 @@ MANIFEST="$ROOT/app/src/main/AndroidManifest.xml"
 
 # Foreground lifecycle refresh is real network work, coalesced across app/dashboard transitions.
 test -f "$SRC/ForegroundUsageRefresh.java"
-grep -Fq 'UsageApi.refreshAndCacheScheduled(app, forceSubscription, trigger)' "$SRC/ForegroundUsageRefresh.java"
+grep -Fq 'UsageApi.refreshAndCacheScheduled(' "$SRC/ForegroundUsageRefresh.java"
+grep -Fq 'app, account.id, forceSubscription, trigger' "$SRC/ForegroundUsageRefresh.java"
 grep -Fq 'ForegroundUsageRefresh.request(context, "foreground_main");' "$SRC/RefreshEngagement.java"
 grep -Fq 'ForegroundUsageRefresh.request(this, "foreground_transition");' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'ForegroundUsageRefresh.isInFlight()' "$SRC/RefreshScheduler.java"

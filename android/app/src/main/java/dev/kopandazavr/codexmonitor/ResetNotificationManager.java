@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.os.Build;
+import android.widget.RemoteViews;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
@@ -141,9 +142,12 @@ public final class ResetNotificationManager {
             label = "5-hour";
             id = NOTIFICATION_RESET_FIVE_HOUR;
         }
-        post(context, id, "Codex " + label + " usage reset",
+        int layout = ResetAlertPreferences.METRIC_FIVE_HOUR.equals(metric)
+                ? R.layout.notification_reset_alert_five
+                : R.layout.notification_reset_alert_long;
+        postResetAlert(context, id, "Codex " + label + " usage reset",
                 "Your " + label + " allowance should be available again. Refreshing usage now.",
-                id);
+                id, layout);
     }
 
     public static boolean showResetCreditExpiryNotification(Context context, String creditId,
@@ -356,6 +360,45 @@ public final class ResetNotificationManager {
             suppressUntil = now + UNKNOWN_USER_RESET_SUPPRESSION_MS;
         }
         editor.putLong(key, suppressUntil);
+    }
+
+    private static boolean postResetAlert(Context context, int id, String title,
+            String text, int requestCode, int layoutResId) {
+        NotificationManager manager = manager(context);
+        if (manager == null) return false;
+        String channel = createOperationalChannel(context, manager);
+        if (!canPost(context, manager, channel)) return false;
+
+        if (NowBarManager.isActive(context)) {
+            boolean alerted = DualUsageNotificationManager.realertResetSurface(
+                    context, channel, title, text, layoutResId);
+            if (alerted) DualUsageNotificationManager.repostDelayed(context, 5_000L);
+            return alerted;
+        }
+
+        PendingIntent contentIntent = PendingIntent.getActivity(context, requestCode,
+                new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
+                        | Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        RemoteViews alert = new RemoteViews(context.getPackageName(), layoutResId);
+        alert.setTextViewText(R.id.notification_reset_alert_title, title);
+        alert.setTextViewText(R.id.notification_reset_alert_text, text);
+        Notification notification = new Notification.Builder(context, channel)
+                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(contentIntent)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(false)
+                .setCategory(Notification.CATEGORY_REMINDER)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setShowWhen(true)
+                .setStyle(new Notification.DecoratedCustomViewStyle())
+                .setCustomContentView(alert)
+                .setCustomBigContentView(alert)
+                .build();
+        manager.notify(id, notification);
+        return true;
     }
 
     private static boolean post(Context context, int id, String title, String text, int requestCode) {

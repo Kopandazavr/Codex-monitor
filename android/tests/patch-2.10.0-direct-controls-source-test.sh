@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "2.10 source contract failed at line $LINENO" >&2' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 SHARED="$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor"
@@ -96,7 +97,7 @@ grep -Fq 'setExactAndAllowWhileIdle' "$SRC/NowBarResetReminder.java"
 grep -Fq 'elapsedPercent' "$SRC/CalendarProcess.java"
 grep -Fq 'instance.elapsedPercent' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'ProcessRoleGroup.group(context, processes)' "$SRC/ProcessNotificationManager.java"
-grep -Fq 'IdleProcessState.isReminderEnabled(context, group.roleKey)' "$SRC/ProcessNotificationManager.java"
+grep -Fq 'IdleProcessState.isReminderEnabled(context, accountId, group.roleKey)' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'processes, idleRoles, nowMillis, true);' "$SRC/ProcessNotificationManager.java"
 
 # Notification/live-monitor IA remains direct and the old one/both selector stays hidden.

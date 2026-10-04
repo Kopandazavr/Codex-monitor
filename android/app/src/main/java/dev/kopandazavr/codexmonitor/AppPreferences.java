@@ -874,6 +874,24 @@ public final class AppPreferences {
         return legacyLong(context, containerId, base, fallback);
     }
 
+    static void clearAccountData(Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()) return;
+        String[] bases = {
+                KEY_SNAPSHOT, KEY_ERROR, KEY_ERROR_AT,
+                KEY_OAUTH_PENDING, KEY_OAUTH_STARTED_AT, KEY_OAUTH_URL,
+                KEY_ONBOARDING_COMPLETE, KEY_ONBOARDING_STEP,
+                KEY_REFRESH_FAILURES,
+                KEY_RESET_CREDITS, KEY_RESET_ERROR, KEY_RESET_ERROR_AT,
+                KEY_HISTORY_FIVE_HOUR, KEY_HISTORY_WEEKLY, KEY_HISTORY_MONTHLY
+        };
+        SharedPreferences.Editor editor = prefs(context).edit();
+        for (String base : bases) editor.remove(accountKey(containerId, base));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            for (String base : bases) editor.remove(base);
+        }
+        editor.apply();
+    }
+
     private static String accountKey(String containerId, String base) {
         String id = containerId == null ? "" : containerId.trim();
         return base + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");

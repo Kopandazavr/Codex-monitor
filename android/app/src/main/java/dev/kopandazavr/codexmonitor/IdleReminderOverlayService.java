@@ -22,6 +22,9 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.os.VibratorManager;
 import android.provider.Settings;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
@@ -291,7 +294,21 @@ public final class IdleReminderOverlayService extends Service {
         String role = primaryRole == null || primaryRole.isEmpty() ? "Watched role" : primaryRole;
         boolean hasProject = idle.project != null && !idle.project.isEmpty();
         if (hasProject) {
-            TextView project = text(idle.project, 20f, Color.WHITE);
+            ProjectProfileStore.Profile projectProfile =
+                    ProjectProfileStore.resolve(this, idle.project);
+            String projectShort = ProjectProfileStore.badgeText(
+                    projectProfile, idle.projectShort);
+            SpannableStringBuilder projectIdentity = new SpannableStringBuilder();
+            if (projectShort != null && !projectShort.trim().isEmpty()) {
+                int start = projectIdentity.length();
+                projectIdentity.append(projectShort.trim());
+                projectIdentity.setSpan(
+                        new ForegroundColorSpan(ProjectProfileStore.accentColor(projectProfile)),
+                        start, projectIdentity.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                projectIdentity.append(" ");
+            }
+            projectIdentity.append(idle.project);
+            TextView project = text(projectIdentity, 20f, Color.WHITE);
             copy.addView(project, matchWrap());
         }
 
@@ -441,7 +458,7 @@ public final class IdleReminderOverlayService extends Service {
         entries = null;
     }
 
-    private TextView text(String value, float sizeSp, int color) {
+    private TextView text(CharSequence value, float sizeSp, int color) {
         TextView view = new TextView(this);
         view.setText(value);
         view.setTextSize(sizeSp);

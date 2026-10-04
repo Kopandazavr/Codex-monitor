@@ -56,6 +56,13 @@ public final class OnboardingActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent == null ? null : intent.getAction();
+            String eventContainer = intent == null ? null
+                    : intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
+            if (eventContainer != null && !eventContainer.trim().isEmpty()
+                    && !eventContainer.equals(AccountContainerStore.selectedId(
+                    OnboardingActivity.this))) {
+                return;
+            }
             if (AppConstants.ACTION_OAUTH_READY.equals(action)) {
                 String url = intent.getStringExtra(AppConstants.EXTRA_AUTH_URL);
                 if (url != null && !url.isEmpty()) {
@@ -483,7 +490,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         render();
         try {
             startForegroundService(new Intent(this, OAuthService.class)
-                    .setAction(OAuthService.ACTION_START));
+                    .setAction(OAuthService.ACTION_START)
+                    .putExtra(OAuthService.EXTRA_CONTAINER_ID,
+                            AccountContainerStore.selectedId(this)));
         } catch (RuntimeException exception) {
             this.oauthRequested = false;
             AppPreferences.setOAuthPending(this, false, "");
@@ -651,7 +660,9 @@ public final class OnboardingActivity extends AppCompatActivity {
         this.oauthRequested = false;
         try {
             startService(new Intent(this, OAuthService.class)
-                    .setAction(OAuthService.ACTION_CANCEL_SILENT));
+                    .setAction(OAuthService.ACTION_CANCEL_SILENT)
+                    .putExtra(OAuthService.EXTRA_CONTAINER_ID,
+                            AccountContainerStore.selectedId(this)));
         } catch (RuntimeException ignored) {
         }
         AppPreferences.setOAuthPending(this, false, "");

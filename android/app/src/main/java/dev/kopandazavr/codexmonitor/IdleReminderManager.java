@@ -338,28 +338,38 @@ final class IdleReminderManager {
 
     static void restore(Context context) {
         if (context == null) return;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            restore(context, account.id);
+        }
+    }
+
+    private static void restore(Context context, String containerId) {
         long now = System.currentTimeMillis();
-        List<CalendarProcess> observed = CalendarProcessReader.observed(context, now);
+        List<CalendarProcess> observed =
+                CalendarProcessReader.observed(context, containerId, now);
         List<CalendarProcess> active = CalendarProcessReader.active(observed, now);
-        List<CalendarProcess> finished = CalendarProcessReader.recentlyFinished(observed, now);
+        List<CalendarProcess> finished =
+                CalendarProcessReader.recentlyFinished(observed, now);
         List<IdleProcessState.IdleRole> visible =
-                IdleProcessState.synchronize(context, active, finished, observed, now);
-        Set<String> keys = enabledKeys(context);
+                IdleProcessState.synchronize(
+                        context, containerId, active, finished, observed, now);
+        Set<String> keys = enabledKeys(context, containerId);
         for (String key : new HashSet<>(keys)) {
-            IdleProcessState.IdleRole idle = IdleProcessState.find(context, key);
+            IdleProcessState.IdleRole idle =
+                    IdleProcessState.find(context, containerId, key);
             if (idle == null || !idle.reminderEnabled) {
                 keys.remove(key);
-                cancelAlarm(context, key);
+                cancelAlarm(context, containerId, key);
                 continue;
             }
             if (IdleProcessState.isRoleActive(context, active, key)) {
-                cancelAlarm(context, key);
+                cancelAlarm(context, containerId, key);
             } else {
-                schedule(context, idle, now);
+                schedule(context, containerId, idle, now);
             }
         }
-        saveEnabledKeys(context, keys);
-        sync(context, active, visible, now);
+        saveEnabledKeys(context, containerId, keys);
+        sync(context, containerId, active, visible, now);
     }
 
     static PendingIntent toggleIntent(Context context, IdleProcessState.IdleRole idle) {

@@ -31,26 +31,39 @@ final class CalendarProcessReader {
     }
 
     /**
-     * Returns all watchdog instances in the local observation window, including future ones.
-     * Future observation is intentional: it lets idle lifecycle state remember role/topic/event
-     * metadata before BEGIN so deleting a known watchdog early can still complete that role.
+     * Returns all watchdog instances in the observation window for the selected account.
+     * Background callers use the explicit-container overload.
      */
     static List<CalendarProcess> observed(Context context, long nowMillis) {
+        return observed(context, AccountContainerStore.selectedId(context), nowMillis);
+    }
+
+    static List<CalendarProcess> observed(Context context, String containerId, long nowMillis) {
         if (context == null) return new ArrayList<>();
         ProcessNotificationScheduler.schedule(context);
-        if (GoogleCalendarAuthorization.isConnected(context)) {
-            GoogleCalendarProcessSource.refreshIfDue(context, null);
-            if (GoogleCalendarProcessSource.hasFreshCache(context, nowMillis)) {
+        if (GoogleCalendarAuthorization.isConnected(context, containerId)) {
+            GoogleCalendarProcessSource.refreshIfDue(context, containerId, null);
+            if (GoogleCalendarProcessSource.hasFreshCache(context, containerId, nowMillis)) {
                 MonitorHealthDiagnostics.recordObservationSource(context, "direct_api");
-                return canonicalize(context, GoogleCalendarProcessSource.cached(context));
+                return canonicalize(context, containerId,
+                        GoogleCalendarProcessSource.cached(context, containerId));
             }
         }
-        MonitorHealthDiagnostics.recordObservationSource(context, "calendar_provider_fallback");
-        return canonicalize(context, queryProvider(context, nowMillis));
+        if (LocalCalendarFallbackOwner.isOwner(context, containerId)) {
+            MonitorHealthDiagnostics.recordObservationSource(
+                    context, "calendar_provider_fallback");
+            return canonicalize(context, containerId, queryProvider(context, nowMillis));
+        }
+        MonitorHealthDiagnostics.recordObservationSource(context, "no_calendar_fallback");
+        return new ArrayList<>();
     }
 
     static List<CalendarProcess> active(Context context, long nowMillis) {
         return active(observed(context, nowMillis), nowMillis);
+    }
+
+    static List<CalendarProcess> active(Context context, String containerId, long nowMillis) {
+        return active(observed(context, containerId, nowMillis), nowMillis);
     }
 
     static List<CalendarProcess> active(List<CalendarProcess> all, long nowMillis) {
@@ -67,6 +80,11 @@ final class CalendarProcessReader {
         return recentlyFinished(observed(context, nowMillis), nowMillis);
     }
 
+    static List<CalendarProcess> recentlyFinished(
+            Context context, String containerId, long nowMillis) {
+        return recentlyFinished(observed(context, containerId, nowMillis), nowMillis);
+    }
+
     static List<CalendarProcess> recentlyFinished(List<CalendarProcess> all, long nowMillis) {
         List<CalendarProcess> processes = new ArrayList<>();
         if (all == null) return processes;
@@ -78,35 +96,40 @@ final class CalendarProcessReader {
         return processes;
     }
 
-    /**
-     * Returns false only on authoritative disappearance evidence. A fresh successful direct
-     * Google Calendar cache is primary; otherwise the local Provider is a fallback. Auth/network,
-     * permission and read failures remain UNKNOWN (true) so they cannot manufacture completion.
-     */
     static boolean eventExists(Context context, long eventId) {
-        return eventExists(context, eventId, false);
+        return eventExists(context, AccountContainerStore.selectedId(context), eventId, false);
     }
 
     static boolean eventExists(Context context, long eventId, boolean directSource) {
+        return eventExists(context, AccountContainerStore.selectedId(context),
+                eventId, directSource);
+    }
+
+    static boolean eventExists(Context context, String containerId,
+            long eventId, boolean directSource) {
         if (context == null || eventId <= 0L) return true;
         long now = System.currentTimeMillis();
         if (directSource) {
-            if (!GoogleCalendarAuthorization.isConnected(context)
-                    || !GoogleCalendarProcessSource.hasFreshCache(context, now)) {
+            if (!GoogleCalendarAuthorization.isConnected(context, containerId)
+                    || !GoogleCalendarProcessSource.hasFreshCache(
+                    context, containerId, now)) {
                 DiagnosticLog.info(context, "calendar_api", "watchdog_presence_unknown",
+                        "container_id", containerId,
                         "event_id", eventId,
                         "reason", "direct_cache_not_fresh");
                 return true;
             }
             boolean exists = GoogleCalendarProcessSource.cachedEventExists(
-                    context, eventId, now);
+                    context, containerId, eventId, now);
             DiagnosticLog.info(context, "calendar_api", "watchdog_presence_checked",
+                    "container_id", containerId,
                     "event_id", eventId,
                     "exists", exists,
                     "authoritative", true,
                     "source", "direct_api");
             return exists;
         }
+        if (!LocalCalendarFallbackOwner.isOwner(context, containerId)) return true;
         if (context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
                 != PackageManager.PERMISSION_GRANTED) {
             return true;
@@ -117,59 +140,87 @@ final class CalendarProcessReader {
             return cursor == null || cursor.moveToFirst();
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(context, "calendar_process", "event_exists_read_failed",
+                    "container_id", containerId,
                     "event_id", eventId,
                     "error", exception.getClass().getSimpleName());
             return true;
         }
     }
 
-    private static List<CalendarProcess> canonicalize(Context context,List<CalendarProcess> processes) {
-        Map<String,WatchdogCanonicalizer.Memory> memory=loadSelectionMemory(context);
-        List<CalendarProcess> selected=WatchdogCanonicalizer.select(processes,memory);
-        saveSelectionMemory(context,memory);
-        if(processes!=null&&selected.size()!=processes.size()){
-            DiagnosticLog.info(context,"calendar_process","watchdog_duplicates_suppressed",
-                    "observed",processes.size(),"canonical",selected.size());
+    private static List<CalendarProcess> canonicalize(Context context, String containerId,
+            List<CalendarProcess> processes) {
+        Map<String, WatchdogCanonicalizer.Memory> memory =
+                loadSelectionMemory(context, containerId);
+        List<CalendarProcess> selected = WatchdogCanonicalizer.select(processes, memory);
+        saveSelectionMemory(context, containerId, memory);
+        if (processes != null && selected.size() != processes.size()) {
+            DiagnosticLog.info(context, "calendar_process", "watchdog_duplicates_suppressed",
+                    "container_id", containerId,
+                    "observed", processes.size(), "canonical", selected.size());
         }
         return selected;
     }
 
-    private static Map<String,WatchdogCanonicalizer.Memory> loadSelectionMemory(Context context){
-        Map<String,WatchdogCanonicalizer.Memory> memory=new HashMap<>();
-        if(context==null)return memory;
-        String raw=context.getSharedPreferences(CANONICAL_PREFS,Context.MODE_PRIVATE)
-                .getString(KEY_SELECTION_MEMORY,"{}");
-        try{
-            JSONObject root=new JSONObject(raw==null?"{}":raw); Iterator<String> keys=root.keys();
-            while(keys.hasNext()){
-                String key=keys.next(); JSONObject json=root.optJSONObject(key); if(json==null)continue;
-                WatchdogCanonicalizer.Memory item=new WatchdogCanonicalizer.Memory();
-                item.winnerEventId=json.optLong("winner_id",0L);
-                item.winnerBeginMillis=json.optLong("winner_begin",0L);
-                item.winnerUpdatedMillis=json.optLong("winner_updated",0L);
-                JSONArray shadows=json.optJSONArray("shadows");
-                if(shadows!=null)for(int i=0;i<shadows.length();i++){long id=shadows.optLong(i,0L);
-                    if(id>0L)item.shadowEventIds.add(id);}
-                memory.put(key,item);
+    private static Map<String, WatchdogCanonicalizer.Memory> loadSelectionMemory(
+            Context context, String containerId) {
+        Map<String, WatchdogCanonicalizer.Memory> memory = new HashMap<>();
+        if (context == null) return memory;
+        String raw = context.getSharedPreferences(CANONICAL_PREFS, Context.MODE_PRIVATE)
+                .getString(scopedKey(containerId), "{}");
+        try {
+            JSONObject root = new JSONObject(raw == null ? "{}" : raw);
+            Iterator<String> keys = root.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                JSONObject json = root.optJSONObject(key);
+                if (json == null) continue;
+                WatchdogCanonicalizer.Memory item = new WatchdogCanonicalizer.Memory();
+                item.winnerEventId = json.optLong("winner_id", 0L);
+                item.winnerBeginMillis = json.optLong("winner_begin", 0L);
+                item.winnerUpdatedMillis = json.optLong("winner_updated", 0L);
+                JSONArray shadows = json.optJSONArray("shadows");
+                if (shadows != null) {
+                    for (int i = 0; i < shadows.length(); i++) {
+                        long id = shadows.optLong(i, 0L);
+                        if (id > 0L) item.shadowEventIds.add(id);
+                    }
+                }
+                memory.put(key, item);
             }
-        }catch(JSONException e){DiagnosticLog.warn(context,"calendar_process","canonical_memory_parse_failed",
-                "error",e.getClass().getSimpleName());}
+        } catch (JSONException e) {
+            DiagnosticLog.warn(context, "calendar_process", "canonical_memory_parse_failed",
+                    "container_id", containerId,
+                    "error", e.getClass().getSimpleName());
+        }
         return memory;
     }
 
-    private static void saveSelectionMemory(Context context,Map<String,WatchdogCanonicalizer.Memory> memory){
-        if(context==null)return; JSONObject root=new JSONObject();
-        for(Map.Entry<String,WatchdogCanonicalizer.Memory> e:memory.entrySet()){
-            WatchdogCanonicalizer.Memory item=e.getValue(); JSONObject json=new JSONObject();
-            try{
-                json.put("winner_id",item.winnerEventId);json.put("winner_begin",item.winnerBeginMillis);
-                json.put("winner_updated",item.winnerUpdatedMillis);JSONArray shadows=new JSONArray();
-                for(Long id:item.shadowEventIds)shadows.put(id);json.put("shadows",shadows);
-                root.put(e.getKey(),json);
-            }catch(JSONException ignored){}
+    private static void saveSelectionMemory(Context context, String containerId,
+            Map<String, WatchdogCanonicalizer.Memory> memory) {
+        if (context == null) return;
+        JSONObject root = new JSONObject();
+        for (Map.Entry<String, WatchdogCanonicalizer.Memory> entry : memory.entrySet()) {
+            WatchdogCanonicalizer.Memory item = entry.getValue();
+            JSONObject json = new JSONObject();
+            try {
+                json.put("winner_id", item.winnerEventId);
+                json.put("winner_begin", item.winnerBeginMillis);
+                json.put("winner_updated", item.winnerUpdatedMillis);
+                JSONArray shadows = new JSONArray();
+                for (Long id : item.shadowEventIds) shadows.put(id);
+                json.put("shadows", shadows);
+                root.put(entry.getKey(), json);
+            } catch (JSONException ignored) {
+            }
         }
-        context.getSharedPreferences(CANONICAL_PREFS,Context.MODE_PRIVATE).edit()
-                .putString(KEY_SELECTION_MEMORY,root.toString()).apply();
+        context.getSharedPreferences(CANONICAL_PREFS, Context.MODE_PRIVATE).edit()
+                .putString(scopedKey(containerId), root.toString()).apply();
+    }
+
+    private static String scopedKey(String containerId) {
+        String id = containerId == null ? "" : containerId.trim();
+        return KEY_SELECTION_MEMORY + "::"
+                + id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
     private static List<CalendarProcess> queryProvider(Context context, long nowMillis) {

@@ -309,8 +309,11 @@ public final class SettingsActivity extends AppCompatActivity {
                 String selectedId) {
             List<String> parts = new ArrayList<>();
             if (account.id.equals(selectedId)) parts.add("Selected");
-            parts.add(SecureTokenStore.isSignedIn(context, account.id)
-                    ? "ChatGPT connected" : "ChatGPT not connected");
+            AuthTokens chatgpt = SecureTokenStore.load(context, account.id);
+            parts.add(chatgpt == null
+                    ? "ChatGPT not connected"
+                    : (chatgpt.email == null || chatgpt.email.trim().isEmpty()
+                            ? "ChatGPT connected" : chatgpt.email.trim()));
             String google = GoogleCalendarAuthorization.accountName(context, account.id);
             parts.add(GoogleCalendarAuthorization.isConnected(context, account.id)
                     ? (google.isEmpty() ? "Calendar connected" : google)
@@ -482,7 +485,7 @@ public final class SettingsActivity extends AppCompatActivity {
                     .setTitle("Remove " + account.name + "?")
                     .setMessage("This removes this Codex Monitor account, its encrypted ChatGPT "
                             + "credentials, Calendar connection and local account history from "
-                            + "this device.")
+                            + "this device. Monitoring and notifications for this account will stop.")
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Remove", (dialog, which) -> {
                         if (!AccountContainerLifecycle.remove(context, account.id)) {

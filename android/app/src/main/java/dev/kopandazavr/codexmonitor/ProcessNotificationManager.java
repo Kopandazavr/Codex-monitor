@@ -315,9 +315,9 @@ final class ProcessNotificationManager {
         return "";
     }
 
-    private static void syncPerProcess(Context context, NotificationManager manager,
-            List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
-            long nowMillis) {
+    private static void syncPerProcess(Context context, String accountId,
+            NotificationManager manager, List<CalendarProcess> processes,
+            List<IdleProcessState.IdleRole> idleRoles, long nowMillis) {
         Set<String> nextIds = new HashSet<>();
         for (ProcessRoleGroup group : ProcessRoleGroup.group(context, processes)) {
             CalendarProcess representative = group.representative();
@@ -325,7 +325,8 @@ final class ProcessNotificationManager {
             int id = activeRoleNotificationId(group.roleKey);
             nextIds.add(String.valueOf(id));
             boolean single = group.processes.size() == 1;
-            manager.notify(id, buildNotification(context,
+            manager.notify(AccountNotificationNamespace.tag(accountId), id,
+                    buildNotification(context, accountId,
                     group.processes, Collections.emptyList(),
                     notificationIdentity(context, representative.project, representative.role,
                             representative.topic, single),
@@ -336,7 +337,8 @@ final class ProcessNotificationManager {
             for (IdleProcessState.IdleRole idle : idleRoles) {
                 int id = idleNotificationId(idle.key);
                 nextIds.add(String.valueOf(id));
-                manager.notify(id, buildNotification(context,
+                manager.notify(AccountNotificationNamespace.tag(accountId), id,
+                        buildNotification(context, accountId,
                         Collections.emptyList(), Collections.singletonList(idle),
                         notificationIdentity(context, idle.project, idle.role, "", false),
                         nowMillis, CHANNEL_ID,
@@ -344,17 +346,24 @@ final class ProcessNotificationManager {
             }
         }
         SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        Set<String> previous = new HashSet<>(preferences.getStringSet(KEY_ACTIVE_IDS,
-                Collections.emptySet()));
+        String activeKey = scopedKey(accountId, KEY_ACTIVE_IDS);
+        Set<String> previous = new HashSet<>(preferences.getStringSet(activeKey,
+                AccountContainerStore.isLegacyOwner(context, accountId)
+                        ? preferences.getStringSet(KEY_ACTIVE_IDS, Collections.emptySet())
+                        : Collections.emptySet()));
         for (String id : previous) {
             if (nextIds.contains(id)) continue;
             try {
-                manager.cancel(AccountNotificationNamespace.tag(containerId),
+                manager.cancel(AccountNotificationNamespace.tag(accountId),
                         Integer.parseInt(id));
             } catch (NumberFormatException ignored) {
             }
         }
-        preferences.edit().putStringSet(KEY_ACTIVE_IDS, nextIds).apply();
+        SharedPreferences.Editor save = preferences.edit().putStringSet(activeKey, nextIds);
+        if (AccountContainerStore.isLegacyOwner(context, accountId)) {
+            save.remove(KEY_ACTIVE_IDS);
+        }
+        save.apply();
     }
 
     private static void clearPerProcess(Context context, String containerId,

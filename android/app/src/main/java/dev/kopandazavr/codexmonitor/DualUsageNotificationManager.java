@@ -212,17 +212,27 @@ final class DualUsageNotificationManager {
     }
 
     static void repostForProcessChangeDelayed(Context context, long delayMillis) {
+        repostForProcessChangeDelayed(context, AccountContainerStore.selectedId(context),
+                delayMillis);
+    }
+
+    static void repostForProcessChangeDelayed(Context context, String containerId,
+            long delayMillis) {
         if (context == null) return;
         Context app = context.getApplicationContext();
         new Handler(Looper.getMainLooper()).postDelayed(
-                () -> repostForProcessChange(app), Math.max(0L, delayMillis));
+                () -> repostForProcessChange(app, containerId), Math.max(0L, delayMillis));
     }
 
     static void repostDelayed(Context context, long delayMillis) {
+        repostDelayed(context, AccountContainerStore.selectedId(context), delayMillis);
+    }
+
+    static void repostDelayed(Context context, String containerId, long delayMillis) {
         if (context == null) return;
         Context app = context.getApplicationContext();
         new Handler(Looper.getMainLooper()).postDelayed(
-                () -> repostFromCache(app), Math.max(0L, delayMillis));
+                () -> repostFromCache(app, containerId), Math.max(0L, delayMillis));
     }
 
     private static SurfaceState surfaceState(Context context, String containerId,

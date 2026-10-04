@@ -512,10 +512,26 @@ public final class IdleReminderOverlayService extends Service {
         strongHaptic();
         DiagnosticLog.info(this, "idle_process", "overlay_dismissed",
                 "entries", roles.size());
-        java.util.Set<String> roleKeys = new java.util.HashSet<>();
-        for (IdleProcessState.IdleRole idle : roles.values()) roleKeys.add(idle.key);
-        ProcessNotificationManager.clearCompletionAlerts(this, roleKeys);
+        Map<String, java.util.Set<String>> byAccount = new LinkedHashMap<>();
+        for (Map.Entry<String, IdleProcessState.IdleRole> entry : roles.entrySet()) {
+            String owner = roleAccounts.get(entry.getKey());
+            if (owner == null || owner.trim().isEmpty()) {
+                owner = AccountContainerStore.selectedId(this);
+            }
+            java.util.Set<String> keys = byAccount.get(owner);
+            if (keys == null) {
+                keys = new java.util.HashSet<>();
+                byAccount.put(owner, keys);
+            }
+            IdleProcessState.IdleRole idle = entry.getValue();
+            if (idle != null) keys.add(idle.key);
+        }
+        for (Map.Entry<String, java.util.Set<String>> entry : byAccount.entrySet()) {
+            ProcessNotificationManager.clearCompletionAlerts(
+                    this, entry.getKey(), entry.getValue());
+        }
         roles.clear();
+        roleAccounts.clear();
         stopSelf();
     }
 

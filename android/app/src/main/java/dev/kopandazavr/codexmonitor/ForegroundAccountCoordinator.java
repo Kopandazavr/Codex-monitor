@@ -26,6 +26,8 @@ final class ForegroundAccountCoordinator {
         if (context == null) return;
         WidgetRenderer.updateAll(context);
         NowBarManager.restore(context);
+        DualUsageNotificationManager.repostFromCache(
+                context, AccountContainerStore.selectedId(context));
         ProcessNotificationScheduler.schedule(context);
     }
 
@@ -37,6 +39,7 @@ final class ForegroundAccountCoordinator {
         } else {
             NowBarManager.restore(context);
         }
+        DualUsageNotificationManager.repostFromCache(context, selected);
         WidgetRenderer.updateAll(context);
         ProcessNotificationScheduler.schedule(context);
         DiagnosticLog.info(context, "account", "foreground_account_reconciled",

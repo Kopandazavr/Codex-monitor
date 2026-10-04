@@ -54,21 +54,29 @@ public final class OAuthService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? ACTION_START : intent.getAction();
-        String requestedContainer = intent == null ? "" :
+        String explicitContainer = intent == null ? "" :
                 cleanContainerId(intent.getStringExtra(EXTRA_CONTAINER_ID));
-        if (requestedContainer.isEmpty()) {
-            requestedContainer = AccountContainerStore.selectedId(this);
-        }
+        boolean explicitOwner = !explicitContainer.isEmpty();
+        String requestedContainer = explicitOwner
+                ? explicitContainer : AccountContainerStore.selectedId(this);
         DiagnosticLog.info(this, "auth", "oauth_service_command",
                 "action", action == null ? "" : action,
                 "container_id", requestedContainer);
         if (ACTION_CANCEL.equals(action) || ACTION_CANCEL_SILENT.equals(action)) {
             if (flowContainerId.isEmpty()) {
-                AppPreferences.setOAuthPending(this, requestedContainer, false, "");
+                if (AccountContainerLifecycleGuard.isAlive(this, requestedContainer)) {
+                    AppPreferences.setOAuthPending(this, requestedContainer, false, "");
+                }
                 finishService();
             } else if (flowContainerId.equals(requestedContainer)) {
                 cancelFlow("Sign-in cancelled.", ACTION_CANCEL.equals(action));
             }
+            return START_NOT_STICKY;
+        }
+        if (explicitOwner && AccountContainerStore.find(this, requestedContainer) == null) {
+            DiagnosticLog.info(this, "auth", "oauth_stale_container_ignored",
+                    "container_id", requestedContainer);
+            if (!running.get()) stopSelfResult(startId);
             return START_NOT_STICKY;
         }
         if (SecureTokenStore.isSignedIn(this, requestedContainer)) {
@@ -120,7 +128,12 @@ public final class OAuthService extends Service {
             int port = bindServer();
             String redirectUri = "http://localhost:" + port + "/auth/callback";
             String authUrl = buildAuthorizeUrl(redirectUri, pkce);
-            AppPreferences.setOAuthPending(this, containerId, true, authUrl);
+            synchronized (AccountContainerLifecycleGuard.lock()) {
+                if (!AccountContainerLifecycleGuard.isAlive(this, containerId)) {
+                    throw new Exception("Account container was removed.");
+                }
+                AppPreferences.setOAuthPending(this, containerId, true, authUrl);
+            }
             updateNotification("Complete sign-in in your browser", authUrl);
             broadcastReady(containerId, authUrl);
 
@@ -208,7 +221,7 @@ public final class OAuthService extends Service {
                 AppPreferences.setLastError(this, containerId, cleanMessage(exception));
                 broadcastResult(containerId, true,
                         "Signed in. Usage can be refreshed from the app.");
-                safeWidgetUpdate();
+                safeWidgetUpdate(containerId);
                 finishService();
                 return;
             }
@@ -219,7 +232,7 @@ public final class OAuthService extends Service {
                     // The callback connection may already be gone.
                 }
             }
-            if (!cancelled) {
+            if (!cancelled && AccountContainerLifecycleGuard.isAlive(this, containerId)) {
                 String message = cleanMessage(exception);
                 AppPreferences.setOAuthPending(this, containerId, false, "");
                 broadcastResult(containerId, false, message);
@@ -238,10 +251,12 @@ public final class OAuthService extends Service {
                 RefreshScheduler.scheduleAtNextReset(this, snapshot);
             }
         } catch (Exception refreshError) {
-            AppPreferences.setLastError(this, containerId, cleanMessage(refreshError));
+            if (AccountContainerLifecycleGuard.isAlive(this, containerId)) {
+                AppPreferences.setLastError(this, containerId, cleanMessage(refreshError));
+            }
         }
         RefreshScheduler.schedulePeriodic(this);
-        safeWidgetUpdate();
+        safeWidgetUpdate(containerId);
         broadcastUsageUpdated();
     }
 
@@ -332,7 +347,9 @@ public final class OAuthService extends Service {
         cancelled = true;
         String containerId = flowContainerId.isEmpty()
                 ? AccountContainerStore.selectedId(this) : flowContainerId;
-        AppPreferences.setOAuthPending(this, containerId, false, "");
+        if (AccountContainerLifecycleGuard.isAlive(this, containerId)) {
+            AppPreferences.setOAuthPending(this, containerId, false, "");
+        }
         closeServer();
         if (broadcast) {
             broadcastResult(containerId, false, message);
@@ -365,11 +382,14 @@ public final class OAuthService extends Service {
         }
     }
 
-    private void safeWidgetUpdate() {
+    private void safeWidgetUpdate(String containerId) {
         try {
             WidgetRenderer.updateAll(this);
         } catch (RuntimeException exception) {
-            AppPreferences.setLastError(this, "Widget update: " + cleanMessage(exception));
+            if (AccountContainerLifecycleGuard.isAlive(this, containerId)) {
+                AppPreferences.setLastError(
+                        this, containerId, "Widget update: " + cleanMessage(exception));
+            }
         }
     }
 

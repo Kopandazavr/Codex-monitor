@@ -38,9 +38,6 @@ final class DualUsageNotificationManager {
         if (context == null || snapshot == null || !NowBarManager.canPostNotifications(context)) {
             return false;
         }
-        if (NowBarManager.ownsSelectedSurface(context, containerId)) {
-            return NowBarManager.repostActive(context);
-        }
         AlertSoundManager.ensureChannels(context);
         SurfaceState state = surfaceState(context, containerId, snapshot);
         if (state == null) return false;
@@ -95,7 +92,6 @@ final class DualUsageNotificationManager {
             DiagnosticLog.info(context, "notification", "persistent_surface_realerted",
                     "surface", "usage",
                     "container_id", containerId,
-                    "container_id", containerId,
                     "notification_id", NOTIFICATION_ID,
                     "channel", alertChannelId,
                     "mode", state.processMode,
@@ -115,7 +111,7 @@ final class DualUsageNotificationManager {
 
     static boolean realertResetSurface(Context context, String containerId, String alertChannelId,
             String alertTitle, String alertText, int layoutResId) {
-        if (context == null || alertChannelId == null || !NowBarManager.isActive(context)) {
+        if (context == null || alertChannelId == null) {
             return false;
         }
         RemoteViews alert = new RemoteViews(context.getPackageName(), layoutResId);
@@ -199,10 +195,6 @@ final class DualUsageNotificationManager {
 
     static boolean repostProcessesFromCache(Context context, String containerId) {
         if (context == null) return false;
-        if (!NowBarManager.isActive(context)) {
-            ProcessNotificationManager.clearAll(context, containerId);
-            return false;
-        }
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
         if (snapshot == null) return false;
         SurfaceState state = surfaceState(context, containerId, snapshot);
@@ -275,7 +267,8 @@ final class DualUsageNotificationManager {
         List<IdleProcessState.IdleRole> idleRoles =
                 IdleProcessState.synchronize(context, containerId, processes, finished, observed, now);
         IdleReminderManager.sync(context, containerId, processes, idleRoles, now);
-        MonitorHealthDiagnostics.recordCounts(context, processes.size(), idleRoles.size());
+        MonitorHealthDiagnostics.recordCounts(
+                context, containerId, processes.size(), idleRoles.size());
 
         try {
             SubscriptionStore.seedFromJwt(context, containerId, SecureTokenStore.load(context, containerId), now);

@@ -583,22 +583,30 @@ public final class ResetNotificationManager {
         return true;
     }
 
-    private static boolean postResetCreditExpiry(Context context, int id, String title,
-            String text) {
+    private static boolean postResetCreditExpiry(Context context, String containerId,
+            int id, String title, String text) {
         NotificationManager manager = manager(context);
         if (manager == null) return false;
         String channel = createOperationalChannel(context, manager);
         if (!canPost(context, manager, channel)) return false;
         Intent detailsIntent = new Intent(context, ResetCreditActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent details = PendingIntent.getActivity(context, id, detailsIntent,
+        PendingIntent details = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(
+                        containerId, "reset_credit_details_" + id),
+                detailsIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Intent useIntent = new Intent(context, ResetCreditActivity.class)
                 .setAction("dev.kopandazavr.codexmonitor.action.USE_RESET_FROM_NOTIFICATION")
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
                 .putExtra(AppConstants.EXTRA_PROMPT_USE_RESET, true)
                 .putExtra(AppConstants.EXTRA_NOTIFICATION_ID, id)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent useReset = PendingIntent.getActivity(context, id + 10_000, useIntent,
+        PendingIntent useReset = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(
+                        containerId, "reset_credit_use_" + id),
+                useIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(context, channel)
                 .setSmallIcon(R.drawable.ic_notification_codex_monitor)
@@ -613,7 +621,7 @@ public final class ResetNotificationManager {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setShowWhen(true)
                 .build();
-        manager.notify(id, notification);
+        manager.notify(AccountNotificationNamespace.tag(containerId), id, notification);
         return true;
     }
 

@@ -121,11 +121,11 @@ public final class UsageApi {
                 DiagnosticLog.info(context, "refresh", "usage_notification_rebuilt",
                         "trigger", safeTrigger,
                         "snapshot_id", snapshotIdentity(usageSnapshot));
-                if (selected) {
-                    ResetNotificationManager.onUsageUpdated(context, previousSnapshot, usageSnapshot);
-                }
+                ResetNotificationManager.onUsageUpdated(
+                        context, containerId, previousSnapshot, usageSnapshot);
                 try {
-                    if (selected) ResetAlertScheduler.scheduleFromSnapshot(context, usageSnapshot);
+                    ResetAlertScheduler.scheduleFromSnapshot(
+                            context, containerId, usageSnapshot);
                 } catch (RuntimeException exception) {
                     DiagnosticLog.error(context, "scheduler", "reset_alert_schedule_failed",
                             exception);

@@ -107,7 +107,10 @@ public final class MainActivity extends AppCompatActivity {
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
         AccountContainerStore.ensureInitialized(this);
-        selectAccountFromIntent(getIntent());
+        if (!selectAccountFromIntent(getIntent())) {
+            finish();
+            return;
+        }
         PhoneWearSync.pushAll(this);
         if (routeToOnboarding(getIntent())) {
             return;
@@ -336,8 +339,8 @@ public final class MainActivity extends AppCompatActivity {
     @Override // android.app.Activity
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        if (!selectAccountFromIntent(intent)) return;
         setIntent(intent);
-        selectAccountFromIntent(intent);
         if (routeToOnboarding(intent)) {
             return;
         }
@@ -345,11 +348,11 @@ public final class MainActivity extends AppCompatActivity {
         rebuild();
     }
 
-    private void selectAccountFromIntent(Intent intent) {
-        if (intent == null) return;
+    private boolean selectAccountFromIntent(Intent intent) {
+        if (intent == null) return true;
         String containerId = intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
-        if (containerId == null || containerId.trim().isEmpty()) return;
-        ForegroundAccountCoordinator.select(this, containerId.trim());
+        if (containerId == null || containerId.trim().isEmpty()) return true;
+        return ForegroundAccountCoordinator.select(this, containerId.trim());
     }
 
     @Override // android.app.Activity

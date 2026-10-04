@@ -32,13 +32,26 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
         super.onCreate(state);
         AccountContainerStore.ensureInitialized(this);
         this.flowContainerId = state == null ? "" : state.getString("flow_container_id", "");
-        if (this.flowContainerId == null || this.flowContainerId.isEmpty()
-                || AccountContainerStore.find(this, this.flowContainerId) == null) {
+        if (this.flowContainerId == null) this.flowContainerId = "";
+        this.flowContainerId = this.flowContainerId.trim();
+        if (!this.flowContainerId.isEmpty()) {
+            if (AccountContainerStore.find(this, this.flowContainerId) == null) {
+                finish();
+                return;
+            }
+        } else {
             String requested = getIntent() == null ? "" :
                     getIntent().getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
             requested = requested == null ? "" : requested.trim();
-            this.flowContainerId = AccountContainerStore.find(this, requested) == null
-                    ? AccountContainerStore.selectedId(this) : requested;
+            if (!requested.isEmpty()) {
+                if (AccountContainerStore.find(this, requested) == null) {
+                    finish();
+                    return;
+                }
+                this.flowContainerId = requested;
+            } else {
+                this.flowContainerId = AccountContainerStore.selectedId(this);
+            }
         }
         if (GoogleCalendarAuthorization.isConnected(this, this.flowContainerId)) {
             showConnectedDialog();
@@ -100,6 +113,10 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
 
     private void begin(Account account) {
         if (flowStarted || account == null) return;
+        if (AccountContainerStore.find(this, this.flowContainerId) == null) {
+            finish();
+            return;
+        }
         this.chosenAccount = account;
         flowStarted = true;
         GoogleCalendarAuthorization.beginInteractive(
@@ -124,6 +141,10 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (AccountContainerStore.find(this, this.flowContainerId) == null) {
+            finish();
+            return;
+        }
         if (requestCode == REQUEST_CHOOSE_ACCOUNT) {
             if (resultCode != RESULT_OK || data == null) {
                 finish();
@@ -180,6 +201,10 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
                 Toast.LENGTH_SHORT).show();
         handler.postDelayed(() -> {
             if (isFinishing() || isDestroyed()) return;
+            if (AccountContainerStore.find(this, this.flowContainerId) == null) {
+                finish();
+                return;
+            }
             DiagnosticLog.info(this, "calendar_api", "authorization_retry_started",
                     "attempt", 2);
             begin(chosenAccount);

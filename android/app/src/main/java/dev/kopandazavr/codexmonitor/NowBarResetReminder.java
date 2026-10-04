@@ -96,6 +96,7 @@ public final class NowBarResetReminder {
     static void toggleFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
         String containerId = containerFromIntent(context, intent);
+        if (containerId == null) return;
         migrateLegacyState(context, containerId);
         String metric = normalizeMetric(intent.getStringExtra(EXTRA_METRIC));
         long resetAt = intent.getLongExtra(EXTRA_RESET_AT, 0L);
@@ -121,6 +122,7 @@ public final class NowBarResetReminder {
     static void fireFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
         String containerId = containerFromIntent(context, intent);
+        if (containerId == null) return;
         migrateLegacyState(context, containerId);
         String metric = normalizeMetric(intent.getStringExtra(EXTRA_METRIC));
         long resetAt = intent.getLongExtra(EXTRA_RESET_AT, 0L);
@@ -351,9 +353,10 @@ public final class NowBarResetReminder {
     private static String containerFromIntent(Context context, Intent intent) {
         String requested = intent == null ? "" : intent.getStringExtra(EXTRA_CONTAINER_ID);
         if (requested != null) requested = requested.trim();
-        return requested != null && !requested.isEmpty()
-                && AccountContainerStore.find(context, requested) != null
-                ? requested : AccountContainerStore.selectedId(context);
+        if (requested != null && !requested.isEmpty()) {
+            return AccountContainerStore.find(context, requested) == null ? null : requested;
+        }
+        return AccountContainerStore.selectedId(context);
     }
 
     private static void playResetSound(Context context, String metric) {

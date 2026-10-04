@@ -9,6 +9,7 @@ import android.os.Build;
 /* JADX INFO: loaded from: classes.dex */
 public final class ResetAlertScheduler {
     private static final long DELIVERY_GRACE_MS = 3000;
+    static final String EXTRA_CONTAINER_ID = OAuthService.EXTRA_CONTAINER_ID;
     static final String EXTRA_METRIC = "metric";
     static final String EXTRA_RESET_AT = "reset_at";
     private static final int REQUEST_FIVE_HOUR = 74205;
@@ -19,30 +20,48 @@ public final class ResetAlertScheduler {
     }
 
     public static void scheduleFromSnapshot(Context context, UsageSnapshot usageSnapshot) {
-        Context contextAppContext = appContext(context);
-        if (contextAppContext != null) {
-            cancelAll(contextAppContext);
-            if (usageSnapshot != null && SecureTokenStore.isSignedIn(contextAppContext) && ResetAlertPreferences.enabled(contextAppContext)) {
-                String metric = ResetAlertPreferences.getMetric(contextAppContext);
-                if (!"weekly".equals(metric)) {
-                    scheduleWindow(contextAppContext, usageSnapshot.fiveHour, "five_hour", REQUEST_FIVE_HOUR);
-                }
-                if (!"five_hour".equals(metric)) {
-                    scheduleWindow(contextAppContext, usageSnapshot.weekly, "weekly", REQUEST_WEEKLY);
-                    scheduleWindow(contextAppContext, usageSnapshot.monthly, "monthly", REQUEST_MONTHLY);
-                }
-            }
+        scheduleFromSnapshot(context, AccountContainerStore.selectedId(context), usageSnapshot);
+    }
+
+    static void scheduleFromSnapshot(Context context, String containerId,
+            UsageSnapshot usageSnapshot) {
+        Context app = appContext(context);
+        if (app == null) return;
+        cancelAll(app, containerId);
+        if (usageSnapshot == null
+                || !SecureTokenStore.isSignedIn(app, containerId)
+                || !ResetAlertPreferences.enabled(app)) {
+            return;
+        }
+        String metric = ResetAlertPreferences.getMetric(app);
+        if (!ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
+            scheduleWindow(app, containerId, usageSnapshot.fiveHour,
+                    "five_hour", REQUEST_FIVE_HOUR);
+        }
+        if (!ResetAlertPreferences.METRIC_FIVE_HOUR.equals(metric)) {
+            scheduleWindow(app, containerId, usageSnapshot.weekly,
+                    "weekly", REQUEST_WEEKLY);
+            scheduleWindow(app, containerId, usageSnapshot.monthly,
+                    "monthly", REQUEST_MONTHLY);
         }
     }
 
     public static void cancelAll(Context context) {
-        AlarmManager alarmManager;
-        Context contextAppContext = appContext(context);
-        if (contextAppContext != null && (alarmManager = (AlarmManager) contextAppContext.getSystemService(ResetAlertPreferences.STYLE_ALARM)) != null) {
-            alarmManager.cancel(pending(contextAppContext, "five_hour", 0L, REQUEST_FIVE_HOUR));
-            alarmManager.cancel(pending(contextAppContext, "weekly", 0L, REQUEST_WEEKLY));
-            alarmManager.cancel(pending(contextAppContext, "monthly", 0L, REQUEST_MONTHLY));
+        Context app = appContext(context);
+        if (app == null) return;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(app)) {
+            cancelAll(app, account.id);
         }
+    }
+
+    static void cancelAll(Context context, String containerId) {
+        Context app = appContext(context);
+        if (app == null) return;
+        AlarmManager alarms = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
+        if (alarms == null) return;
+        alarms.cancel(pending(app, containerId, "five_hour", 0L, REQUEST_FIVE_HOUR));
+        alarms.cancel(pending(app, containerId, "weekly", 0L, REQUEST_WEEKLY));
+        alarms.cancel(pending(app, containerId, "monthly", 0L, REQUEST_MONTHLY));
     }
 
     public static boolean canScheduleExact(Context context) {

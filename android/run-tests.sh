@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "run-tests failed at line $LINENO" >&2' ERR
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 JSON_JAR="${JSON_JAR:-}"
 
@@ -187,7 +188,7 @@ grep -q 'if (zoomed)' "$SRC/UsageBurnChartView.java"
 grep -q 'repostForProcessChange(Context context)' "$SRC/DualUsageNotificationManager.java"
 grep -q 'repostForProcessChange(' "$SRC/NowBarActionReceiver.java"
 grep -q 'app, containerId' "$SRC/NowBarActionReceiver.java"
-grep -q 'setGroup(NotificationSurfaceContract.GROUP_KEY)' "$SRC/NowBarManager.java"
+grep -q 'setGroup(NotificationSurfaceContract.groupKey(containerId))' "$SRC/NowBarManager.java"
 grep -q 'setSortKey(NotificationSurfaceContract.SORT_USAGE)' "$SRC/NowBarManager.java"
 grep -q 'SORT_USAGE = "00_usage"' "$SRC/NotificationSurfaceContract.java"
 grep -q 'SORT_PROCESSES = "10_processes"' "$SRC/NotificationSurfaceContract.java"
@@ -205,7 +206,8 @@ grep -q 'stripeWidth \* 2.0f' "$SRC/IdleReminderOverlayService.java"
 ! grep -Fq 'TextView title = text("Session finished"' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'entries = new LinearLayout(this);' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'SpannableStringBuilder projectIdentity = new SpannableStringBuilder();' "$SRC/IdleReminderOverlayService.java"
-grep -Fq 'ProjectProfileStore.badgeText(' "$SRC/IdleReminderOverlayService.java"
+grep -Fq 'ProjectProfileStore.effectiveShort(' "$SRC/IdleReminderOverlayService.java"
+! grep -Fq 'ProjectProfileStore.badgeText(' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'new ForegroundColorSpan(ProjectProfileStore.accentColor(projectProfile))' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'TextView roleView = text(role, 16f, Color.WHITE);' "$SRC/IdleReminderOverlayService.java"
 ! grep -Fq 'TextView project = text(idle.project, 14f' "$SRC/IdleReminderOverlayService.java"

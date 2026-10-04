@@ -267,7 +267,7 @@ final class IdleReminderManager {
             return false;
         }
         long triggerAt = System.currentTimeMillis() + COMPLETION_OVERLAY_ALARM_DELAY_MS;
-        PendingIntent pending = completionOverlayIntent(context, idle);
+        PendingIntent pending = completionOverlayIntent(context, containerId, idle);
         try {
             alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending);
             DiagnosticLog.info(context, "idle_process", "completion_overlay_alarm_scheduled",

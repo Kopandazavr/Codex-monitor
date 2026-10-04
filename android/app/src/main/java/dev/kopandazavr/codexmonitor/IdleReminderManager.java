@@ -311,16 +311,23 @@ final class IdleReminderManager {
     }
 
     private static void cancelCompletionOverlayAlarm(Context context, String key) {
+        cancelCompletionOverlayAlarm(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    private static void cancelCompletionOverlayAlarm(Context context, String containerId,
+            String key) {
         AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarms == null || key == null) return;
         long now = System.currentTimeMillis();
         for (IdleProcessState.IdleRole completion :
-                IdleProcessState.recentCompletions(context, now, COMPLETION_FRESH_MS)) {
+                IdleProcessState.recentCompletions(
+                        context, containerId, now, COMPLETION_FRESH_MS)) {
             if (!key.equals(completion.key)) continue;
             Intent intent = new Intent(context, NowBarActionReceiver.class)
-                    .setAction(ACTION_COMPLETION_OVERLAY);
+                    .setAction(ACTION_COMPLETION_OVERLAY)
+                    .putExtra(EXTRA_CONTAINER_ID, containerId);
             PendingIntent pending = PendingIntent.getBroadcast(context,
-                    requestCode(completionIntentKey(completion), 4), intent,
+                    requestCode(containerId, completionIntentKey(completion), 4), intent,
                     PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
             if (pending != null) {
                 alarms.cancel(pending);

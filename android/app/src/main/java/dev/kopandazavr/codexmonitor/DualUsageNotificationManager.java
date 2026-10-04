@@ -67,23 +67,32 @@ final class DualUsageNotificationManager {
      */
     static boolean realertUsageSurface(Context context, String alertChannelId,
             String alertTitle, String alertText) {
+        return realertUsageSurface(context, AccountContainerStore.selectedId(context),
+                alertChannelId, alertTitle, alertText);
+    }
+
+    static boolean realertUsageSurface(Context context, String containerId, String alertChannelId,
+            String alertTitle, String alertText) {
         if (context == null || alertChannelId == null || !NowBarManager.isActive(context)) {
             return false;
         }
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
         if (snapshot == null) return false;
-        SurfaceState state = surfaceState(context, snapshot);
+        SurfaceState state = surfaceState(context, containerId, snapshot);
         if (state == null) return false;
-        Notification notification = buildSurface(context, alertChannelId, state,
+        Notification notification = buildSurface(context, containerId, alertChannelId, state,
                 alertTitle == null ? "Codex usage" : alertTitle,
                 alertText == null ? state.fallbackText : alertText, false);
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null || notification == null) return false;
         try {
-            manager.notify(NOTIFICATION_ID, notification);
+            manager.notify(AccountNotificationNamespace.tag(containerId),
+                    NOTIFICATION_ID, notification);
             DiagnosticLog.info(context, "notification", "persistent_surface_realerted",
                     "surface", "usage",
+                    "container_id", containerId,
+                    "container_id", containerId,
                     "notification_id", NOTIFICATION_ID,
                     "channel", alertChannelId,
                     "mode", state.processMode,
@@ -96,6 +105,12 @@ final class DualUsageNotificationManager {
     }
 
     static boolean realertResetSurface(Context context, String alertChannelId,
+            String alertTitle, String alertText, int layoutResId) {
+        return realertResetSurface(context, AccountContainerStore.selectedId(context),
+                alertChannelId, alertTitle, alertText, layoutResId);
+    }
+
+    static boolean realertResetSurface(Context context, String containerId, String alertChannelId,
             String alertTitle, String alertText, int layoutResId) {
         if (context == null || alertChannelId == null || !NowBarManager.isActive(context)) {
             return false;
@@ -132,7 +147,8 @@ final class DualUsageNotificationManager {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return false;
         try {
-            manager.notify(NOTIFICATION_ID, notification);
+            manager.notify(AccountNotificationNamespace.tag(containerId),
+                    NOTIFICATION_ID, notification);
             DiagnosticLog.info(context, "notification", "persistent_reset_surface_realerted",
                     "notification_id", NOTIFICATION_ID,
                     "channel", alertChannelId,
@@ -240,7 +256,8 @@ final class DualUsageNotificationManager {
             boolean onlyAlertOnce) {
         Intent open = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(context, REQUEST_CONTENT, open,
+        PendingIntent contentIntent = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(containerId, "reset_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent refreshIntent = PendingIntent.getBroadcast(context, AccountNotificationNamespace.requestCode(containerId, "usage_refresh"),
                 new Intent(context, NowBarActionReceiver.class).setAction(NowBarManager.ACTION_REFRESH),
@@ -274,7 +291,7 @@ final class DualUsageNotificationManager {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setColor(Color.rgb(3, 129, 254))
                 .setShowWhen(false)
-                .setGroup(NotificationSurfaceContract.GROUP_KEY)
+                .setGroup(NotificationSurfaceContract.groupKey(containerId))
                 .setSortKey(NotificationSurfaceContract.SORT_USAGE)
                 .setStyle(new Notification.DecoratedCustomViewStyle())
                 .setCustomContentView(compact)

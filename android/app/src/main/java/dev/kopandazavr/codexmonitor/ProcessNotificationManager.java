@@ -263,23 +263,33 @@ final class ProcessNotificationManager {
         clearPerProcess(context, containerId, manager);
     }
 
-    static void addRows(Context context, RemoteViews parent, int containerId,
+    static void addRows(Context context, RemoteViews parent, int viewContainerId,
             List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
             long nowMillis) {
-        addRows(context, parent, containerId, processes, idleRoles, nowMillis, true);
+        addRows(context, AccountContainerStore.selectedId(context), parent, viewContainerId,
+                processes, idleRoles, nowMillis, true);
     }
 
-    static void addRows(Context context, RemoteViews parent, int containerId,
+    static void addRows(Context context, RemoteViews parent, int viewContainerId,
             List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
             long nowMillis, boolean showActiveReminder) {
-        parent.removeAllViews(containerId);
+        addRows(context, AccountContainerStore.selectedId(context), parent, viewContainerId,
+                processes, idleRoles, nowMillis, showActiveReminder);
+    }
+
+    static void addRows(Context context, String accountId, RemoteViews parent, int viewContainerId,
+            List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
+            long nowMillis, boolean showActiveReminder) {
+        parent.removeAllViews(viewContainerId);
         for (ProcessRoleGroup group : ProcessRoleGroup.group(context, processes)) {
-            parent.addView(containerId,
-                    buildActiveGroupRow(context, group, nowMillis, showActiveReminder));
+            parent.addView(viewContainerId,
+                    buildActiveGroupRow(context, accountId, group, nowMillis,
+                            showActiveReminder));
         }
         if (idleRoles != null) {
             for (IdleProcessState.IdleRole idle : idleRoles) {
-                parent.addView(containerId, buildIdleRow(context, idle, nowMillis));
+                parent.addView(viewContainerId,
+                        buildIdleRow(context, accountId, idle, nowMillis));
             }
         }
     }

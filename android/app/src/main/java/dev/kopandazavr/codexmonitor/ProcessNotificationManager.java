@@ -513,8 +513,8 @@ final class ProcessNotificationManager {
         return row;
     }
 
-    private static RemoteViews buildIdleRow(Context context, IdleProcessState.IdleRole idle,
-            long nowMillis) {
+    private static RemoteViews buildIdleRow(Context context, String accountId,
+            IdleProcessState.IdleRole idle, long nowMillis) {
         RemoteViews row = new RemoteViews(context.getPackageName(), R.layout.notification_process_row);
         int textColor = textColor(context);
         ProjectProfileStore.Profile profile = ProjectProfileStore.resolve(context, idle.project);

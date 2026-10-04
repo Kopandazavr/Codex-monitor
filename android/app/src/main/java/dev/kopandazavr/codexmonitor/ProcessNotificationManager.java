@@ -38,30 +38,38 @@ final class ProcessNotificationManager {
 
     static void sync(Context context, List<CalendarProcess> processes,
             List<IdleProcessState.IdleRole> idleRoles, String mode, long nowMillis) {
+        sync(context, AccountContainerStore.selectedId(context),
+                processes, idleRoles, mode, nowMillis);
+    }
+
+    static void sync(Context context, String containerId, List<CalendarProcess> processes,
+            List<IdleProcessState.IdleRole> idleRoles, String mode, long nowMillis) {
         if (context == null) return;
-        reconcileStaleCompletionAlerts(context);
+        reconcileStaleCompletionAlerts(context, containerId);
         String normalizedMode = ProcessNotificationMode.normalize(mode);
         if (ProcessNotificationMode.COMBINED.equals(normalizedMode)) {
-            clearAll(context);
+            clearAll(context, containerId);
             return;
         }
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
         AlertSoundManager.ensureChannels(context);
+        String tag = AccountNotificationNamespace.tag(containerId);
         if (ProcessNotificationMode.GROUPED.equals(normalizedMode)) {
-            clearPerProcess(context, manager);
+            clearPerProcess(context, containerId, manager);
             if (isEmpty(processes) && isEmpty(idleRoles)) {
-                manager.cancel(GROUPED_NOTIFICATION_ID);
+                manager.cancel(tag, GROUPED_NOTIFICATION_ID);
                 return;
             }
-            manager.notify(GROUPED_NOTIFICATION_ID,
-                    buildNotification(context, processes, idleRoles, "Processes", nowMillis,
+            manager.notify(tag, GROUPED_NOTIFICATION_ID,
+                    buildNotification(context, containerId, processes, idleRoles,
+                            accountTitle(context, containerId, "Processes"), nowMillis,
                             CHANNEL_ID, NotificationSurfaceContract.SORT_PROCESSES, true));
             return;
         }
-        manager.cancel(GROUPED_NOTIFICATION_ID);
-        syncPerProcess(context, manager, processes, idleRoles, nowMillis);
+        manager.cancel(tag, GROUPED_NOTIFICATION_ID);
+        syncPerProcess(context, containerId, manager, processes, idleRoles, nowMillis);
     }
 
     /**

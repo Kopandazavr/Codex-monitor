@@ -72,27 +72,39 @@ public final class ResetAlertScheduler {
         return alarmManager != null && alarmManager.canScheduleExactAlarms();
     }
 
-    private static void scheduleWindow(Context context, UsageWindow usageWindow, String str, int i) {
-        AlarmManager alarmManager;
-        if (usageWindow != null && usageWindow.resetAtMillis() > System.currentTimeMillis()) {
-            if ((alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE)) != null) {
-                long jResetAtMillis = usageWindow.resetAtMillis() + DELIVERY_GRACE_MS;
-                PendingIntent pendingIntentPending = pending(context, str, usageWindow.resetAtMillis(), i);
-                try {
-                    if (Build.VERSION.SDK_INT < 31 || alarmManager.canScheduleExactAlarms()) {
-                        alarmManager.setExactAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);
-                    } else {
-                        alarmManager.setAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);
-                    }
-                } catch (SecurityException e) {
-                    alarmManager.setAndAllowWhileIdle(0, jResetAtMillis, pendingIntentPending);
-                }
+    private static void scheduleWindow(Context context, String containerId,
+            UsageWindow usageWindow, String metric, int legacyRequestCode) {
+        if (usageWindow == null || usageWindow.resetAtMillis() <= System.currentTimeMillis()) return;
+        AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarms == null) return;
+        long deliveryAt = usageWindow.resetAtMillis() + DELIVERY_GRACE_MS;
+        PendingIntent pending = pending(context, containerId, metric,
+                usageWindow.resetAtMillis(), legacyRequestCode);
+        try {
+            if (Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()) {
+                alarms.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP, deliveryAt, pending);
+            } else {
+                alarms.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP, deliveryAt, pending);
             }
+        } catch (SecurityException exception) {
+            alarms.setAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP, deliveryAt, pending);
         }
     }
 
-    private static PendingIntent pending(Context context, String str, long j, int i) {
-        return PendingIntent.getBroadcast(context, i, new Intent(context, (Class<?>) ResetAlertReceiver.class).setAction(AppConstants.ACTION_RESET_ALERT).putExtra(EXTRA_METRIC, str).putExtra(EXTRA_RESET_AT, j), 201326592);
+    private static PendingIntent pending(Context context, String containerId,
+            String metric, long resetAt, int legacyRequestCode) {
+        Intent intent = new Intent(context, ResetAlertReceiver.class)
+                .setAction(AppConstants.ACTION_RESET_ALERT)
+                .putExtra(EXTRA_CONTAINER_ID, containerId)
+                .putExtra(EXTRA_METRIC, metric)
+                .putExtra(EXTRA_RESET_AT, resetAt);
+        int requestCode = AccountNotificationNamespace.requestCode(
+                containerId, "reset_alert_" + metric + "_" + legacyRequestCode);
+        return PendingIntent.getBroadcast(context, requestCode, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static Context appContext(Context context) {

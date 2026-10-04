@@ -393,10 +393,17 @@ final class IdleReminderManager {
     }
 
     private static void clearLegacyReminderCard(Context context, String key) {
+        clearLegacyReminderCard(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    private static void clearLegacyReminderCard(Context context, String containerId, String key) {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
-        // Clean any legacy separate reminder card left by an older build/runtime.
-        if (manager != null) manager.cancel(notificationId(key));
+        if (manager == null) return;
+        manager.cancel(AccountNotificationNamespace.tag(containerId), notificationId(key));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            manager.cancel(notificationId(key));
+        }
     }
 
     private static SharedPreferences preferences(Context context) {

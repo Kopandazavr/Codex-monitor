@@ -243,19 +243,32 @@ public final class ResetNotificationManager {
     public static void onResetCreditExpirySettingsChanged(Context context,
             ResetCreditsSnapshot snapshot) {
         if (context == null) return;
-        if (!ResetAlertPreferences.resetCreditExpiryEnabled(context)) {
-            clearResetCreditExpiryReminderHistory(context);
-        } else if (snapshot != null) {
-            pruneResetCreditExpiryHistory(context, snapshot);
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            ResetCreditsSnapshot accountSnapshot = account.id.equals(
+                    AccountContainerStore.selectedId(context))
+                    ? snapshot : AppPreferences.loadResetCredits(context, account.id);
+            if (!ResetAlertPreferences.resetCreditExpiryEnabled(context)) {
+                clearResetCreditExpiryReminderHistory(context, account.id);
+            } else if (accountSnapshot != null) {
+                pruneResetCreditExpiryHistory(context, account.id, accountSnapshot);
+            }
+            ResetCreditExpiryScheduler.scheduleFromSnapshot(
+                    context, account.id, accountSnapshot);
         }
-        ResetCreditExpiryScheduler.scheduleFromSnapshot(context, snapshot);
     }
 
     public static void dismissResetCreditExpiryNotification(Context context,
             int notificationId) {
+        dismissResetCreditExpiryNotification(
+                context, AccountContainerStore.selectedId(context), notificationId);
+    }
+
+    static void dismissResetCreditExpiryNotification(
+            Context context, String containerId, int notificationId) {
         NotificationManager notificationManager = context == null ? null : manager(context);
         if (notificationManager != null && notificationId >= NOTIFICATION_CREDIT_EXPIRY_BASE) {
-            notificationManager.cancel(notificationId);
+            notificationManager.cancel(AccountNotificationNamespace.tag(containerId),
+                    notificationId);
         }
     }
 
@@ -317,7 +330,7 @@ public final class ResetNotificationManager {
     }
 
     private static void pruneResetCreditExpiryHistory(Context context,
-            ResetCreditsSnapshot snapshot) {
+            String containerId, ResetCreditsSnapshot snapshot) {
         Set<String> active = new HashSet<>();
         for (ResetCreditExpiryReminder reminder : ResetCreditExpiryReminder.plan(
                 snapshot.credits, ResetAlertPreferences.getResetCreditExpiryLeadTimes(context),
@@ -325,25 +338,34 @@ public final class ResetNotificationManager {
             active.add(reminder.token());
         }
         synchronized (EXPIRY_STATE_LOCK) {
+            String stateKey = accountStateKey(
+                    containerId, KEY_CREDIT_EXPIRY_ANNOUNCED);
             Set<String> announced = new HashSet<>(state(context).getStringSet(
-                    KEY_CREDIT_EXPIRY_ANNOUNCED, new HashSet<>()));
+                    stateKey, new HashSet<>()));
             if (announced.retainAll(active)) {
-                state(context).edit().putStringSet(
-                        KEY_CREDIT_EXPIRY_ANNOUNCED, announced).apply();
+                state(context).edit().putStringSet(stateKey, announced).apply();
             }
         }
     }
 
     private static void clearResetCreditExpiryReminderHistory(Context context) {
+        clearResetCreditExpiryReminderHistory(
+                context, AccountContainerStore.selectedId(context));
+    }
+
+    private static void clearResetCreditExpiryReminderHistory(
+            Context context, String containerId) {
         synchronized (EXPIRY_STATE_LOCK) {
-            state(context).edit().remove(KEY_CREDIT_EXPIRY_ANNOUNCED).apply();
+            state(context).edit().remove(
+                    accountStateKey(containerId, KEY_CREDIT_EXPIRY_ANNOUNCED)).apply();
         }
     }
 
     private static boolean isResetCreditExpiryReminderAnnouncedLocked(
-            Context context, String token) {
+            Context context, String containerId, String token) {
         return state(context).getStringSet(
-                KEY_CREDIT_EXPIRY_ANNOUNCED, new HashSet<>()).contains(token);
+                accountStateKey(containerId, KEY_CREDIT_EXPIRY_ANNOUNCED),
+                new HashSet<>()).contains(token);
     }
 
     private static int notificationIdForCredit(String creditId, String fallbackToken) {

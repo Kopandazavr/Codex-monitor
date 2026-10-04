@@ -235,6 +235,33 @@ public final class ResetNotificationManager {
         AlertSoundManager.ensureChannels(context);
     }
 
+    static void clearContainerState(Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()) return;
+        SharedPreferences.Editor editor = state(context).edit();
+        String[] keys = {
+                KEY_FIVE_HOUR_WINDOW, KEY_WEEKLY_WINDOW, KEY_MONTHLY_WINDOW,
+                KEY_CREDIT_COUNT, KEY_CREDIT_EXPIRY_ANNOUNCED,
+                KEY_USER_RESET_FIVE_HOUR_UNTIL, KEY_USER_RESET_WEEKLY_UNTIL,
+                KEY_USER_RESET_MONTHLY_UNTIL
+        };
+        for (String key : keys) editor.remove(accountStateKey(containerId, key));
+        editor.apply();
+
+        NotificationManager manager = manager(context);
+        if (manager != null) {
+            String tag = AccountNotificationNamespace.tag(containerId);
+            int[] ids = {
+                    NOTIFICATION_RESET_FIVE_HOUR, NOTIFICATION_RESET_WEEKLY,
+                    NOTIFICATION_RESET_MONTHLY, NOTIFICATION_LOW_FIVE_HOUR,
+                    NOTIFICATION_LOW_WEEKLY, NOTIFICATION_LOW_MONTHLY,
+                    NOTIFICATION_NEW_CREDIT, NOTIFICATION_REFILL_FIVE_HOUR,
+                    NOTIFICATION_REFILL_WEEKLY, NOTIFICATION_REFILL_BOTH,
+                    NOTIFICATION_REFILL_MONTHLY
+            };
+            for (int id : ids) manager.cancel(tag, id);
+        }
+    }
+
     public static void clearState(Context context) {
         if (context == null) return;
         synchronized (EXPIRY_STATE_LOCK) {

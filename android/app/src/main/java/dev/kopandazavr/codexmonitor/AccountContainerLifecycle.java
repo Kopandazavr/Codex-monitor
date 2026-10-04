@@ -15,6 +15,9 @@ final class AccountContainerLifecycle {
         // Remove credentials and app-owned surfaces before dropping the registry row so legacy
         // fallback cleanup can still identify the original migration owner.
         DualUsageNotificationManager.clearAccountSurface(context, containerId);
+        ResetAlertScheduler.cancelAll(context, containerId);
+        NowBarResetReminder.clearContainer(context, containerId);
+        ResetNotificationManager.clearContainerState(context, containerId);
         SecureTokenStore.clear(context, containerId);
         SubscriptionStore.clear(context, containerId);
         GoogleCalendarAuthorization.clearContainerState(context, containerId);

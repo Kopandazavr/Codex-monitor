@@ -16,6 +16,7 @@ final class AccountContainerLifecycle {
         // fallback cleanup can still identify the original migration owner.
         DualUsageNotificationManager.clearAccountSurface(context, containerId);
         ResetAlertScheduler.cancelAll(context, containerId);
+        ResetCreditExpiryScheduler.cancelAll(context, containerId);
         NowBarResetReminder.clearContainer(context, containerId);
         ResetNotificationManager.clearContainerState(context, containerId);
         SecureTokenStore.clear(context, containerId);

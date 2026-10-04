@@ -88,7 +88,7 @@ final class AccountSwitcherView {
         popup.show();
     }
 
-    private static void promptCreate(AppCompatActivity activity, Listener listener) {
+    static void promptCreate(AppCompatActivity activity, Listener listener) {
         EditText input = new EditText(activity);
         input.setSingleLine(true);
         input.setHint("Account name");

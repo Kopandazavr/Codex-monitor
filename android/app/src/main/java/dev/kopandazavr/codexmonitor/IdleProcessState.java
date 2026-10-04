@@ -453,9 +453,19 @@ final class IdleProcessState {
     }
 
     private static Map<String, MutableRole> load(Context context) {
+        return load(context, AccountContainerStore.selectedId(context));
+    }
+
+    private static Map<String, MutableRole> load(Context context, String containerId) {
         Map<String, MutableRole> rows = new HashMap<>();
         if (context == null) return rows;
-        String raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_ROWS, "[]");
+        android.content.SharedPreferences prefs =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String scopedKey = rowsKey(containerId);
+        String raw = prefs.contains(scopedKey)
+                ? prefs.getString(scopedKey, "[]")
+                : AccountContainerStore.isLegacyOwner(context, containerId)
+                        ? prefs.getString(KEY_ROWS, "[]") : "[]";
         try {
             JSONArray array = new JSONArray(raw == null ? "[]" : raw);
             for (int i = 0; i < array.length(); i++) {
@@ -480,11 +490,26 @@ final class IdleProcessState {
     }
 
     private static void save(Context context, Map<String, MutableRole> rows) {
+        save(context, AccountContainerStore.selectedId(context), rows);
+    }
+
+    private static void save(Context context, String containerId,
+            Map<String, MutableRole> rows) {
         if (context == null) return;
         JSONArray array = new JSONArray();
         for (MutableRole row : rows.values()) array.put(row.toJson());
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .edit().putString(KEY_ROWS, array.toString()).apply();
+        android.content.SharedPreferences.Editor editor =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .putString(rowsKey(containerId), array.toString());
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(KEY_ROWS);
+        }
+        editor.apply();
+    }
+
+    private static String rowsKey(String containerId) {
+        String id = containerId == null ? "" : containerId.trim();
+        return KEY_ROWS + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
     private static String clean(String value) {

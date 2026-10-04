@@ -87,6 +87,8 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
                     "source", "completion_overlay_exact_alarm");
             IdleReminderManager.completionOverlayFromIntent(context, intent);
         }
+    }
+
     private static String containerFromIntent(Context context, Intent intent) {
         String containerId = intent == null
                 ? "" : intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
@@ -95,7 +97,5 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
             return containerId.trim();
         }
         return AccountContainerStore.selectedId(context);
-    }
-
     }
 }

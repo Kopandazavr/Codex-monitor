@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "identity source contract failed at line $LINENO" >&2' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP_GRADLE="$ROOT/app/build.gradle.kts"
 STRINGS="$ROOT/app/src/main/res/values/strings.xml"

@@ -143,6 +143,10 @@ public final class UsageApi {
                     if (selected) NowBarManager.onUsageUpdated(context, usageSnapshot);
                     DualUsageNotificationManager.postFromSnapshot(
                             context, containerId, usageSnapshot);
+                    DiagnosticLog.info(context, "refresh", "usage_notification_rebuilt",
+                            "container_id", containerId,
+                            "trigger", safeTrigger,
+                            "snapshot_id", snapshotIdentity(usageSnapshot));
                     ResetNotificationManager.onUsageUpdated(
                             context, containerId, previousSnapshot, usageSnapshot);
                     try {

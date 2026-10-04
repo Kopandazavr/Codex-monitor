@@ -381,7 +381,8 @@ final class DualUsageNotificationManager {
             views.setTextColor(R.id.notification_five_text, textColor);
             bindLimitProgress(views, R.id.notification_five_progress,
                     R.id.notification_five_progress_lime, fiveHour, observedAt, now, true);
-            bindResetBell(context, views, R.id.notification_five_bell, "five_hour",
+            bindResetBell(context, containerId, views,
+                    R.id.notification_five_bell, "five_hour",
                     fiveHour, observedAt, textColor);
         }
 
@@ -396,7 +397,8 @@ final class DualUsageNotificationManager {
             bindLimitProgress(views, R.id.notification_long_progress,
                     R.id.notification_long_progress_lime, longWindow, observedAt, now,
                     "Weekly".equals(longLabel));
-            bindResetBell(context, views, R.id.notification_long_bell,
+            bindResetBell(context, containerId, views,
+                    R.id.notification_long_bell,
                     "Monthly".equals(longLabel) ? "monthly" : "weekly",
                     longWindow, observedAt, textColor);
         }
@@ -453,16 +455,18 @@ final class DualUsageNotificationManager {
         return resetAt > 0L && resetAt <= now;
     }
 
-    private static void bindResetBell(Context context, RemoteViews views, int viewId,
-            String metric, UsageWindow window, long observedAt, int textColor) {
+    private static void bindResetBell(Context context, String containerId,
+            RemoteViews views, int viewId, String metric, UsageWindow window,
+            long observedAt, int textColor) {
         long resetAt = window == null ? 0L : window.effectiveResetAtMillis(observedAt);
         long windowSeconds = window == null ? 0L : window.windowSeconds;
         boolean armed = resetAt > 0L && NowBarResetReminder.isArmedFor(
-                context, metric, resetAt, windowSeconds);
+                context, containerId, metric, resetAt, windowSeconds);
         views.setViewVisibility(viewId, View.VISIBLE);
         views.setImageViewResource(viewId, armed ? R.drawable.ic_bell_on : R.drawable.ic_bell_off);
         views.setInt(viewId, "setColorFilter", armed ? 0xFFFFC107 : textColor);
-        PendingIntent toggle = NowBarResetReminder.toggleIntent(context, metric, window, observedAt);
+        PendingIntent toggle = NowBarResetReminder.toggleIntent(
+                context, containerId, metric, window, observedAt);
         if (toggle != null) {
             views.setOnClickPendingIntent(viewId, toggle);
         }

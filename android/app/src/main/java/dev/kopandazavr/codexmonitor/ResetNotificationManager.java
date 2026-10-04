@@ -26,6 +26,7 @@ public final class ResetNotificationManager {
     private static final String KEY_USER_RESET_FIVE_HOUR_UNTIL = "user_reset_five_hour_until";
     private static final String KEY_USER_RESET_WEEKLY_UNTIL = "user_reset_weekly_until";
     private static final String KEY_USER_RESET_MONTHLY_UNTIL = "user_reset_monthly_until";
+    private static final String KEY_ACCOUNT_STATE_MIGRATED = "account_state_migrated_v2";
     private static final long UNKNOWN_USER_RESET_SUPPRESSION_MS = 15 * 60 * 1000L;
     private static final int NOTIFICATION_TEST = 74400;
     private static final int NOTIFICATION_RESET_FIVE_HOUR = 74405;
@@ -57,6 +58,7 @@ public final class ResetNotificationManager {
     static void onUsageUpdated(Context context, String containerId, UsageSnapshot previous,
             UsageSnapshot snapshot) {
         if (context == null || snapshot == null) return;
+        ensureContainerStateMigrated(context, containerId);
         int unexpectedRefills = suppressUserResetRefills(context, containerId,
                 CelebrationDetector.detectUnexpectedRefills(previous, snapshot),
                 snapshot.fetchedAtMillis);
@@ -107,6 +109,7 @@ public final class ResetNotificationManager {
 
     private static void onResetCreditCountUpdated(
             Context context, String containerId, int current) {
+        ensureContainerStateMigrated(context, containerId);
         SharedPreferences state = state(context);
         String stateKey = accountStateKey(containerId, KEY_CREDIT_COUNT);
         if (!state.contains(stateKey)) {
@@ -143,6 +146,7 @@ public final class ResetNotificationManager {
 
     static void markUserReset(Context context, String containerId, UsageSnapshot snapshot) {
         if (context == null || snapshot == null) return;
+        ensureContainerStateMigrated(context, containerId);
         long now = System.currentTimeMillis();
         SharedPreferences.Editor editor = state(context).edit();
         markUserResetWindow(editor,
@@ -198,6 +202,7 @@ public final class ResetNotificationManager {
                 || !ResetAlertPreferences.resetCreditExpiryEnabled(context)) {
             return false;
         }
+        ensureContainerStateMigrated(context, containerId);
         String token = ResetCreditExpiryReminder.token(
                 creditId, expiresAtMillis, leadTimeMillis);
         synchronized (EXPIRY_STATE_LOCK) {
@@ -234,6 +239,7 @@ public final class ResetNotificationManager {
     static boolean isResetCreditExpiryReminderAnnounced(
             Context context, String containerId, String token) {
         if (context == null || token == null) return false;
+        ensureContainerStateMigrated(context, containerId);
         synchronized (EXPIRY_STATE_LOCK) {
             return isResetCreditExpiryReminderAnnouncedLocked(
                     context, containerId, token);

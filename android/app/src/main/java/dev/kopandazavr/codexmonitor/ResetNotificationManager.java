@@ -308,6 +308,20 @@ public final class ResetNotificationManager {
                     NOTIFICATION_REFILL_MONTHLY
             };
             for (int id : ids) manager.cancel(tag, id);
+            if (Build.VERSION.SDK_INT >= 23) {
+                try {
+                    for (android.service.notification.StatusBarNotification active
+                            : manager.getActiveNotifications()) {
+                        int id = active.getId();
+                        if (tag.equals(active.getTag())
+                                && id >= NOTIFICATION_CREDIT_EXPIRY_BASE
+                                && id < NOTIFICATION_CREDIT_EXPIRY_BASE + 1000) {
+                            manager.cancel(tag, id);
+                        }
+                    }
+                } catch (RuntimeException ignored) {
+                }
+            }
         }
     }
 
@@ -320,13 +334,20 @@ public final class ResetNotificationManager {
 
     public static void clearNotificationHistory(Context context) {
         if (context == null) return;
-        state(context).edit()
-                .remove(KEY_FIVE_HOUR_WINDOW)
+        SharedPreferences.Editor editor = state(context).edit();
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            editor.remove(accountStateKey(account.id, KEY_FIVE_HOUR_WINDOW))
+                    .remove(accountStateKey(account.id, KEY_WEEKLY_WINDOW))
+                    .remove(accountStateKey(account.id, KEY_MONTHLY_WINDOW))
+                    .remove(accountStateKey(account.id, KEY_CREDIT_COUNT))
+                    .remove(accountStateKey(account.id, KEY_CREDIT_EXPIRY_ANNOUNCED));
+        }
+        editor.remove(KEY_FIVE_HOUR_WINDOW)
                 .remove(KEY_WEEKLY_WINDOW)
                 .remove(KEY_MONTHLY_WINDOW)
                 .remove(KEY_CREDIT_COUNT)
+                .remove(KEY_CREDIT_EXPIRY_ANNOUNCED)
                 .apply();
-        clearResetCreditExpiryReminderHistory(context);
     }
 
     private static void pruneResetCreditExpiryHistory(Context context,

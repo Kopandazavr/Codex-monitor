@@ -56,7 +56,8 @@ final class LocalCalendarFallbackOwner {
     }
 
     static synchronized void onContainerRemoved(Context context, String removedId) {
-        if (!clean(removedId).equals(ownerId(context))) return;
+        String currentOwner = clean(prefs(context).getString(KEY_OWNER_ID, ""));
+        if (!clean(removedId).equals(currentOwner)) return;
         AccountContainerStore.Account selected = AccountContainerStore.selected(context);
         if (selected != null) {
             prefs(context).edit().putString(KEY_OWNER_ID, selected.id).commit();

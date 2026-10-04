@@ -16,8 +16,10 @@ public final class ResetCreditExpiryReceiver extends BroadcastReceiver {
         }
         String containerId = intent.getStringExtra(
                 ResetCreditExpiryScheduler.EXTRA_CONTAINER_ID);
-        if (containerId == null
-                || AccountContainerStore.find(context, containerId) == null) {
+        if (containerId != null && !containerId.trim().isEmpty()) {
+            containerId = containerId.trim();
+            if (AccountContainerStore.find(context, containerId) == null) return;
+        } else {
             containerId = AccountContainerStore.selectedId(context);
         }
         if (!SecureTokenStore.isSignedIn(context, containerId)) return;

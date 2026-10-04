@@ -43,6 +43,16 @@ final class ProcessNotificationMode {
                 .edit().putString(scopedKey(containerId), normalize(value)).apply();
     }
 
+    static void clearContainer(Context context, String containerId) {
+        if (context == null || containerId == null || containerId.trim().isEmpty()) return;
+        SharedPreferences.Editor editor = context.getSharedPreferences(
+                SETTINGS_PREFS, Context.MODE_PRIVATE).edit().remove(scopedKey(containerId));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(PREFERENCE_KEY);
+        }
+        editor.apply();
+    }
+
     private static String scopedKey(String containerId) {
         String id = containerId == null ? "" : containerId.trim();
         return PREFERENCE_KEY + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");

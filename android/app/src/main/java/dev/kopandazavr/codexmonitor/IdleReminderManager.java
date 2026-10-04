@@ -115,6 +115,7 @@ final class IdleReminderManager {
     static void dismissRowFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
         String containerId = containerFromIntent(context, intent);
+        if (containerId == null) return;
         String key = intent.getStringExtra(EXTRA_ROLE_KEY);
         long finished = intent.getLongExtra(EXTRA_FINISHED_AT, 0L);
         if (key == null || key.trim().isEmpty() || finished <= 0L) return;
@@ -540,9 +541,8 @@ final class IdleReminderManager {
     private static String containerFromIntent(Context context, Intent intent) {
         String requested = intent == null ? "" : intent.getStringExtra(EXTRA_CONTAINER_ID);
         if (requested != null) requested = requested.trim();
-        if (requested != null && !requested.isEmpty()
-                && AccountContainerStore.find(context, requested) != null) {
-            return requested;
+        if (requested != null && !requested.isEmpty()) {
+            return AccountContainerStore.find(context, requested) == null ? null : requested;
         }
         return AccountContainerStore.selectedId(context);
     }

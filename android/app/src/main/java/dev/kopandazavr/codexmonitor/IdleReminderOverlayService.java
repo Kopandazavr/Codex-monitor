@@ -444,17 +444,29 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     private static String completionKey(IdleProcessState.IdleRole idle) {
+        return completionKey("", idle);
+    }
+
+    private static String completionKey(String containerId, IdleProcessState.IdleRole idle) {
         if (idle == null) return "";
-        return idle.key + ":" + idle.completionIdentity() + ":" + idle.lastFinishedMillis;
+        String account = containerId == null ? "" : containerId.trim();
+        return AccountNotificationNamespace.safe(account) + ":" + idle.key + ":"
+                + idle.completionIdentity() + ":" + idle.lastFinishedMillis;
     }
 
     private void refreshRoleEntries(String roleKey) {
+        refreshRoleEntries(AccountContainerStore.selectedId(this), roleKey);
+    }
+
+    private void refreshRoleEntries(String containerId, String roleKey) {
         Map<String, IdleProcessState.IdleRole> refreshed = new LinkedHashMap<>();
         for (Map.Entry<String, IdleProcessState.IdleRole> entry : roles.entrySet()) {
             IdleProcessState.IdleRole current = entry.getValue();
-            if (current != null && roleKey.equals(current.key)) {
+            String owner = roleAccounts.get(entry.getKey());
+            if (current != null && roleKey.equals(current.key)
+                    && containerId.equals(owner)) {
                 IdleProcessState.IdleRole updated = IdleProcessState.findCompletion(
-                        this, current.key, current.instanceId,
+                        this, containerId, current.key, current.instanceId,
                         current.eventId, current.lastFinishedMillis);
                 refreshed.put(entry.getKey(), updated == null ? current : updated);
             } else {

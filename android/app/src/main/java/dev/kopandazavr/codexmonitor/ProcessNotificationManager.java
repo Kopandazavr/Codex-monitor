@@ -250,12 +250,16 @@ final class ProcessNotificationManager {
     }
 
     static void clearAll(Context context) {
+        clearAll(context, AccountContainerStore.selectedId(context));
+    }
+
+    static void clearAll(Context context, String containerId) {
         if (context == null) return;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
-        manager.cancel(GROUPED_NOTIFICATION_ID);
-        clearPerProcess(context, manager);
+        manager.cancel(AccountNotificationNamespace.tag(containerId), GROUPED_NOTIFICATION_ID);
+        clearPerProcess(context, containerId, manager);
     }
 
     static void addRows(Context context, RemoteViews parent, int containerId,

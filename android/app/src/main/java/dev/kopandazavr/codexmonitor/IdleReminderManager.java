@@ -492,7 +492,14 @@ final class IdleReminderManager {
     }
 
     private static String completionPreferenceKey(IdleProcessState.IdleRole idle) {
-        return KEY_COMPLETION_DELIVERED_PREFIX + completionIntentKey(idle);
+        return completionPreferenceKey("", idle);
+    }
+
+    private static String completionPreferenceKey(String containerId,
+            IdleProcessState.IdleRole idle) {
+        String base = KEY_COMPLETION_DELIVERED_PREFIX + completionIntentKey(idle);
+        return containerId == null || containerId.trim().isEmpty()
+                ? base : scopedKey(containerId, base);
     }
 
     private static int requestCode(String containerId, String key, int kind) {

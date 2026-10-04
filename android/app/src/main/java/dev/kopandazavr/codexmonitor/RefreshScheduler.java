@@ -139,7 +139,7 @@ public final class RefreshScheduler {
         }
         long now = System.currentTimeMillis();
         int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        int engagement = RefreshEngagement.score(app, now);
+        double engagement = RefreshEngagement.score(app, now);
         int best = Integer.MAX_VALUE;
         for (AccountContainerStore.Account account : AccountContainerStore.all(app)) {
             if (!SecureTokenStore.isSignedIn(app, account.id)) continue;

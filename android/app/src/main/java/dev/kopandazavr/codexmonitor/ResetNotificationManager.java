@@ -46,30 +46,34 @@ public final class ResetNotificationManager {
     }
 
     public static void onUsageUpdated(Context context, UsageSnapshot snapshot) {
-        onUsageUpdated(context, null, snapshot);
+        onUsageUpdated(context, AccountContainerStore.selectedId(context), null, snapshot);
     }
 
     public static void onUsageUpdated(Context context, UsageSnapshot previous,
             UsageSnapshot snapshot) {
+        onUsageUpdated(context, AccountContainerStore.selectedId(context), previous, snapshot);
+    }
+
+    static void onUsageUpdated(Context context, String containerId, UsageSnapshot previous,
+            UsageSnapshot snapshot) {
         if (context == null || snapshot == null) return;
-        int unexpectedRefills = suppressUserResetRefills(context,
+        int unexpectedRefills = suppressUserResetRefills(context, containerId,
                 CelebrationDetector.detectUnexpectedRefills(previous, snapshot),
                 snapshot.fetchedAtMillis);
         if (!ResetAlertPreferences.enabled(context)) return;
         String metric = ResetAlertPreferences.getMetric(context);
         if (!ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
-            notifyLowWindow(context, snapshot.fiveHour, snapshot.fetchedAtMillis,
+            notifyLowWindow(context, containerId, snapshot.fiveHour, snapshot.fetchedAtMillis,
                     "5-hour", KEY_FIVE_HOUR_WINDOW, NOTIFICATION_LOW_FIVE_HOUR);
         }
         if (!ResetAlertPreferences.METRIC_FIVE_HOUR.equals(metric)) {
-            notifyLowWindow(context, snapshot.weekly, snapshot.fetchedAtMillis,
+            notifyLowWindow(context, containerId, snapshot.weekly, snapshot.fetchedAtMillis,
                     "Weekly", KEY_WEEKLY_WINDOW, NOTIFICATION_LOW_WEEKLY);
-            // The monthly free-tier window rides on the same long-cadence metric as weekly.
-            notifyLowWindow(context, snapshot.monthly, snapshot.fetchedAtMillis,
+            notifyLowWindow(context, containerId, snapshot.monthly, snapshot.fetchedAtMillis,
                     "Monthly", KEY_MONTHLY_WINDOW, NOTIFICATION_LOW_MONTHLY);
         }
         if (ResetAlertPreferences.unexpectedRefillsEnabled(context)) {
-            notifyUnexpectedRefill(context, unexpectedRefills);
+            notifyUnexpectedRefill(context, containerId, unexpectedRefills);
         }
     }
 

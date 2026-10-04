@@ -499,14 +499,14 @@ final class ProcessNotificationManager {
         }
 
         if (showReminder) {
-            boolean reminderEnabled = IdleProcessState.isReminderEnabled(context, group.roleKey);
+            boolean reminderEnabled = IdleProcessState.isReminderEnabled(context, accountId, group.roleKey);
             row.setViewVisibility(R.id.notification_process_reminder, View.VISIBLE);
             row.setImageViewResource(R.id.notification_process_reminder,
                     reminderEnabled ? R.drawable.ic_bell_on : R.drawable.ic_bell_off);
             row.setInt(R.id.notification_process_reminder, "setColorFilter",
                     reminderEnabled ? 0xFFFFC107 : textColor);
             row.setOnClickPendingIntent(R.id.notification_process_reminder,
-                    IdleReminderManager.toggleIntent(context, group.roleKey));
+                    IdleReminderManager.toggleIntent(context, accountId, group.roleKey));
         } else {
             row.setViewVisibility(R.id.notification_process_reminder, View.GONE);
         }
@@ -537,7 +537,7 @@ final class ProcessNotificationManager {
         row.setInt(R.id.notification_process_reminder, "setColorFilter",
                 idle.reminderEnabled ? 0xFFFFC107 : textColor);
         row.setOnClickPendingIntent(R.id.notification_process_reminder,
-                IdleReminderManager.toggleIntent(context, idle));
+                IdleReminderManager.toggleIntent(context, accountId, idle));
         return row;
     }
 

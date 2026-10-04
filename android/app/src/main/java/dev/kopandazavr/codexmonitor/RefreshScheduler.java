@@ -179,23 +179,41 @@ public final class RefreshScheduler {
     }
 
     public static boolean scheduleAtNextReset(Context context, UsageSnapshot usageSnapshot) {
-        Context contextAppContext = appContext(context);
-        if (contextAppContext == null || usageSnapshot == null) {
-            return false;
+        Context app = appContext(context);
+        if (app == null || usageSnapshot == null) return false;
+        long now = System.currentTimeMillis();
+        long nextReset = usageSnapshot.nextResetMillis(now);
+        return scheduleResetAt(app, nextReset, now);
+    }
+
+    static boolean scheduleAtNextKnownReset(Context context) {
+        Context app = appContext(context);
+        if (app == null) return false;
+        long now = System.currentTimeMillis();
+        long earliest = Long.MAX_VALUE;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(app)) {
+            if (!SecureTokenStore.isSignedIn(app, account.id)) continue;
+            UsageSnapshot snapshot = AppPreferences.loadSnapshot(app, account.id);
+            if (snapshot == null) continue;
+            long next = snapshot.nextResetMillis(now);
+            if (next > now) earliest = Math.min(earliest, next);
         }
-        long jCurrentTimeMillis = System.currentTimeMillis();
-        long jNextResetMillis = usageSnapshot.nextResetMillis(jCurrentTimeMillis);
-        if (jNextResetMillis <= jCurrentTimeMillis) {
-            return false;
-        }
+        return earliest == Long.MAX_VALUE ? false : scheduleResetAt(app, earliest, now);
+    }
+
+    private static boolean scheduleResetAt(Context app, long nextReset, long now) {
+        if (nextReset <= now) return false;
         try {
-            long jMax = Math.max(1000L, (jNextResetMillis - jCurrentTimeMillis) + 5000);
-            DiagnosticLog.info(contextAppContext, "scheduler",
+            long delay = Math.max(1000L, (nextReset - now) + 5000L);
+            DiagnosticLog.info(app, "scheduler",
                     "reset_refresh_requested",
-                    "delay_ms", jMax);
-            return submit(contextAppContext, base(contextAppContext, RESET_JOB_ID, ResetConsumeResult.RESET).setMinimumLatency(jMax).setOverrideDeadline(jMax + 300000).build());
-        } catch (RuntimeException e) {
-            return failed(contextAppContext, e);
+                    "delay_ms", delay);
+            return submit(app, base(app, RESET_JOB_ID, ResetConsumeResult.RESET)
+                    .setMinimumLatency(delay)
+                    .setOverrideDeadline(delay + 300000L)
+                    .build());
+        } catch (RuntimeException exception) {
+            return failed(app, exception);
         }
     }
 

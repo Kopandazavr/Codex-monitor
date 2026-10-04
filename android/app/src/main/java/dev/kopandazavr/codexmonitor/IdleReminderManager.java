@@ -24,6 +24,7 @@ final class IdleReminderManager {
     static final String ACTION_DISMISS_ROW = "dev.kopandazavr.codexmonitor.action.IDLE_ROW_DISMISS";
     static final String ACTION_COMPLETION_OVERLAY =
             "dev.kopandazavr.codexmonitor.action.IDLE_COMPLETION_OVERLAY";
+    static final String EXTRA_CONTAINER_ID = "idle_container_id";
     static final String EXTRA_ROLE_KEY = "idle_role_key";
     static final String EXTRA_INSTANCE_ID = "idle_instance_id";
     static final String EXTRA_EVENT_ID = "idle_event_id";

@@ -144,7 +144,7 @@ grep -q 'DEFAULT_CADENCE_MINUTES = 5' "$SRC/IdleProcessState.java"
 # sibling's per-instance completion alarm/overlay.
 grep -q 'ACTION_FIRE' "$SRC/IdleReminderManager.java"
 grep -q 'IdleProcessState.isRoleActive' "$SRC/IdleReminderManager.java"
-grep -q 'cancelAlarm(context, key)' "$SRC/IdleReminderManager.java"
+grep -q 'cancelAlarm(context, containerId, key)' "$SRC/IdleReminderManager.java"
 grep -q 'clearLegacyReminderCard(context, key)' "$SRC/IdleReminderManager.java"
 ! grep -q 'dismissSurface(context, key)' "$SRC/IdleReminderManager.java"
 grep -q 'String instanceId = intent.getStringExtra(EXTRA_INSTANCE_ID)' "$SRC/IdleReminderManager.java"

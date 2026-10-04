@@ -106,12 +106,13 @@ public final class MainActivity extends AppCompatActivity {
         this.appliedMaterialYou = AppPreferences.isMaterialYouEnabled(this);
         Ui.applySelectedTheme(this);
         super.onCreate(bundle);
+        AccountContainerStore.ensureInitialized(this);
+        selectAccountFromIntent(getIntent());
         PhoneWearSync.pushAll(this);
         if (routeToOnboarding(getIntent())) {
             return;
         }
         this.dark = Ui.isDark(this);
-        AccountContainerStore.ensureInitialized(this);
         Ui.Page page = Ui.installPage(this, "", false);
         page.toolbar.setExpandable(false);
         page.toolbar.setExpanded(false, false);
@@ -337,11 +338,19 @@ public final class MainActivity extends AppCompatActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        selectAccountFromIntent(intent);
         if (routeToOnboarding(intent)) {
             return;
         }
         handleLaunchIntent(intent);
         rebuild();
+    }
+
+    private void selectAccountFromIntent(Intent intent) {
+        if (intent == null) return;
+        String containerId = intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
+        if (containerId == null || containerId.trim().isEmpty()) return;
+        AccountContainerStore.select(this, containerId.trim());
     }
 
     @Override // android.app.Activity

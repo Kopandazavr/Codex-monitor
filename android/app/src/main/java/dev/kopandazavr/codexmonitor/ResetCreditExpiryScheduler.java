@@ -97,21 +97,31 @@ public final class ResetCreditExpiryScheduler {
                 app.getSystemService(Context.ALARM_SERVICE);
         SharedPreferences preferences = prefs(app);
         String scopedKey = key(containerId);
-        Set<String> uris = preferences.getStringSet(scopedKey, null);
-        if (uris == null && AccountContainerStore.isLegacyOwner(app, containerId)) {
-            uris = preferences.getStringSet(KEY_ALARM_URIS, null);
-        }
-        if (manager != null && uris != null) {
-            for (String uri : new HashSet<>(uris)) {
-                Uri data = Uri.parse(uri);
+        Set<String> scopedUris = preferences.getStringSet(scopedKey, null);
+        if (manager != null && scopedUris != null) {
+            for (String uri : new HashSet<>(scopedUris)) {
                 PendingIntent pendingIntent = existingPending(
-                        app, containerId, data);
+                        app, containerId, Uri.parse(uri));
                 if (pendingIntent != null) {
                     manager.cancel(pendingIntent);
                     pendingIntent.cancel();
                 }
             }
         }
+
+        if (manager != null && AccountContainerStore.isLegacyOwner(app, containerId)) {
+            Set<String> legacyUris = preferences.getStringSet(KEY_ALARM_URIS, null);
+            if (legacyUris != null) {
+                for (String uri : new HashSet<>(legacyUris)) {
+                    PendingIntent legacy = existingLegacyPending(app, Uri.parse(uri));
+                    if (legacy != null) {
+                        manager.cancel(legacy);
+                        legacy.cancel();
+                    }
+                }
+            }
+        }
+
         SharedPreferences.Editor editor = preferences.edit().remove(scopedKey);
         if (AccountContainerStore.isLegacyOwner(app, containerId)) {
             editor.remove(KEY_ALARM_URIS);
@@ -135,6 +145,14 @@ public final class ResetCreditExpiryScheduler {
         return PendingIntent.getBroadcast(context,
                 requestCode(containerId),
                 baseIntent(context, containerId, data),
+                PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    private static PendingIntent existingLegacyPending(Context context, Uri data) {
+        Intent legacy = new Intent(context, ResetCreditExpiryReceiver.class)
+                .setAction(AppConstants.ACTION_RESET_CREDIT_EXPIRY_ALERT)
+                .setData(data);
+        return PendingIntent.getBroadcast(context, REQUEST_CODE, legacy,
                 PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
     }
 

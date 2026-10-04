@@ -207,6 +207,7 @@ public final class IdleReminderOverlayService extends Service {
     public void onDestroy() {
         removeRoot();
         roles.clear();
+        roleAccounts.clear();
         if (running == this) running = null;
         super.onDestroy();
     }
@@ -217,8 +218,14 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     private boolean showRole(IdleProcessState.IdleRole idle) {
+        return showRole(AccountContainerStore.selectedId(this), idle);
+    }
+
+    private boolean showRole(String containerId, IdleProcessState.IdleRole idle) {
         if (windowManager == null) return false;
-        roles.put(completionKey(idle), idle);
+        String entryKey = completionKey(containerId, idle);
+        roles.put(entryKey, idle);
+        roleAccounts.put(entryKey, containerId);
         ensureRoot();
         rebuildEntries();
         return overlayRoot != null;

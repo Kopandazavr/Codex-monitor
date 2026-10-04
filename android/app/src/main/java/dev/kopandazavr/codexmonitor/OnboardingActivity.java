@@ -629,16 +629,9 @@ public final class OnboardingActivity extends AppCompatActivity {
                 .setMessage("This removes encrypted ChatGPT tokens and cached usage from this device.")
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Sign out", (dialog, which) -> {
-                    AuthTokens tokens = SecureTokenStore.load(this);
-                    SecureTokenStore.clear(this);
-                    AppPreferences.clearSnapshot(this);
-                    AppPreferences.setOAuthPending(this, false, "");
-                    RefreshScheduler.cancelAll(this);
-                    ResetAlertScheduler.cancelAll(this);
-                    NowBarManager.stop(this, false);
-                    ProcessNotificationScheduler.cancel(this);
-                    ProcessNotificationManager.clearAll(this);
-                    WidgetRenderer.updateAll(this);
+                    String containerId = AccountContainerStore.selectedId(this);
+                    AuthTokens tokens =
+                            AccountContainerLifecycle.disconnectChatGPT(this, containerId);
                     Toast.makeText(this, "Signed out.", Toast.LENGTH_SHORT).show();
                     render();
                     if (tokens != null) {

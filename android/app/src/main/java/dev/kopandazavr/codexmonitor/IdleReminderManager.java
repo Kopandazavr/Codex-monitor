@@ -162,6 +162,12 @@ final class IdleReminderManager {
 
     private static void deliverFreshCompletion(Context context,
             IdleProcessState.IdleRole idle, long nowMillis) {
+        deliverFreshCompletion(context, AccountContainerStore.selectedId(context),
+                idle, nowMillis);
+    }
+
+    private static void deliverFreshCompletion(Context context, String containerId,
+            IdleProcessState.IdleRole idle, long nowMillis) {
         if (context == null || idle == null || !idle.reminderEnabled
                 || idle.lastFinishedMillis <= 0L || nowMillis < idle.lastFinishedMillis) {
             return;
@@ -170,7 +176,7 @@ final class IdleReminderManager {
         if (age > COMPLETION_FRESH_MS) return;
 
         SharedPreferences prefs = preferences(context);
-        String key = completionPreferenceKey(idle);
+        String key = completionPreferenceKey(containerId, idle);
         if (prefs.getLong(key, 0L) == idle.lastFinishedMillis) return;
 
         // Mark before side effects so the same logical completion cannot recursively re-enter.
@@ -182,11 +188,12 @@ final class IdleReminderManager {
         // delivered. When scheduling succeeds, defer the notification to the overlay service,
         // which posts it synchronously after WindowManager.addView(). If scheduling is
         // unavailable, preserve notification delivery as a direct fallback.
-        boolean overlayScheduled = scheduleCompletionOverlay(context, idle);
+        boolean overlayScheduled = scheduleCompletionOverlay(context, containerId, idle);
         boolean completionNotificationPosted = false;
         if (!overlayScheduled) {
             completionNotificationPosted =
-                    ProcessNotificationManager.postCompletionAlert(context, idle, nowMillis);
+                    ProcessNotificationManager.postCompletionAlert(
+                            context, containerId, idle, nowMillis);
         }
         DiagnosticLog.info(context, "idle_process", "completion_dispatched",
                 "role", idle.displayLabel(), "finished_at", idle.lastFinishedMillis,

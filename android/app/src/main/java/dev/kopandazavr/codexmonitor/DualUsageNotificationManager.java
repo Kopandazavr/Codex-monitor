@@ -35,9 +35,11 @@ final class DualUsageNotificationManager {
     }
 
     static boolean postFromSnapshot(Context context, String containerId, UsageSnapshot snapshot) {
-        if (context == null || snapshot == null || !NowBarManager.isActive(context)
-                || !NowBarManager.canPostNotifications(context)) {
+        if (context == null || snapshot == null || !NowBarManager.canPostNotifications(context)) {
             return false;
+        }
+        if (NowBarManager.ownsSelectedSurface(context, containerId)) {
+            return NowBarManager.repostActive(context);
         }
         AlertSoundManager.ensureChannels(context);
         SurfaceState state = surfaceState(context, containerId, snapshot);
@@ -74,7 +76,7 @@ final class DualUsageNotificationManager {
 
     static boolean realertUsageSurface(Context context, String containerId, String alertChannelId,
             String alertTitle, String alertText) {
-        if (context == null || alertChannelId == null || !NowBarManager.isActive(context)) {
+        if (context == null || alertChannelId == null) {
             return false;
         }
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
@@ -183,10 +185,6 @@ final class DualUsageNotificationManager {
 
     static boolean repostFromCache(Context context, String containerId) {
         if (context == null) return false;
-        if (!NowBarManager.isActive(context)) {
-            ProcessNotificationManager.clearAll(context, containerId);
-            return false;
-        }
         UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
         return snapshot != null && postFromSnapshot(context, containerId, snapshot);
     }
@@ -297,6 +295,7 @@ final class DualUsageNotificationManager {
             String channelId, SurfaceState state, String title, String text,
             boolean onlyAlertOnce) {
         Intent open = new Intent(context, MainActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context,
                 AccountNotificationNamespace.requestCode(containerId, "reset_content"), open,

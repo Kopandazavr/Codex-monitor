@@ -1,9 +1,11 @@
 package dev.kopandazavr.codexmonitor;
 
+import android.Manifest;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.os.Handler;
@@ -40,7 +42,7 @@ final class ProcessNotificationScheduler {
     }
 
     static void schedule(Context context) {
-        if (context == null || !NowBarManager.isActive(context)) {
+        if (context == null || !shouldRun(context)) {
             cancel(context);
             return;
         }
@@ -95,7 +97,7 @@ final class ProcessNotificationScheduler {
             if (!loopRunning) return;
             app = loopContext;
         }
-        if (app == null || !NowBarManager.isActive(app)) {
+        if (app == null || !shouldRun(app)) {
             cancel(app);
             return;
         }
@@ -110,7 +112,7 @@ final class ProcessNotificationScheduler {
             java.util.List<AccountContainerStore.Account> accounts,
             int index, long started) {
         synchronized (LOOP_LOCK) {
-            if (!loopRunning || loopContext == null || !NowBarManager.isActive(app)) {
+            if (!loopRunning || loopContext == null || !shouldRun(app)) {
                 loopRunning = false;
                 loopContext = null;
                 LOOP_HANDLER.removeCallbacks(POLL_TICK);
@@ -149,6 +151,16 @@ final class ProcessNotificationScheduler {
                 "accounts", accountsCount(app),
                 "duration_ms", elapsed);
         armRecovery(app);
+    }
+
+    static boolean shouldRun(Context context) {
+        if (context == null) return false;
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            if (GoogleCalendarAuthorization.isConnected(context, account.id)) return true;
+        }
+        return LocalCalendarFallbackOwner.owner(context) != null
+                && context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
+                == PackageManager.PERMISSION_GRANTED;
     }
 
     private static int accountsCount(Context context) {

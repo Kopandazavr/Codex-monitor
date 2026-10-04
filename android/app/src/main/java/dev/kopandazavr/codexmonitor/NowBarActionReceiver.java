@@ -24,6 +24,7 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
             DualUsageNotificationManager.repostDelayed(context, 450L);
         } else if (NowBarManager.ACTION_REFRESH.equals(action)) {
             String containerId = containerFromIntent(context, intent);
+            if (containerId == null) return;
             String correlationId = "manual-calendar-" + System.currentTimeMillis();
             DiagnosticLog.info(context, "notification", "remote_refresh_requested",
                     "source", "manual_notification_refresh",
@@ -47,19 +48,17 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
                 }
             });
         } else if (ProcessNotificationScheduler.ACTION_REFRESH.equals(action)) {
-            if (!NowBarManager.isActive(context)) {
-                DiagnosticLog.info(context, "notification", "local_repaint_suppressed",
-                        "reason", "monitor_inactive");
-                ProcessNotificationScheduler.cancel(context);
-                ProcessNotificationManager.clearAll(context);
-            } else {
-                ProcessNotificationScheduler.recover(context.getApplicationContext());
-            }
+            ProcessNotificationScheduler.recover(context.getApplicationContext());
         } else if (NowBarManager.ACTION_DISMISSED.equals(action)) {
+            String containerId = containerFromIntent(context, intent);
+            if (containerId == null) return;
             DiagnosticLog.info(context, "notification", "notification_action",
-                    "source", "dismissed");
-            NowBarManager.onUserDismissed(context);
-            DualUsageNotificationManager.repostDelayed(context, 500L);
+                    "source", "dismissed",
+                    "container_id", containerId);
+            if (NowBarManager.ownsSelectedSurface(context, containerId)) {
+                NowBarManager.onUserDismissed(context);
+            }
+            DualUsageNotificationManager.repostDelayed(context, containerId, 500L);
         } else if (NowBarResetReminder.ACTION_TOGGLE.equals(action)) {
             DiagnosticLog.info(context, "notification", "notification_action",
                     "source", "limit_bell_toggle",
@@ -92,9 +91,9 @@ public final class NowBarActionReceiver extends BroadcastReceiver {
     private static String containerFromIntent(Context context, Intent intent) {
         String containerId = intent == null
                 ? "" : intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
-        if (containerId != null && !containerId.trim().isEmpty()
-                && AccountContainerStore.find(context, containerId.trim()) != null) {
-            return containerId.trim();
+        if (containerId != null && !containerId.trim().isEmpty()) {
+            String explicit = containerId.trim();
+            return AccountContainerStore.find(context, explicit) == null ? null : explicit;
         }
         return AccountContainerStore.selectedId(context);
     }

@@ -337,10 +337,7 @@ public final class SettingsActivity extends AppCompatActivity {
             if (!account.id.equals(AccountContainerStore.selectedId(context))) {
                 labels.add("Select");
                 actions.add(() -> {
-                    AccountContainerStore.select(requireContext(), account.id);
-                    WidgetRenderer.updateAll(requireContext());
-                    DualUsageNotificationManager.repostFromCache(
-                            requireContext(), account.id);
+                    ForegroundAccountCoordinator.select(requireContext(), account.id);
                     refreshAccountsPage();
                 });
             }
@@ -353,7 +350,7 @@ public final class SettingsActivity extends AppCompatActivity {
 
             labels.add("Connections & permissions");
             actions.add(() -> {
-                AccountContainerStore.select(requireContext(), account.id);
+                ForegroundAccountCoordinator.select(requireContext(), account.id);
                 startActivity(new Intent(requireContext(), OnboardingActivity.class)
                         .putExtra(OnboardingActivity.EXTRA_PERMISSIONS_CONNECTIONS, true));
             });

@@ -79,7 +79,7 @@ final class AccountSwitcherView {
             int index = item.getItemId() - 1000;
             if (index < 0 || index >= accounts.size()) return false;
             AccountContainerStore.Account account = accounts.get(index);
-            if (AccountContainerStore.select(activity, account.id)) {
+            if (ForegroundAccountCoordinator.select(activity, account.id)) {
                 bindAppearance(activity, anchor);
                 if (listener != null) listener.onAccountSelected(account);
             }
@@ -114,8 +114,11 @@ final class AccountSwitcherView {
                         Toast.makeText(activity, "Enter an account name.", Toast.LENGTH_SHORT).show();
                         return;
                     }
+                    String previousContainerId = AccountContainerStore.selectedId(activity);
                     AccountContainerStore.Account account =
                             AccountContainerStore.create(activity, name);
+                    ForegroundAccountCoordinator.afterImplicitSelection(
+                            activity, previousContainerId);
                     dialog.dismiss();
                     if (listener != null) listener.onAccountCreated(account);
                 }));

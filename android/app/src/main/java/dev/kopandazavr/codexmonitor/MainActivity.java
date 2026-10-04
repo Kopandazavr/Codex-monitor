@@ -181,8 +181,7 @@ public final class MainActivity extends AppCompatActivity {
         }
         invalidateOptionsMenu();
         rebuild();
-        WidgetRenderer.updateAll(this);
-        NowBarManager.restore(this);
+        // AccountSwitcherView already reconciled system surfaces before this callback.
     }
 
     @Override
@@ -350,7 +349,7 @@ public final class MainActivity extends AppCompatActivity {
         if (intent == null) return;
         String containerId = intent.getStringExtra(OAuthService.EXTRA_CONTAINER_ID);
         if (containerId == null || containerId.trim().isEmpty()) return;
-        AccountContainerStore.select(this, containerId.trim());
+        ForegroundAccountCoordinator.select(this, containerId.trim());
     }
 
     @Override // android.app.Activity
@@ -364,6 +363,10 @@ public final class MainActivity extends AppCompatActivity {
             recreate();
         } else {
             handleLaunchIntent(getIntent());
+            ForegroundAccountCoordinator.reconcile(this);
+            if (this.accountPill != null) {
+                AccountSwitcherView.bindAppearance(this, this.accountPill);
+            }
             rebuild();
             invalidateOptionsMenu();
         }

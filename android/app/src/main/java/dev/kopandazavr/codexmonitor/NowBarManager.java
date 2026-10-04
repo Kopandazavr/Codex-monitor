@@ -45,6 +45,7 @@ public final class NowBarManager {
     private static final String KEY_POSTED_PROMOTION_ALLOWED = "posted_promotion_allowed";
     private static final String KEY_PREVIEW = "preview";
     private static final String KEY_START_REASON = "start_reason";
+    private static final String KEY_POSTED_CONTAINER = "posted_container";
     private static final String KEY_UNTIL = "until";
     private static final String START_ACCELERATED = "accelerated";
     private static final String START_LOW = "low";
@@ -69,11 +70,12 @@ public final class NowBarManager {
     /** 2.19 product contract: monitoring is on whenever its usable prerequisites exist. */
     public static synchronized boolean ensureAlwaysOn(Context context) {
         if (context == null || isPreview(context)) return context != null && isPreview(context);
-        if (!SecureTokenStore.isSignedIn(context) || !canPostNotifications(context)) {
+        String containerId = AccountContainerStore.selectedId(context);
+        if (!SecureTokenStore.isSignedIn(context, containerId) || !canPostNotifications(context)) {
             if (hasStoredActiveState(context)) stop(context, false);
             return false;
         }
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
         if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
             if (hasStoredActiveState(context)) stop(context, false);
             return false;
@@ -90,8 +92,10 @@ public final class NowBarManager {
 
     private static boolean startInternal(Context context, String reason, String triggerFocus,
             long requestedUntil) {
-        DiagnosticLog.info(context, "now_bar", "start_requested", "reason", reason);
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+        String containerId = AccountContainerStore.selectedId(context);
+        DiagnosticLog.info(context, "now_bar", "start_requested",
+                "reason", reason, "container_id", containerId);
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
         if (snapshot == null || (snapshot.fiveHour == null && snapshot.longWindow() == null)) {
             DiagnosticLog.warn(context, "now_bar", "start_rejected",
                     "reason", "missing_usage");
@@ -214,7 +218,7 @@ public final class NowBarManager {
             long now = System.currentTimeMillis();
             long until = activeUntil(context);
             if (until <= now && START_MANUAL.equals(sessionStartReason(context))) {
-                UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+                UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, AccountContainerStore.selectedId(context));
                 long next = snapshot == null ? 0L : snapshot.nextResetMillis(now);
                 if (next > now) {
                     saveState(context, false, next, lockedFocusMetric(context), false, null,
@@ -390,6 +394,7 @@ public final class NowBarManager {
     public static synchronized void stop(Context context, boolean suppressAutoRestart) {
         long until = activeUntil(context);
         boolean wasActive = hasStoredActiveState(context);
+        String postedContainer = postedContainerId(context);
         DiagnosticLog.info(context, "now_bar", "stop_requested",
                 "was_active", wasActive,
                 "suppress_auto_restart", suppressAutoRestart);
@@ -401,6 +406,10 @@ public final class NowBarManager {
         NotificationManager manager = manager(context);
         if (manager != null) {
             try {
+                if (!postedContainer.isEmpty()) {
+                    manager.cancel(AccountNotificationNamespace.tag(postedContainer),
+                            NOTIFICATION_ID);
+                }
                 manager.cancel(NOTIFICATION_ID);
             } catch (RuntimeException exception) {
                 DiagnosticLog.error(context, "now_bar", "notification_cancel_failed",
@@ -459,8 +468,52 @@ public final class NowBarManager {
 
     public static boolean isPromoted(Context context) {
         NotificationManager manager = manager(context);
+        String containerId = AccountContainerStore.selectedId(context);
         return Build.VERSION.SDK_INT >= 36 && manager != null
-                && Api36.isPostedNotificationPromoted(manager, NOTIFICATION_ID);
+                && Api36.isPostedNotificationPromoted(
+                        manager, AccountNotificationNamespace.tag(containerId), NOTIFICATION_ID);
+    }
+
+    static boolean ownsSelectedSurface(Context context, String containerId) {
+        if (context == null || containerId == null) return false;
+        return containerId.equals(AccountContainerStore.selectedId(context))
+                && isActive(context)
+                && containerId.equals(postedContainerId(context));
+    }
+
+    static synchronized void onSelectedContainerChanged(
+            Context context, String previousContainerId) {
+        if (context == null) return;
+        String previous = previousContainerId == null ? "" : previousContainerId.trim();
+        NotificationManager manager = manager(context);
+        if (manager != null) {
+            try {
+                if (!previous.isEmpty()) {
+                    manager.cancel(AccountNotificationNamespace.tag(previous), NOTIFICATION_ID);
+                }
+                manager.cancel(NOTIFICATION_ID);
+            } catch (RuntimeException exception) {
+                DiagnosticLog.warn(context, "now_bar", "selection_surface_cancel_failed",
+                        "error", exception.getClass().getSimpleName());
+            }
+        }
+        AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarms != null) {
+            try {
+                alarms.cancel(endIntent(context));
+            } catch (RuntimeException ignored) {
+            }
+        }
+        state(context).edit().clear().apply();
+        if (!previous.isEmpty() && AccountContainerStore.find(context, previous) != null) {
+            DualUsageNotificationManager.repostFromCache(context, previous);
+        }
+        ensureAlwaysOn(context);
+    }
+
+    private static String postedContainerId(Context context) {
+        String value = state(context).getString(KEY_POSTED_CONTAINER, "");
+        return value == null ? "" : value.trim();
     }
 
     public static String postedDisplayMode(Context context) {
@@ -531,16 +584,25 @@ public final class NowBarManager {
         String estimate = UsageFormat.estimatedRemaining(pace);
         String text = fiveHourText + " · " + weeklyText
                 + (estimate.isEmpty() ? "" : " · " + estimate);
+        String containerId = AccountContainerStore.selectedId(context);
         Intent open = new Intent(context, MainActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(context, 8614, open,
+        PendingIntent contentIntent = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(containerId, "nowbar_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent refreshIntent = PendingIntent.getBroadcast(context, REQUEST_REFRESH,
-                new Intent(context, NowBarActionReceiver.class).setAction(ACTION_REFRESH),
+        Intent refresh = new Intent(context, NowBarActionReceiver.class)
+                .setAction(ACTION_REFRESH)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId);
+        PendingIntent refreshIntent = PendingIntent.getBroadcast(context,
+                AccountNotificationNamespace.requestCode(containerId, "nowbar_refresh"), refresh,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent dismissedIntent = PendingIntent.getBroadcast(context, REQUEST_DISMISSED,
-                new Intent(context, NowBarActionReceiver.class).setAction(ACTION_DISMISSED),
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        Intent dismissed = new Intent(context, NowBarActionReceiver.class)
+                .setAction(ACTION_DISMISSED)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId);
+        PendingIntent dismissedIntent = PendingIntent.getBroadcast(context,
+                AccountNotificationNamespace.requestCode(containerId, "nowbar_dismissed"),
+                dismissed, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Icon refreshActionIcon = Icon.createWithResource(context, R.drawable.ic_refresh);
         String displayMode = resolveDisplayMode(context);
 
@@ -557,7 +619,7 @@ public final class NowBarManager {
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setColor(accelerated ? Ui.warning(false) : Color.rgb(3, 129, 254))
                 .setShowWhen(false)
-                .setGroup(NotificationSurfaceContract.GROUP_KEY)
+                .setGroup(NotificationSurfaceContract.groupKey(containerId))
                 .setSortKey(NotificationSurfaceContract.SORT_USAGE);
         if (!preview) {
             builder.addAction(new Notification.Action.Builder(
@@ -623,8 +685,11 @@ public final class NowBarManager {
                 "remaining_percent", remaining,
                 "focus", focus);
         try {
-            manager.notify(NOTIFICATION_ID, notification);
+            manager.notify(AccountNotificationNamespace.tag(containerId),
+                    NOTIFICATION_ID, notification);
+            manager.cancel(NOTIFICATION_ID);
             state(context).edit()
+                    .putString(KEY_POSTED_CONTAINER, containerId)
                     .putString(KEY_POSTED_MODE, displayMode)
                     .putBoolean(KEY_POSTED_PROMOTION_ALLOWED,
                             canPostPromotedNotifications(context))
@@ -632,13 +697,16 @@ public final class NowBarManager {
             if (Build.VERSION.SDK_INT >= 36
                     && NowBarDisplayMode.ANDROID_LIVE_UPDATE.equals(displayMode)) {
                 new Handler(Looper.getMainLooper()).postDelayed(
-                        () -> Api36.logPostedPromotionState(manager, NOTIFICATION_ID), 1000L);
+                        () -> Api36.logPostedPromotionState(
+                                manager, AccountNotificationNamespace.tag(containerId),
+                                NOTIFICATION_ID), 1000L);
             }
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "notification_post_failed", exception,
                     "display_mode", displayMode);
             Log.w(TAG, "Could not post live monitor notification", exception);
             try {
+                manager.cancel(AccountNotificationNamespace.tag(containerId), NOTIFICATION_ID);
                 manager.cancel(NOTIFICATION_ID);
             } catch (RuntimeException ignored) {
             }
@@ -896,10 +964,11 @@ public final class NowBarManager {
         }
 
         static boolean isPostedNotificationPromoted(NotificationManager manager,
-                int notificationId) {
+                String notificationTag, int notificationId) {
             try {
                 for (StatusBarNotification active : manager.getActiveNotifications()) {
-                    if (active.getId() == notificationId) {
+                    if (active.getId() == notificationId
+                            && java.util.Objects.equals(active.getTag(), notificationTag)) {
                         return (active.getNotification().flags
                                 & Notification.FLAG_PROMOTED_ONGOING) != 0;
                     }
@@ -910,11 +979,13 @@ public final class NowBarManager {
             return false;
         }
 
-        static void logPostedPromotionState(NotificationManager manager, int notificationId) {
+        static void logPostedPromotionState(NotificationManager manager,
+                String notificationTag, int notificationId) {
             try {
                 StatusBarNotification[] activeNotifications = manager.getActiveNotifications();
                 for (StatusBarNotification active : activeNotifications) {
-                    if (active.getId() != notificationId) continue;
+                    if (active.getId() != notificationId
+                            || !java.util.Objects.equals(active.getTag(), notificationTag)) continue;
                     Notification posted = active.getNotification();
                     boolean promoted = (posted.flags & Notification.FLAG_PROMOTED_ONGOING) != 0;
                     Log.i(TAG, "Posted live monitor state: promotedFlag=" + promoted

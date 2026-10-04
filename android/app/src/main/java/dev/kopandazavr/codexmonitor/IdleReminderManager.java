@@ -46,29 +46,36 @@ final class IdleReminderManager {
 
     static void sync(Context context, List<CalendarProcess> active,
             List<IdleProcessState.IdleRole> visibleIdle, long nowMillis) {
+        sync(context, AccountContainerStore.selectedId(context),
+                active, visibleIdle, nowMillis);
+    }
+
+    static void sync(Context context, String containerId, List<CalendarProcess> active,
+            List<IdleProcessState.IdleRole> visibleIdle, long nowMillis) {
         if (context == null) return;
-        Set<String> enabledKeys = enabledKeys(context);
+        Set<String> enabledKeys = enabledKeys(context, containerId);
         if (active != null) {
             for (CalendarProcess process : active) {
                 String key = IdleProcessState.roleKey(context, process);
-                cancelAlarm(context, key);
-                clearLegacyReminderCard(context, key);
+                cancelAlarm(context, containerId, key);
+                clearLegacyReminderCard(context, containerId, key);
             }
         }
         for (IdleProcessState.IdleRole completion :
-                IdleProcessState.recentCompletions(context, nowMillis, COMPLETION_FRESH_MS)) {
+                IdleProcessState.recentCompletions(
+                        context, containerId, nowMillis, COMPLETION_FRESH_MS)) {
             if (!completion.reminderEnabled) continue;
             enabledKeys.add(completion.key);
-            deliverFreshCompletion(context, completion, nowMillis);
+            deliverFreshCompletion(context, containerId, completion, nowMillis);
         }
         if (visibleIdle != null) {
             for (IdleProcessState.IdleRole idle : visibleIdle) {
                 if (!idle.reminderEnabled) continue;
                 enabledKeys.add(idle.key);
-                schedule(context, idle, nowMillis);
+                schedule(context, containerId, idle, nowMillis);
             }
         }
-        saveEnabledKeys(context, enabledKeys);
+        saveEnabledKeys(context, containerId, enabledKeys);
     }
 
     static void onReminderToggled(Context context, String key, boolean enabled, long nowMillis) {

@@ -101,26 +101,58 @@ final class ProcessNotificationScheduler {
         }
 
         final long started = SystemClock.elapsedRealtime();
-        GoogleCalendarProcessSource.forceRefresh(app, () -> {
-            long elapsed = Math.max(0L, SystemClock.elapsedRealtime() - started);
-            DualUsageNotificationManager.repostForProcessChange(app);
-            Intent changed = new Intent(AppConstants.ACTION_PROCESS_UPDATED)
-                    .setPackage(app.getPackageName());
-            app.sendBroadcast(changed, AppConstants.INTERNAL_PERMISSION);
-            synchronized (LOOP_LOCK) {
-                if (!loopRunning || loopContext == null || !NowBarManager.isActive(app)) {
-                    loopRunning = false;
-                    loopContext = null;
-                    LOOP_HANDLER.removeCallbacks(POLL_TICK);
-                    return;
-                }
-                long delay = Math.max(0L, POLL_INTERVAL_MS - elapsed);
+        java.util.List<AccountContainerStore.Account> accounts =
+                new java.util.ArrayList<>(AccountContainerStore.all(app));
+        refreshAccountSequentially(app, accounts, 0, started);
+    }
+
+    private static void refreshAccountSequentially(Context app,
+            java.util.List<AccountContainerStore.Account> accounts,
+            int index, long started) {
+        synchronized (LOOP_LOCK) {
+            if (!loopRunning || loopContext == null || !NowBarManager.isActive(app)) {
+                loopRunning = false;
+                loopContext = null;
                 LOOP_HANDLER.removeCallbacks(POLL_TICK);
-                LOOP_HANDLER.postDelayed(POLL_TICK, delay);
+                return;
             }
-            // Keep a coarse wake-up armed relative to the most recent completed attempt.
-            armRecovery(app);
+        }
+        if (index >= accounts.size()) {
+            finishPollCycle(app, started);
+            return;
+        }
+
+        AccountContainerStore.Account account = accounts.get(index);
+        GoogleCalendarProcessSource.forceRefresh(app, account.id, () -> {
+            DualUsageNotificationManager.repostForProcessChange(app, account.id);
+            refreshAccountSequentially(app, accounts, index + 1, started);
         });
+    }
+
+    private static void finishPollCycle(Context app, long started) {
+        long elapsed = Math.max(0L, SystemClock.elapsedRealtime() - started);
+        Intent changed = new Intent(AppConstants.ACTION_PROCESS_UPDATED)
+                .setPackage(app.getPackageName());
+        app.sendBroadcast(changed, AppConstants.INTERNAL_PERMISSION);
+        synchronized (LOOP_LOCK) {
+            if (!loopRunning || loopContext == null || !NowBarManager.isActive(app)) {
+                loopRunning = false;
+                loopContext = null;
+                LOOP_HANDLER.removeCallbacks(POLL_TICK);
+                return;
+            }
+            long delay = Math.max(0L, POLL_INTERVAL_MS - elapsed);
+            LOOP_HANDLER.removeCallbacks(POLL_TICK);
+            LOOP_HANDLER.postDelayed(POLL_TICK, delay);
+        }
+        DiagnosticLog.info(app, "calendar_process", "calendar_poll_cycle_completed",
+                "accounts", accountsCount(app),
+                "duration_ms", elapsed);
+        armRecovery(app);
+    }
+
+    private static int accountsCount(Context context) {
+        return AccountContainerStore.all(context).size();
     }
 
     private static void registerNetworkRecovery(Context context) {

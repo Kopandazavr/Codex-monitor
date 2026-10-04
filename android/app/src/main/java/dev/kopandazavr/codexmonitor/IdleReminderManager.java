@@ -356,10 +356,16 @@ final class IdleReminderManager {
         scheduleAt(context, containerId, idle, when);
     }
 
-    private static void scheduleAt(Context context, IdleProcessState.IdleRole idle, long whenMillis) {
+    private static void scheduleAt(Context context, IdleProcessState.IdleRole idle,
+            long whenMillis) {
+        scheduleAt(context, AccountContainerStore.selectedId(context), idle, whenMillis);
+    }
+
+    private static void scheduleAt(Context context, String containerId,
+            IdleProcessState.IdleRole idle, long whenMillis) {
         AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarms == null) return;
-        PendingIntent pending = fireIntent(context, idle);
+        PendingIntent pending = fireIntent(context, containerId, idle);
         try {
             if (Build.VERSION.SDK_INT < 31 || alarms.canScheduleExactAlarms()) {
                 alarms.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMillis, pending);

@@ -107,10 +107,8 @@ public final class UsageApi {
                 if (selected) PhoneWearSync.pushUsage(context, usageSnapshot);
                 try {
                     // Explicit refreshes force this request; periodic work retains the normal TTL.
-                    if (selected) {
-                        SubscriptionApi.refreshAndCacheLocked(context, authTokens,
-                                forceSubscription, safeTrigger);
-                    }
+                    SubscriptionApi.refreshAndCacheLocked(context, containerId, authTokens,
+                            forceSubscription, safeTrigger);
                 } catch (RuntimeException exception) {
                     DiagnosticLog.error(context, "refresh", "subscription_side_refresh_failed",
                             exception, "trigger", safeTrigger);

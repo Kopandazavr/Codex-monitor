@@ -417,8 +417,13 @@ final class IdleReminderManager {
     }
 
     private static void saveEnabledKeys(Context context, Set<String> keys) {
+        saveEnabledKeys(context, AccountContainerStore.selectedId(context), keys);
+    }
+
+    private static void saveEnabledKeys(Context context, String containerId, Set<String> keys) {
         preferences(context).edit()
-                .putStringSet(KEY_ENABLED_KEYS, new HashSet<>(keys)).apply();
+                .putStringSet(scopedKey(containerId, KEY_ENABLED_KEYS), new HashSet<>(keys))
+                .apply();
     }
 
     private static String completionIntentKey(IdleProcessState.IdleRole idle) {

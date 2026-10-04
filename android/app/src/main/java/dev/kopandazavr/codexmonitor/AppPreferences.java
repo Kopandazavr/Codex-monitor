@@ -105,11 +105,11 @@ public final class AppPreferences {
                     .remove(KEY_HISTORY_MONTHLY).remove(KEY_REFRESH_FAILURES);
         }
         editor.apply();
+        ResetNotificationManager.clearContainerState(context, containerId);
+        ResetCreditExpiryScheduler.cancelAll(context, containerId);
         if (containerId.equals(AccountContainerStore.selectedId(context))) {
             NowBarManager.stop(context);
             NowBarPreferences.clearSuppression(context);
-            ResetNotificationManager.clearState(context);
-            ResetCreditExpiryScheduler.cancelAll(context);
             PhoneWearSync.pushUsage(context, null);
         }
     }

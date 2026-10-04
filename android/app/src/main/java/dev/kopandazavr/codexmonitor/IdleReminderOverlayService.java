@@ -319,6 +319,18 @@ public final class IdleReminderOverlayService extends Service {
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
 
+        if (AccountContainerStore.all(this).size() > 1) {
+            AccountContainerStore.Account account =
+                    AccountContainerStore.find(this, containerId);
+            if (account != null) {
+                TextView accountView = text(account.name, 12f,
+                        AccountContainerStore.accentColor(account));
+                LinearLayout.LayoutParams accountParams = matchWrap();
+                accountParams.setMargins(0, 0, 0, dp(3));
+                copy.addView(accountView, accountParams);
+            }
+        }
+
         String primaryRole = RoleProfileStore.displayLabelById(this, idle.key, idle.role);
         String role = primaryRole == null || primaryRole.isEmpty() ? "Watched role" : primaryRole;
         boolean hasProject = idle.project != null && !idle.project.isEmpty();
@@ -384,10 +396,13 @@ public final class IdleReminderOverlayService extends Service {
             bell.setOnClickListener(view -> {
                 strongHaptic();
                 long now = System.currentTimeMillis();
-                boolean enabled = IdleProcessState.toggleReminder(this, idle.key, now);
-                IdleReminderManager.onReminderToggled(this, idle.key, enabled, now);
-                refreshRoleEntries(idle.key);
-                DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
+                boolean enabled = IdleProcessState.toggleReminder(
+                        this, containerId, idle.key, now);
+                IdleReminderManager.onReminderToggled(
+                        this, containerId, idle.key, enabled, now);
+                refreshRoleEntries(containerId, idle.key);
+                DualUsageNotificationManager.repostForProcessChangeDelayed(
+                        this, containerId, 120L);
                 DiagnosticLog.info(this, "idle_process", "overlay_bell_toggled",
                         "role", idle.displayLabel(),
                         "enabled", enabled);

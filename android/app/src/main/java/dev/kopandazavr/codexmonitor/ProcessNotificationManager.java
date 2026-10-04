@@ -162,9 +162,11 @@ final class ProcessNotificationManager {
         AlertSoundManager.ensureChannels(context);
 
         Intent open = new Intent(context, MainActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context,
-                AccountNotificationNamespace.requestCode(accountId, "process_content"), open,
+                AccountNotificationNamespace.requestCode(
+                        containerId, "completion_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         String identity = notificationIdentity(
                 context, idle.project, idle.role, idle.topic, false);
@@ -458,9 +460,11 @@ final class ProcessNotificationManager {
             String title, long nowMillis, String channelId, String sortKey,
             boolean onlyAlertOnce) {
         Intent open = new Intent(context, MainActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, accountId)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(context,
-                AccountNotificationNamespace.requestCode(containerId, "completion_content"), open,
+                AccountNotificationNamespace.requestCode(
+                        accountId, "process_content"), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         int textColor = textColor(context);
         int activeCount = processes == null ? 0 : processes.size();

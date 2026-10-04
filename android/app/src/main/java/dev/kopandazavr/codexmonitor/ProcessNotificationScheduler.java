@@ -62,7 +62,7 @@ final class ProcessNotificationScheduler {
     }
 
     static void recover(Context context) {
-        if (context == null || !NowBarManager.isActive(context)) {
+        if (context == null || !shouldRun(context)) {
             cancel(context);
             return;
         }
@@ -137,7 +137,7 @@ final class ProcessNotificationScheduler {
                 .setPackage(app.getPackageName());
         app.sendBroadcast(changed, AppConstants.INTERNAL_PERMISSION);
         synchronized (LOOP_LOCK) {
-            if (!loopRunning || loopContext == null || !NowBarManager.isActive(app)) {
+            if (!loopRunning || loopContext == null || !shouldRun(app)) {
                 loopRunning = false;
                 loopContext = null;
                 LOOP_HANDLER.removeCallbacks(POLL_TICK);
@@ -181,9 +181,9 @@ final class ProcessNotificationScheduler {
                             synchronized (LOOP_LOCK) {
                                 app = loopContext;
                             }
-                            if (app == null || !NowBarManager.isActive(app)) return;
+                            if (app == null || !shouldRun(app)) return;
                             LOOP_HANDLER.post(() -> {
-                                if (NowBarManager.isActive(app)) {
+                                if (shouldRun(app)) {
                                     DiagnosticLog.info(app, "calendar_process",
                                             "calendar_poll_network_available");
                                     recover(app);

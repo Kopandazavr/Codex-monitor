@@ -51,7 +51,7 @@ final class IdleReminderManager {
             for (CalendarProcess process : active) {
                 String key = IdleProcessState.roleKey(context, process);
                 cancelAlarm(context, key);
-                dismissSurface(context, key);
+                clearLegacyReminderCard(context, key);
             }
         }
         for (IdleProcessState.IdleRole completion :
@@ -123,7 +123,7 @@ final class IdleReminderManager {
         List<CalendarProcess> active = CalendarProcessReader.active(context, now);
         if (IdleProcessState.isRoleActive(context, active, key)) {
             cancelAlarm(context, key);
-            dismissSurface(context, key);
+            clearLegacyReminderCard(context, key);
             return;
         }
 
@@ -198,10 +198,12 @@ final class IdleReminderManager {
     static void completionOverlayFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
         String key = intent.getStringExtra(EXTRA_ROLE_KEY);
+        String instanceId = intent.getStringExtra(EXTRA_INSTANCE_ID);
+        long eventId = intent.getLongExtra(EXTRA_EVENT_ID, 0L);
         long expectedFinished = intent.getLongExtra(EXTRA_FINISHED_AT, 0L);
-        IdleProcessState.IdleRole idle = IdleProcessState.find(context, key);
-        if (idle == null || !idle.reminderEnabled
-                || idle.lastFinishedMillis != expectedFinished) {
+        IdleProcessState.IdleRole idle = IdleProcessState.findCompletion(
+                context, key, instanceId, eventId, expectedFinished);
+        if (idle == null || !idle.reminderEnabled) {
             DiagnosticLog.info(context, "idle_process", "completion_overlay_alarm_ignored",
                     "reason", "stale_or_disabled");
             return;
@@ -380,12 +382,6 @@ final class IdleReminderManager {
             alarms.cancel(pending);
             pending.cancel();
         }
-    }
-
-    private static void dismissSurface(Context context, String key) {
-        cancelCompletionOverlayAlarm(context, key);
-        clearLegacyReminderCard(context, key);
-        IdleReminderOverlayService.dismiss(context, key);
     }
 
     private static void clearLegacyReminderCard(Context context, String key) {

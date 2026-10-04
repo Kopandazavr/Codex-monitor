@@ -110,7 +110,14 @@ final class IdleProcessState {
 
     static List<IdleRole> synchronize(Context context, List<CalendarProcess> active,
             List<CalendarProcess> recentlyFinished, long nowMillis) {
-        return synchronize(context, active, recentlyFinished,
+        return synchronize(context, AccountContainerStore.selectedId(context),
+                active, recentlyFinished, mergeObserved(active, recentlyFinished), nowMillis);
+    }
+
+    static List<IdleRole> synchronize(Context context, String containerId,
+            List<CalendarProcess> active, List<CalendarProcess> recentlyFinished,
+            long nowMillis) {
+        return synchronize(context, containerId, active, recentlyFinished,
                 mergeObserved(active, recentlyFinished), nowMillis);
     }
 
@@ -122,10 +129,17 @@ final class IdleProcessState {
     static List<IdleRole> synchronize(Context context, List<CalendarProcess> active,
             List<CalendarProcess> recentlyFinished, List<CalendarProcess> observed,
             long nowMillis) {
+        return synchronize(context, AccountContainerStore.selectedId(context),
+                active, recentlyFinished, observed, nowMillis);
+    }
+
+    static List<IdleRole> synchronize(Context context, String containerId,
+            List<CalendarProcess> active, List<CalendarProcess> recentlyFinished,
+            List<CalendarProcess> observed, long nowMillis) {
         if (context == null) return Collections.emptyList();
-        Map<String, MutableRole> rows = load(context);
+        Map<String, MutableRole> rows = load(context, containerId);
         Map<String, WatchdogInstanceState.PendingInstance> pending =
-                WatchdogInstanceState.load(context);
+                WatchdogInstanceState.load(context, containerId);
         Set<String> activeRoleKeys = new HashSet<>();
         Set<String> activeInstanceKeys = new HashSet<>();
 
@@ -187,7 +201,7 @@ final class IdleProcessState {
             boolean deadlineReached = instance.deadlineMillis <= nowMillis;
             boolean watchedEventDeleted = !deadlineReached && instance.eventId > 0L
                     && !CalendarProcessReader.eventExists(
-                    context, instance.eventId, instance.directSource);
+                    context, containerId, instance.eventId, instance.directSource);
             if (!deadlineReached && !watchedEventDeleted) continue;
             long finishedAt = watchedEventDeleted ? nowMillis : instance.deadlineMillis;
             promoteFinished(row, instance, finishedAt, context);
@@ -202,8 +216,8 @@ final class IdleProcessState {
             pending.remove(instance.storageKey);
         }
 
-        WatchdogInstanceState.save(context, pending);
-        save(context, rows);
+        WatchdogInstanceState.save(context, containerId, pending);
+        save(context, containerId, rows);
         List<IdleRole> visible = new ArrayList<>();
         for (MutableRole row : rows.values()) {
             if (activeRoleKeys.contains(row.key) || row.lastFinishedMillis <= 0L

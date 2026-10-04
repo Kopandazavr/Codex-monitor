@@ -130,6 +130,10 @@ public final class ResetNotificationManager {
     }
 
     public static void showResetNotification(Context context, String metric) {
+        showResetNotification(context, AccountContainerStore.selectedId(context), metric);
+    }
+
+    static void showResetNotification(Context context, String containerId, String metric) {
         String label;
         int id;
         if (ResetAlertPreferences.METRIC_WEEKLY.equals(metric)) {
@@ -145,7 +149,9 @@ public final class ResetNotificationManager {
         int layout = ResetAlertPreferences.METRIC_FIVE_HOUR.equals(metric)
                 ? R.layout.notification_reset_alert_five
                 : R.layout.notification_reset_alert_long;
-        postResetAlert(context, id, "Codex " + label + " usage reset",
+        String title = accountTitle(context, containerId,
+                "Codex " + label + " usage reset");
+        postResetAlert(context, containerId, id, title,
                 "Your " + label + " allowance should be available again. Refreshing usage now.",
                 id, layout);
     }
@@ -364,6 +370,12 @@ public final class ResetNotificationManager {
 
     private static boolean postResetAlert(Context context, int id, String title,
             String text, int requestCode, int layoutResId) {
+        return postResetAlert(context, AccountContainerStore.selectedId(context),
+                id, title, text, requestCode, layoutResId);
+    }
+
+    private static boolean postResetAlert(Context context, String containerId, int id, String title,
+            String text, int requestCode, int layoutResId) {
         NotificationManager manager = manager(context);
         if (manager == null) return false;
         String channel = createOperationalChannel(context, manager);
@@ -371,14 +383,19 @@ public final class ResetNotificationManager {
 
         if (NowBarManager.isActive(context)) {
             boolean alerted = DualUsageNotificationManager.realertResetSurface(
-                    context, channel, title, text, layoutResId);
-            if (alerted) DualUsageNotificationManager.repostDelayed(context, 5_000L);
+                    context, containerId, channel, title, text, layoutResId);
+            if (alerted) {
+                DualUsageNotificationManager.repostDelayed(context, containerId, 5_000L);
+            }
             return alerted;
         }
 
-        PendingIntent contentIntent = PendingIntent.getActivity(context, requestCode,
-                new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP
-                        | Intent.FLAG_ACTIVITY_SINGLE_TOP),
+        Intent open = new Intent(context, MainActivity.class)
+                .putExtra(OAuthService.EXTRA_CONTAINER_ID, containerId)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(context,
+                AccountNotificationNamespace.requestCode(
+                        containerId, "reset_notice_" + requestCode), open,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         RemoteViews alert = new RemoteViews(context.getPackageName(), layoutResId);
         alert.setTextViewText(R.id.notification_reset_alert_title, title);
@@ -397,7 +414,7 @@ public final class ResetNotificationManager {
                 .setCustomContentView(alert)
                 .setCustomBigContentView(alert)
                 .build();
-        manager.notify(id, notification);
+        manager.notify(AccountNotificationNamespace.tag(containerId), id, notification);
         return true;
     }
 
@@ -493,6 +510,13 @@ public final class ResetNotificationManager {
 
     private static SharedPreferences state(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private static String accountTitle(Context context, String containerId, String title) {
+        if (AccountContainerStore.all(context).size() <= 1) return title;
+        AccountContainerStore.Account account = AccountContainerStore.find(context, containerId);
+        return account == null || account.name.isEmpty()
+                ? title : title + " · " + account.name;
     }
 
     private static String createOperationalChannel(Context context, NotificationManager manager) {

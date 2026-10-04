@@ -78,38 +78,53 @@ final class ProcessNotificationManager {
      */
     static boolean reAlertIdleReminder(Context context, IdleProcessState.IdleRole idle,
             String alertChannelId, long nowMillis) {
+        return reAlertIdleReminder(context, AccountContainerStore.selectedId(context),
+                idle, alertChannelId, nowMillis);
+    }
+
+    static boolean reAlertIdleReminder(Context context, String containerId,
+            IdleProcessState.IdleRole idle, String alertChannelId, long nowMillis) {
         if (context == null || idle == null || alertChannelId == null) return false;
-        String mode = ProcessNotificationMode.current(context);
+        String mode = ProcessNotificationMode.current(context, containerId);
         if (ProcessNotificationMode.COMBINED.equals(mode)) {
-            return DualUsageNotificationManager.realertUsageSurface(context, alertChannelId,
+            return DualUsageNotificationManager.realertUsageSurface(
+                    context, containerId, alertChannelId,
                     notificationIdentity(context, idle.project, idle.role, "", false) + " is idle",
                     "Idle reminder · " + formatIdle(nowMillis - idle.lastFinishedMillis));
         }
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return false;
-        List<CalendarProcess> observed = CalendarProcessReader.observed(context, nowMillis);
+        List<CalendarProcess> observed =
+                CalendarProcessReader.observed(context, containerId, nowMillis);
         List<CalendarProcess> active = CalendarProcessReader.active(observed, nowMillis);
-        List<CalendarProcess> finished = CalendarProcessReader.recentlyFinished(observed, nowMillis);
+        List<CalendarProcess> finished =
+                CalendarProcessReader.recentlyFinished(observed, nowMillis);
         List<IdleProcessState.IdleRole> idleRoles =
-                IdleProcessState.synchronize(context, active, finished, observed, nowMillis);
+                IdleProcessState.synchronize(context, containerId,
+                        active, finished, observed, nowMillis);
+        String tag = AccountNotificationNamespace.tag(containerId);
         try {
             if (ProcessNotificationMode.GROUPED.equals(mode)) {
-                manager.notify(GROUPED_NOTIFICATION_ID,
-                        buildNotification(context, active, idleRoles, "Processes", nowMillis,
-                                alertChannelId, NotificationSurfaceContract.SORT_PROCESSES, false));
+                manager.notify(tag, GROUPED_NOTIFICATION_ID,
+                        buildNotification(context, containerId, active, idleRoles,
+                                accountTitle(context, containerId, "Processes"), nowMillis,
+                                alertChannelId, NotificationSurfaceContract.SORT_PROCESSES,
+                                false));
             } else {
-                manager.notify(idleNotificationId(idle.key),
-                        buildNotification(context, Collections.emptyList(),
+                manager.notify(tag, idleNotificationId(idle.key),
+                        buildNotification(context, containerId, Collections.emptyList(),
                                 Collections.singletonList(idle),
-                                notificationIdentity(context, idle.project, idle.role, "", false),
-                                nowMillis,
-                                alertChannelId, NotificationSurfaceContract.sortRole(idle.key), false));
+                                accountTitle(context, containerId,
+                                        notificationIdentity(context, idle.project,
+                                                idle.role, "", false)),
+                                nowMillis, alertChannelId,
+                                NotificationSurfaceContract.sortRole(idle.key), false));
             }
             return true;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "idle_process", "persistent_surface_realert_failed",
-                    exception, "role", idle.displayLabel());
+                    exception, "container_id", containerId, "role", idle.displayLabel());
             return false;
         }
     }

@@ -404,8 +404,16 @@ final class IdleReminderManager {
     }
 
     private static Set<String> enabledKeys(Context context) {
-        return new HashSet<>(preferences(context)
-                .getStringSet(KEY_ENABLED_KEYS, Collections.emptySet()));
+        return enabledKeys(context, AccountContainerStore.selectedId(context));
+    }
+
+    private static Set<String> enabledKeys(Context context, String containerId) {
+        SharedPreferences prefs = preferences(context);
+        String key = scopedKey(containerId, KEY_ENABLED_KEYS);
+        Set<String> fallback = AccountContainerStore.isLegacyOwner(context, containerId)
+                ? prefs.getStringSet(KEY_ENABLED_KEYS, Collections.emptySet())
+                : Collections.emptySet();
+        return new HashSet<>(prefs.getStringSet(key, fallback));
     }
 
     private static void saveEnabledKeys(Context context, Set<String> keys) {

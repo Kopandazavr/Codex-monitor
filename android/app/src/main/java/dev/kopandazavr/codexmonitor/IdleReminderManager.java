@@ -147,6 +147,8 @@ final class IdleReminderManager {
             return;
         }
 
+        // Recurring idle alarms never create completion overlays. Completion delivery remains
+        // a one-shot path owned by sync()/deliverFreshCompletion().
         boolean overlayShown = false;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);

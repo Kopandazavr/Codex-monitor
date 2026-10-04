@@ -27,6 +27,10 @@ public final class SecureTokenStore {
     }
 
     public static void save(Context context, AuthTokens authTokens) throws Exception {
+        save(context, AccountContainerStore.selectedId(context), authTokens);
+    }
+
+    static void save(Context context, String containerId, AuthTokens authTokens) throws Exception {
         synchronized (LOCK) {
             Cipher cipher = Cipher.getInstance(TRANSFORMATION);
             cipher.init(1, getOrCreateKey());
@@ -34,17 +38,29 @@ public final class SecureTokenStore {
             JSONObject jSONObject = new JSONObject();
             jSONObject.put("iv", Base64.getEncoder().encodeToString(cipher.getIV()));
             jSONObject.put("ct", Base64.getEncoder().encodeToString(bArrDoFinal));
-            if (!context.getSharedPreferences(PREFS, 0).edit().putString(KEY_BLOB, jSONObject.toString()).commit()) {
+            if (!context.getSharedPreferences(PREFS, 0).edit()
+                    .putString(blobKey(containerId), jSONObject.toString()).commit()) {
                 throw new Exception("Could not persist encrypted credentials.");
             }
         }
     }
 
     public static AuthTokens load(Context context) {
+        return load(context, AccountContainerStore.selectedId(context));
+    }
+
+    static AuthTokens load(Context context, String containerId) {
         AuthTokens authTokens = null;
         synchronized (LOCK) {
             SharedPreferences sharedPreferences = context.getSharedPreferences(PREFS, 0);
-            String string = sharedPreferences.getString(KEY_BLOB, null);
+            String scopedKey = blobKey(containerId);
+            String string = sharedPreferences.getString(scopedKey, null);
+            boolean legacy = false;
+            if ((string == null || string.isEmpty())
+                    && AccountContainerStore.isLegacyOwner(context, containerId)) {
+                string = sharedPreferences.getString(KEY_BLOB, null);
+                legacy = string != null && !string.isEmpty();
+            }
             if (string != null && !string.isEmpty()) {
                 try {
                     JSONObject jSONObject = new JSONObject(string);
@@ -57,8 +73,14 @@ public final class SecureTokenStore {
                         authTokensFromJson = null;
                     }
                     authTokens = authTokensFromJson;
+                    if (legacy && authTokens != null) {
+                        sharedPreferences.edit()
+                                .putString(scopedKey, string)
+                                .remove(KEY_BLOB)
+                                .commit();
+                    }
                 } catch (Exception e) {
-                    sharedPreferences.edit().remove(KEY_BLOB).commit();
+                    sharedPreferences.edit().remove(legacy ? KEY_BLOB : scopedKey).commit();
                 }
             }
         }
@@ -66,21 +88,31 @@ public final class SecureTokenStore {
     }
 
     public static boolean isSignedIn(Context context) {
-        return load(context) != null;
+        return isSignedIn(context, AccountContainerStore.selectedId(context));
+    }
+
+    static boolean isSignedIn(Context context, String containerId) {
+        return load(context, containerId) != null;
     }
 
     public static void clear(Context context) {
+        clear(context, AccountContainerStore.selectedId(context));
+    }
+
+    static void clear(Context context, String containerId) {
         synchronized (LOCK) {
-            context.getSharedPreferences(PREFS, 0).edit().clear().commit();
-            try {
-                KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
-                keyStore.load(null);
-                if (keyStore.containsAlias(KEY_ALIAS)) {
-                    keyStore.deleteEntry(KEY_ALIAS);
-                }
-            } catch (Exception e) {
+            SharedPreferences.Editor editor = context.getSharedPreferences(PREFS, 0)
+                    .edit().remove(blobKey(containerId));
+            if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+                editor.remove(KEY_BLOB);
             }
+            editor.commit();
         }
+    }
+
+    private static String blobKey(String containerId) {
+        String id = containerId == null ? "" : containerId.trim();
+        return KEY_BLOB + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
     private static SecretKey getOrCreateKey() throws Exception {

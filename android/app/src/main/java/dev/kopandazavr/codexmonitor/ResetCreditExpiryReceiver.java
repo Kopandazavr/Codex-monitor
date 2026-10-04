@@ -10,29 +10,42 @@ public final class ResetCreditExpiryReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         if (context == null || intent == null
                 || !AppConstants.ACTION_RESET_CREDIT_EXPIRY_ALERT.equals(intent.getAction())
-                || !SecureTokenStore.isSignedIn(context)
                 || !ResetAlertPreferences.enabled(context)
                 || !ResetAlertPreferences.resetCreditExpiryEnabled(context)) {
             return;
         }
+        String containerId = intent.getStringExtra(
+                ResetCreditExpiryScheduler.EXTRA_CONTAINER_ID);
+        if (containerId == null
+                || AccountContainerStore.find(context, containerId) == null) {
+            containerId = AccountContainerStore.selectedId(context);
+        }
+        if (!SecureTokenStore.isSignedIn(context, containerId)) return;
+
         String creditId = intent.getStringExtra(ResetCreditExpiryScheduler.EXTRA_CREDIT_ID);
         long expiresAt = intent.getLongExtra(
                 ResetCreditExpiryScheduler.EXTRA_EXPIRES_AT, 0L);
         long leadTime = intent.getLongExtra(
                 ResetCreditExpiryScheduler.EXTRA_LEAD_TIME, 0L);
         if (!ResetAlertPreferences.getResetCreditExpiryLeadTimes(context).contains(leadTime)
-                || !isStillAvailable(context, creditId, expiresAt)) {
+                || !isStillAvailable(context, containerId, creditId, expiresAt)) {
             return;
         }
         ResetNotificationManager.showResetCreditExpiryNotification(context,
-                creditId, expiresAt, leadTime);
+                containerId, creditId, expiresAt, leadTime);
         RefreshScheduler.scheduleImmediate(context);
         WidgetRenderer.updateAll(context);
     }
 
     static boolean isStillAvailable(Context context, String creditId, long expiresAt) {
+        return isStillAvailable(context, AccountContainerStore.selectedId(context),
+                creditId, expiresAt);
+    }
+
+    static boolean isStillAvailable(Context context, String containerId,
+            String creditId, long expiresAt) {
         if (expiresAt <= System.currentTimeMillis()) return false;
-        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(context);
+        ResetCreditsSnapshot snapshot = AppPreferences.loadResetCredits(context, containerId);
         if (snapshot == null) return false;
         for (RateLimitResetCredit credit : snapshot.credits) {
             if (credit == null || !credit.isAvailable()

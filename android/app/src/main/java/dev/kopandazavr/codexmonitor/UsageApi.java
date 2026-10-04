@@ -224,12 +224,6 @@ public final class UsageApi {
         }
     }
 
-    static void installCookieManager() {
-        // Usage and reset-credit requests authenticate exclusively with explicit Bearer headers.
-        // A process-global CookieHandler would let one account leak cookies into another account,
-        // so multi-account mode intentionally does not install one.
-    }
-
     static String safeMessage(Exception exc) {
         String message = exc == null ? "" : exc.getMessage();
         if (message == null || message.trim().isEmpty()) {

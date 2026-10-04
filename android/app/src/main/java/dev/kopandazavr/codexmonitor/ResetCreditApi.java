@@ -71,7 +71,6 @@ public final class ResetCreditApi {
         long started = SystemClock.elapsedRealtime();
         DiagnosticLog.info(app, "user", "reset_credit_use_requested");
         synchronized (UsageApi.NETWORK_LOCK) {
-            UsageApi.installCookieManager();
             AuthTokens tokens = UsageApi.usableTokens(app);
             ResetCreditsSnapshot credits = AppPreferences.loadResetCredits(app);
             long now = System.currentTimeMillis();

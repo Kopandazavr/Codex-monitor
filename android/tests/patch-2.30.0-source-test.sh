@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "2.30 source contract failed at line $LINENO" >&2' ERR
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 
@@ -15,9 +16,10 @@ grep -Fq '"codex_process_completion_v1"' "$SRC/AlertSoundManager.java"
 grep -Fq 'legacy.getImportance()' "$SRC/AlertSoundManager.java"
 grep -Fq 'legacy.getVibrationPattern()' "$SRC/AlertSoundManager.java"
 grep -Fq 'if (!overlayScheduled)' "$SRC/IdleReminderManager.java"
-grep -Fq 'IdleReminderOverlayService.showCompletion(context, idle)' "$SRC/IdleReminderManager.java"
+grep -Fq 'IdleReminderOverlayService.showCompletion(' "$SRC/IdleReminderManager.java"
+grep -Fq 'context, containerId, idle' "$SRC/IdleReminderManager.java"
 grep -Fq 'completion_notification_delegated_to_overlay' "$SRC/IdleReminderManager.java"
-grep -Fq 'boolean overlayVisible = showRole(idle);' "$SRC/IdleReminderOverlayService.java"
+grep -Fq 'boolean overlayVisible = showRole(containerId, idle);' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'COMPLETION_NOTIFICATION_AFTER_OVERLAY_MS = 500L' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'completion_notification_waiting_for_overlay_draw' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'completion_notification_after_overlay_draw_gap' "$SRC/IdleReminderOverlayService.java"

@@ -1586,21 +1586,19 @@ public final class MainActivity extends AppCompatActivity {
 
     public void signOut() {
         DiagnosticLog.info(this, "user", "sign_out_confirmed");
-        final AuthTokens authTokensLoad = SecureTokenStore.load(this);
-        SecureTokenStore.clear(this);
-        AppPreferences.clearSnapshot(this);
-        AppPreferences.setOAuthPending(this, false, "");
-        RefreshScheduler.cancelAll(this);
-        ResetAlertScheduler.cancelAll(this);
-        WidgetRenderer.updateAll(this);
+        final String containerId = AccountContainerStore.selectedId(this);
+        final AuthTokens authTokensLoad =
+                AccountContainerLifecycle.disconnectChatGPT(this, containerId);
         rebuild();
-        this.executor.execute(new Runnable() {
-            @Override
-            public void run() {
-                OAuthClient.revokeBestEffort(MainActivity.this.getApplicationContext(),
-                        authTokensLoad);
-            }
-        });
+        if (authTokensLoad != null) {
+            this.executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    OAuthClient.revokeBestEffort(MainActivity.this.getApplicationContext(),
+                            authTokensLoad);
+                }
+            });
+        }
     }
 
     public void requestPinWidget() {

@@ -21,18 +21,19 @@ final class CalendarProcess {
     final String project;
     final String projectShort;
     final String role;
+    final String roleIcon;
     final String topic;
     final String instanceId;
     final boolean directSource;
 
     CalendarProcess(long eventId, long beginMillis, long endMillis,
             String project, String role, String topic) {
-        this(eventId, beginMillis, endMillis, 0L, project, "", role, topic, "", false);
+        this(eventId, beginMillis, endMillis, 0L, project, "", role, "", topic, "", false);
     }
 
     private CalendarProcess(long eventId, long beginMillis, long endMillis,
             long providerUpdatedMillis, String project, String projectShort,
-            String role, String topic, String instanceId, boolean directSource) {
+            String role, String roleIcon, String topic, String instanceId, boolean directSource) {
         this.eventId = eventId;
         this.beginMillis = beginMillis;
         this.endMillis = endMillis;
@@ -40,6 +41,7 @@ final class CalendarProcess {
         this.project = clean(project);
         this.projectShort = clean(projectShort);
         this.role = clean(role);
+        this.roleIcon = clean(roleIcon);
         this.topic = clean(topic);
         this.instanceId = clean(instanceId);
         this.directSource = directSource;
@@ -70,10 +72,11 @@ final class CalendarProcess {
         String project = metadata.get("project");
         String projectShort = metadata.get("project_short");
         String role = metadata.get("role");
+        String roleIcon = metadata.get("role_icon");
         String topic = metadata.get("topic");
         String instanceId = metadata.get("instance_id");
         return new CalendarProcess(eventId, beginMillis, endMillis, providerUpdatedMillis,
-                project, projectShort, role, topic, instanceId, directSource);
+                project, projectShort, role, roleIcon, topic, instanceId, directSource);
     }
 
     static String rejectionReason(String title, String description,

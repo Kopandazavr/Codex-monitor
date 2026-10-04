@@ -24,12 +24,15 @@ final class RoleProfileStore {
         final String id;
         final List<String> aliases;
         final String primaryAlias;
+        final String roleIcon;
         final Set<String> calendarAliases;
 
-        Profile(String id, List<String> aliases, String primaryAlias, Set<String> calendarAliases) {
+        Profile(String id, List<String> aliases, String primaryAlias, String roleIcon,
+                Set<String> calendarAliases) {
             this.id = id;
             this.aliases = Collections.unmodifiableList(new ArrayList<>(aliases));
             this.primaryAlias = primaryAlias;
+            this.roleIcon = cleanIcon(roleIcon);
             this.calendarAliases = Collections.unmodifiableSet(new HashSet<>(calendarAliases));
         }
         boolean isCalendarAlias(String alias) {
@@ -41,13 +44,17 @@ final class RoleProfileStore {
         private final String profileId;
         private final RoleProfileEditState state;
         private final Map<String,String> externalOwners;
-        EditSession(String profileId, RoleProfileEditState state, Map<String,String> externalOwners) {
+        private final String roleIcon;
+        EditSession(String profileId, RoleProfileEditState state, Map<String,String> externalOwners,
+                String roleIcon) {
             this.profileId = profileId;
             this.state = state;
             this.externalOwners = new HashMap<>(externalOwners);
+            this.roleIcon = cleanIcon(roleIcon);
         }
         Profile profile() {
-            return new Profile(profileId, state.aliases(), state.primaryAlias(), state.calendarAliases());
+            return new Profile(profileId, state.aliases(), state.primaryAlias(), roleIcon,
+                    state.calendarAliases());
         }
         boolean isCalendarAlias(String alias) { return state.isCalendarAlias(alias); }
         String addAlias(String alias) { return state.addAlias(alias, externalOwners); }
@@ -62,7 +69,12 @@ final class RoleProfileStore {
     private RoleProfileStore() {}
 
     static synchronized Profile resolve(Context context, String incomingRole) {
+        return resolve(context, incomingRole, "");
+    }
+
+    static synchronized Profile resolve(Context context, String incomingRole, String incomingIcon) {
         String raw = ProjectProfileRules.collapseWhitespace(incomingRole);
+        String roleIcon = cleanIcon(incomingIcon);
         if (context == null || raw.isEmpty()) return null;
         String normalized = ProjectProfileRules.normalizeAlias(raw);
         List<MutableProfile> profiles = load(context);
@@ -71,6 +83,10 @@ final class RoleProfileStore {
         MutableProfile aliasOwner = findAliasOwner(profiles, normalized);
         if (aliasOwner != null) {
             boolean changed = aliasOwner.calendarAliases.add(normalized);
+            if (!roleIcon.isEmpty() && !roleIcon.equals(aliasOwner.roleIcon)) {
+                aliasOwner.roleIcon = roleIcon;
+                changed = true;
+            }
             if (!aliasOwner.id.equals(routes.get(normalized))) {
                 routes.put(normalized, aliasOwner.id);
                 changed = true;
@@ -82,6 +98,10 @@ final class RoleProfileStore {
         MutableProfile routed = findMutable(profiles, routes.get(normalized));
         if (routed != null) {
             boolean changed = false;
+            if (!roleIcon.isEmpty() && !roleIcon.equals(routed.roleIcon)) {
+                routed.roleIcon = roleIcon;
+                changed = true;
+            }
             if (!routed.hasAlias(normalized)) {
                 routed.aliases.add(raw);
                 changed = true;
@@ -92,7 +112,8 @@ final class RoleProfileStore {
         }
         routes.remove(normalized);
 
-        MutableProfile created = new MutableProfile("role-profile:" + UUID.randomUUID(), raw);
+        MutableProfile created = new MutableProfile(
+                "role-profile:" + UUID.randomUUID(), raw, roleIcon);
         created.aliases.add(raw);
         created.calendarAliases.add(normalized);
         profiles.add(created);
@@ -126,6 +147,28 @@ final class RoleProfileStore {
         return displayName(context, fallbackRole);
     }
 
+    static String displayLabel(Context context, String incomingRole) {
+        Profile profile = resolve(context, incomingRole);
+        String name = profile == null || profile.primaryAlias.isEmpty()
+                ? ProjectProfileRules.collapseWhitespace(incomingRole) : profile.primaryAlias;
+        return withIcon(profile == null ? "" : profile.roleIcon, name);
+    }
+
+    static String displayLabel(Context context, String incomingRole, String incomingIcon) {
+        Profile profile = resolve(context, incomingRole, incomingIcon);
+        String name = profile == null || profile.primaryAlias.isEmpty()
+                ? ProjectProfileRules.collapseWhitespace(incomingRole) : profile.primaryAlias;
+        return withIcon(profile == null ? incomingIcon : profile.roleIcon, name);
+    }
+
+    static String displayLabelById(Context context, String profileId, String fallbackRole) {
+        Profile profile = findById(context, profileId);
+        if (profile == null) return displayLabel(context, fallbackRole);
+        String name = profile.primaryAlias.isEmpty()
+                ? ProjectProfileRules.collapseWhitespace(fallbackRole) : profile.primaryAlias;
+        return withIcon(profile.roleIcon, name);
+    }
+
     static synchronized EditSession beginEdit(Context context, String id) {
         if (context == null) return null;
         List<MutableProfile> profiles = load(context);
@@ -134,7 +177,7 @@ final class RoleProfileStore {
         return new EditSession(target.id,
                 new RoleProfileEditState(target.id, target.aliases, target.primaryAlias,
                         target.calendarAliases),
-                externalOwners(profiles, target.id));
+                externalOwners(profiles, target.id), target.roleIcon);
     }
 
     private static synchronized String commitEdit(Context context, EditSession session) {
@@ -149,7 +192,8 @@ final class RoleProfileStore {
             if (owner != null && !owner.isEmpty()) return "That alias already belongs to " + owner + ".";
         }
 
-        MutableProfile replacement = new MutableProfile(session.profileId, session.state.primaryAlias());
+        MutableProfile replacement = new MutableProfile(
+                session.profileId, session.state.primaryAlias(), target.roleIcon);
         replacement.aliases.addAll(session.state.aliases());
         replacement.calendarAliases.addAll(session.state.calendarAliases());
         for (String calendarAlias : target.calendarAliases) {
@@ -247,15 +291,34 @@ final class RoleProfileStore {
         return null;
     }
 
+    private static String cleanIcon(String value) {
+        if (value == null) return "";
+        String clean = value.trim().replaceAll("\\s+", "");
+        if (clean.isEmpty()) return "";
+        int count = clean.codePointCount(0, clean.length());
+        if (count <= 8) return clean;
+        return clean.substring(0, clean.offsetByCodePoints(0, 8));
+    }
+
+    private static String withIcon(String icon, String name) {
+        String cleanName = ProjectProfileRules.collapseWhitespace(name);
+        String cleanIcon = cleanIcon(icon);
+        if (cleanIcon.isEmpty()) return cleanName;
+        if (cleanName.isEmpty()) return cleanIcon;
+        return cleanIcon + " " + cleanName;
+    }
+
     private static final class MutableProfile {
         final String id;
         final List<String> aliases = new ArrayList<>();
         final Set<String> calendarAliases = new HashSet<>();
         String primaryAlias;
+        String roleIcon;
 
-        MutableProfile(String id, String primaryAlias) {
+        MutableProfile(String id, String primaryAlias, String roleIcon) {
             this.id = id == null ? "" : id;
             this.primaryAlias = ProjectProfileRules.collapseWhitespace(primaryAlias);
+            this.roleIcon = cleanIcon(roleIcon);
         }
         boolean hasAlias(String normalized) {
             for (String alias : aliases) {
@@ -263,13 +326,16 @@ final class RoleProfileStore {
             }
             return false;
         }
-        Profile freeze() { return new Profile(id, aliases, primaryAlias, calendarAliases); }
+        Profile freeze() {
+            return new Profile(id, aliases, primaryAlias, roleIcon, calendarAliases);
+        }
 
         JSONObject toJson() {
             JSONObject json = new JSONObject();
             try {
                 json.put("id", id);
                 json.put("primary", primaryAlias);
+                json.put("role_icon", roleIcon);
                 JSONArray a = new JSONArray(); for (String alias : aliases) a.put(alias);
                 json.put("aliases", a);
                 JSONArray c = new JSONArray(); for (String alias : calendarAliases) c.put(alias);
@@ -279,7 +345,9 @@ final class RoleProfileStore {
         }
 
         static MutableProfile fromJson(JSONObject json) {
-            MutableProfile p = new MutableProfile(json.optString("id",""), json.optString("primary",""));
+            MutableProfile p = new MutableProfile(
+                    json.optString("id",""), json.optString("primary",""),
+                    json.optString("role_icon",""));
             JSONArray aliases = json.optJSONArray("aliases");
             if (aliases != null) {
                 for (int i=0;i<aliases.length();i++) {

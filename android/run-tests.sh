@@ -84,6 +84,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$FILTERED_TEST" \
   "$ROOT/tests/ProjectProfileRulesSelfTest.java" \
   "$ROOT/tests/CalendarProcessSelfTest.java" \
+  "$ROOT/tests/NowBarCopySelfTest.java" \
   "$ROOT/tests/WatchdogCanonicalizerSelfTest.java" \
   "$ROOT/tests/RoleProfileEditStateSelfTest.java" \
   "$ROOT/tests/RoleSessionHistorySelfTest.java" \
@@ -94,6 +95,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarProcessSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.NowBarCopySelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.WatchdogCanonicalizerSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleProfileEditStateSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.RoleSessionHistorySelfTest
@@ -381,6 +383,22 @@ grep -q 'ProjectProfileStore.resolve' "$SRC/MainActivity.java"
 grep -q 'ProjectSettingsDialog.show' "$SRC/MainActivity.java"
 grep -q 'ResetProgress.elapsedPercent' "$SRC/MainActivity.java"
 grep -q 'ResetProgress.elapsedPercent' "$SRC/DualUsageNotificationManager.java"
+# 2.39 role identity bootstrap + compact persistent reset copy.
+grep -Fq 'metadata.get("role_icon")' "$SRC/CalendarProcess.java"
+grep -Fq 'json.put("role_icon", roleIcon)' "$SRC/RoleProfileStore.java"
+grep -Fq 'resolve(Context context, String incomingRole, String incomingIcon)' "$SRC/RoleProfileStore.java"
+grep -Fq 'displayLabelById' "$SRC/RoleProfileStore.java"
+grep -Fq 'process.roleIcon' "$SRC/MainActivity.java"
+grep -Fq 'process.roleIcon' "$SRC/ProcessNotificationManager.java"
+grep -Fq 'displayLabelById(this, idle.key, idle.role)' "$SRC/IdleReminderOverlayService.java"
+grep -Fq 'metadata.append(" role_icon=")' "$SRC/GoogleCalendarProcessSource.java"
+grep -Fq 'compactDurationWithMinutes' "$ROOT/shared/src/main/java/dev/kopandazavr/codexmonitor/NowBarCopy.java"
+grep -Fq 'new StringBuilder("Reset in ")' "$SRC/DualUsageNotificationManager.java"
+grep -Fq 'text.append(" · ").append(resetTime)' "$SRC/DualUsageNotificationManager.java"
+! grep -Fq 'notificationLimitText("5-hour"' "$SRC/DualUsageNotificationManager.java"
+! grep -Fq 'notificationLimitText(longLabel' "$SRC/DualUsageNotificationManager.java"
+! grep -Fq '" · reset " + fiveResetTime' "$SRC/DualUsageNotificationManager.java"
+! grep -Fq '" · reset " + longResetTime' "$SRC/DualUsageNotificationManager.java"
 ! grep -R -q 'ResetProgress.timeRemainingPercent' "$SRC"
 grep -q 'RESET_LIME = 0xFFB7F34A' "$SRC/ResetProgress.java"
 grep -q 'acceleratedWarning && percent > 0' "$SRC/UsageWaveView.java"

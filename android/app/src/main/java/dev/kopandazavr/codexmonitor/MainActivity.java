@@ -663,7 +663,8 @@ public final class MainActivity extends AppCompatActivity {
         projectBadge.setOnClickListener(view -> ProjectSettingsDialog.show(
                 this, projectProfile.id, process.projectShort, this::onProjectProfileChanged));
         copy.addView(projectBadge, new LinearLayout.LayoutParams(-2, -2));
-        TextView role = Ui.text(this, RoleProfileStore.displayName(this, process.role),
+        TextView role = Ui.text(this,
+                RoleProfileStore.displayLabel(this, process.role, process.roleIcon),
                 14.0f, Ui.mainText(this.dark));
         role.setTypeface(Ui.mediumTypeface(this));
         role.setOnClickListener(roleSettingsAction);

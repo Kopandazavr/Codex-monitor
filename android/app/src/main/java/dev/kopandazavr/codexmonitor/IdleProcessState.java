@@ -310,7 +310,8 @@ final class IdleProcessState {
     static String roleKey(Context context, CalendarProcess process) {
         if (process == null
                 || !CalendarProcess.isCanonicalIdentity(process.project, process.role)) return "";
-        RoleProfileStore.Profile profile = RoleProfileStore.resolve(context, process.role);
+        RoleProfileStore.Profile profile = RoleProfileStore.resolve(
+                context, process.role, process.roleIcon);
         return profile == null ? roleKey(process) : profile.id;
     }
 

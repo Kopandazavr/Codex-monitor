@@ -19,6 +19,7 @@ public final class CalendarProcessSelfTest {
         testDirectSourceProvenance();
         testProviderUpdatedMarker();
         testStableInstanceIdentity();
+        testRoleIconMetadata();
         testCanonicalWorkWindow();
         System.out.println("CalendarProcess strict metadata/display/timing self-test passed.");
     }
@@ -199,6 +200,22 @@ public final class CalendarProcessSelfTest {
                 30_000L, 31_000L);
         require(legacy != null && legacy.instanceId.isEmpty(), "legacy instance_id optional");
         require("legacy-event:78".equals(legacy.identity()), "legacy identity keeps event ID");
+    }
+
+    private static void testRoleIconMetadata() {
+        CalendarProcess icon = CalendarProcess.fromEvent(
+                902L, "GPT_WATCHDOG|urgent|Data Matrix",
+                "codex_monitor_watchdog=v1 project=Data Matrix project_short=DM "
+                        + "role=Planner role_icon=📋 topic=scope instance_id=planner-icon",
+                30_000L, 31_000L);
+        require(icon != null, "role_icon watchdog parsed");
+        require("📋".equals(icon.roleIcon), "role_icon metadata preserved");
+
+        CalendarProcess legacy = CalendarProcess.fromEvent(
+                903L, "GPT_WATCHDOG|urgent|Data Matrix",
+                "codex_monitor_watchdog=v1 project=Data Matrix role=Planner topic=legacy",
+                30_000L, 31_000L);
+        require(legacy != null && legacy.roleIcon.isEmpty(), "legacy role_icon optional");
     }
 
     private static void testCanonicalWorkWindow() {

@@ -104,6 +104,29 @@ public final class NowBarCopy {
     }
 
     /**
+     * Persistent-notification reset countdown. Keeps minute precision even when days are present:
+     * 6d 2h 55m, 2h 22m, 18m. Zero/elapsed input is 0m.
+     */
+    public static String compactDurationWithMinutes(long durationMillis) {
+        if (durationMillis <= 0L) return "0m";
+        long minutes = Math.max(1L, TimeUnit.MILLISECONDS.toMinutes(durationMillis));
+        long days = minutes / TimeUnit.DAYS.toMinutes(1);
+        long hours = (minutes % TimeUnit.DAYS.toMinutes(1)) / TimeUnit.HOURS.toMinutes(1);
+        long remainingMinutes = minutes % TimeUnit.HOURS.toMinutes(1);
+        StringBuilder value = new StringBuilder();
+        if (days > 0L) value.append(days).append("d");
+        if (hours > 0L) {
+            if (value.length() > 0) value.append(' ');
+            value.append(hours).append("h");
+        }
+        if (remainingMinutes > 0L || value.length() == 0) {
+            if (value.length() > 0) value.append(' ');
+            value.append(remainingMinutes).append("m");
+        }
+        return value.toString();
+    }
+
+    /**
      * Compact remaining duration: {@code 2d 4h}, {@code 2d}, {@code 4h 20m}, {@code 4h},
      * or {@code 12m}. Prefer days and/or hours when those units are needed.
      */

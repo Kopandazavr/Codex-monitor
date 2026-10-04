@@ -173,11 +173,9 @@ final class DualUsageNotificationManager {
         }
         SubscriptionInfo subscription = SubscriptionStore.load(context);
         String planText = formatSubscription(subscription);
-        String fiveText = notificationLimitText("5-hour", fiveHour, observedAt, now);
-        String longText = notificationLimitText(longLabel, longWindow, observedAt, now);
-        String fallbackText = fiveText + " · " + longText
-                + (!resetElapsed(longWindow, observedAt, now) && !longResetTime.isEmpty()
-                ? " · " + longLabel + " reset: " + longResetTime : "");
+        String fiveText = notificationResetText(fiveHour, observedAt, now, fiveResetTime);
+        String longText = notificationResetText(longWindow, observedAt, now, longResetTime);
+        String fallbackText = fiveText + " · " + longText;
         return new SurfaceState(now, observedAt, fiveHour, longWindow, longLabel, focus,
                 paceWindow, fiveResetTime, longResetTime, processMode, processes, idleRoles,
                 subscription, planText, fallbackText, snapshot.longWindowIsMonthly());
@@ -269,10 +267,8 @@ final class DualUsageNotificationManager {
             views.setViewVisibility(R.id.notification_five_row, View.GONE);
         } else {
             views.setViewVisibility(R.id.notification_five_row, View.VISIBLE);
-            String fiveText = notificationLimitText("5-hour", fiveHour, observedAt, now);
-            if (!resetElapsed(fiveHour, observedAt, now) && !fiveResetTime.isEmpty()) {
-                fiveText += " · reset " + fiveResetTime;
-            }
+            String fiveText = notificationResetText(
+                    fiveHour, observedAt, now, fiveResetTime);
             views.setTextViewText(R.id.notification_five_text, fiveText);
             views.setTextColor(R.id.notification_five_text, textColor);
             bindLimitProgress(views, R.id.notification_five_progress,
@@ -285,10 +281,8 @@ final class DualUsageNotificationManager {
             views.setViewVisibility(R.id.notification_long_row, View.GONE);
         } else {
             views.setViewVisibility(R.id.notification_long_row, View.VISIBLE);
-            String longText = notificationLimitText(longLabel, longWindow, observedAt, now);
-            if (!resetElapsed(longWindow, observedAt, now) && !longResetTime.isEmpty()) {
-                longText += " · reset " + longResetTime;
-            }
+            String longText = notificationResetText(
+                    longWindow, observedAt, now, longResetTime);
             views.setTextViewText(R.id.notification_long_text, longText);
             views.setTextColor(R.id.notification_long_text, textColor);
             bindLimitProgress(views, R.id.notification_long_progress,
@@ -327,10 +321,18 @@ final class DualUsageNotificationManager {
         views.setViewVisibility(resetId, resetMode ? View.VISIBLE : View.GONE);
     }
 
-    private static String notificationLimitText(String label, UsageWindow window,
-            long observedAt, long now) {
-        String text = NowBarCopy.limitText(label, window, observedAt, now);
-        return resetElapsed(window, observedAt, now) ? text + " · cached" : text;
+    private static String notificationResetText(UsageWindow window,
+            long observedAt, long now, String resetTime) {
+        if (window == null) return "Reset in —";
+        long resetAt = window.effectiveResetAtMillis(observedAt);
+        if (resetAt <= 0L) return "Reset in —";
+        String duration = NowBarCopy.compactDurationWithMinutes(Math.max(0L, resetAt - now));
+        StringBuilder text = new StringBuilder("Reset in ").append(duration);
+        if (resetTime != null && !resetTime.isEmpty()) {
+            text.append(" · ").append(resetTime);
+        }
+        if (resetAt <= now) text.append(" · cached");
+        return text.toString();
     }
 
     private static boolean resetElapsed(UsageWindow window, long observedAt, long now) {

@@ -248,6 +248,9 @@ final class GoogleCalendarProcessSource {
                         metadata.append(" project_short=").append(process.projectShort);
                     }
                     if (!process.role.isEmpty()) metadata.append(" role=").append(process.role);
+                    if (!process.roleIcon.isEmpty()) {
+                        metadata.append(" role_icon=").append(process.roleIcon);
+                    }
                     if (!process.topic.isEmpty()) metadata.append(" topic=").append(process.topic);
                     if (!process.instanceId.isEmpty()) {
                         metadata.append(" instance_id=").append(process.instanceId);

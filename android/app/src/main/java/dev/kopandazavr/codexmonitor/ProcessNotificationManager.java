@@ -434,7 +434,8 @@ final class ProcessNotificationManager {
                 projectIdentity.isEmpty() ? View.GONE : View.VISIBLE);
 
         boolean single = group.processes.size() == 1;
-        String roleAndTopic = RoleProfileStore.displayName(context, process.role);
+        String roleAndTopic = RoleProfileStore.displayLabel(
+                context, process.role, process.roleIcon);
         if (single && !clean(process.topic).isEmpty()) {
             roleAndTopic = roleAndTopic.isEmpty()
                     ? clean(process.topic) : roleAndTopic + " · " + clean(process.topic);
@@ -503,7 +504,7 @@ final class ProcessNotificationManager {
         ProjectProfileStore.Profile profile = ProjectProfileStore.resolve(context, project);
         String compactProject = ProjectProfileStore.effectiveShort(profile);
         StringBuilder value = new StringBuilder(compactProject);
-        String cleanRole = RoleProfileStore.displayName(context, role);
+        String cleanRole = RoleProfileStore.displayLabel(context, role);
         if (!cleanRole.isEmpty()) appendSummaryPart(value, cleanRole);
         String cleanTopic = clean(topic);
         if (includeTopic && !cleanTopic.isEmpty()) appendSummaryPart(value, cleanTopic);

@@ -287,7 +287,7 @@ public final class IdleReminderOverlayService extends Service {
         LinearLayout copy = new LinearLayout(this);
         copy.setOrientation(LinearLayout.VERTICAL);
 
-        String primaryRole = RoleProfileStore.displayNameById(this, idle.key, idle.role);
+        String primaryRole = RoleProfileStore.displayLabelById(this, idle.key, idle.role);
         String role = primaryRole == null || primaryRole.isEmpty() ? "Watched role" : primaryRole;
         boolean hasProject = idle.project != null && !idle.project.isEmpty();
         if (hasProject) {

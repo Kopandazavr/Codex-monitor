@@ -163,13 +163,17 @@ final class DualUsageNotificationManager {
         }
     }
 
-    static void clearAccountSurface(Context context, String containerId) {
+    static void clearUsageSurface(Context context, String containerId) {
         if (context == null) return;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {
             manager.cancel(AccountNotificationNamespace.tag(containerId), NOTIFICATION_ID);
         }
+    }
+
+    static void clearAccountSurface(Context context, String containerId) {
+        clearUsageSurface(context, containerId);
         ProcessNotificationManager.clearAll(context, containerId);
     }
 

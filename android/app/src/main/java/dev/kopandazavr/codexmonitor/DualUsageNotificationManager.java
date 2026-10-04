@@ -162,13 +162,17 @@ final class DualUsageNotificationManager {
     }
 
     static boolean repostFromCache(Context context) {
+        return repostFromCache(context, AccountContainerStore.selectedId(context));
+    }
+
+    static boolean repostFromCache(Context context, String containerId) {
         if (context == null) return false;
         if (!NowBarManager.isActive(context)) {
-            ProcessNotificationManager.clearAll(context);
+            ProcessNotificationManager.clearAll(context, containerId);
             return false;
         }
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
-        return snapshot != null && postFromSnapshot(context, snapshot);
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
+        return snapshot != null && postFromSnapshot(context, containerId, snapshot);
     }
 
     /**
@@ -176,25 +180,35 @@ final class DualUsageNotificationManager {
      * upper usage notification untouched while process countdowns, bells, or idle rows change.
      */
     static boolean repostProcessesFromCache(Context context) {
+        return repostProcessesFromCache(context, AccountContainerStore.selectedId(context));
+    }
+
+    static boolean repostProcessesFromCache(Context context, String containerId) {
         if (context == null) return false;
         if (!NowBarManager.isActive(context)) {
-            ProcessNotificationManager.clearAll(context);
+            ProcessNotificationManager.clearAll(context, containerId);
             return false;
         }
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context);
+        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
         if (snapshot == null) return false;
-        SurfaceState state = surfaceState(context, snapshot);
+        SurfaceState state = surfaceState(context, containerId, snapshot);
         if (state == null) return false;
-        ProcessNotificationManager.sync(context, state.processes, state.idleRoles,
-                state.processMode, state.now);
+        ProcessNotificationManager.sync(context, containerId,
+                state.processes, state.idleRoles, state.processMode, state.now);
         ProcessNotificationScheduler.schedule(context);
         return true;
     }
 
     static boolean repostForProcessChange(Context context) {
+        return repostForProcessChange(context, AccountContainerStore.selectedId(context));
+    }
+
+    static boolean repostForProcessChange(Context context, String containerId) {
         if (context == null) return false;
-        return ProcessNotificationMode.COMBINED.equals(ProcessNotificationMode.current(context))
-                ? repostFromCache(context) : repostProcessesFromCache(context);
+        return ProcessNotificationMode.COMBINED.equals(
+                ProcessNotificationMode.current(context, containerId))
+                ? repostFromCache(context, containerId)
+                : repostProcessesFromCache(context, containerId);
     }
 
     static void repostForProcessChangeDelayed(Context context, long delayMillis) {

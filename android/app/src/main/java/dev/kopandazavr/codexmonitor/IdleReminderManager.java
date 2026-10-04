@@ -79,21 +79,27 @@ final class IdleReminderManager {
     }
 
     static void onReminderToggled(Context context, String key, boolean enabled, long nowMillis) {
-        Set<String> keys = enabledKeys(context);
+        onReminderToggled(context, AccountContainerStore.selectedId(context),
+                key, enabled, nowMillis);
+    }
+
+    static void onReminderToggled(Context context, String containerId, String key,
+            boolean enabled, long nowMillis) {
+        Set<String> keys = enabledKeys(context, containerId);
         if (enabled) {
             keys.add(key);
-            IdleProcessState.IdleRole idle = IdleProcessState.find(context, key);
+            IdleProcessState.IdleRole idle = IdleProcessState.find(context, containerId, key);
             if (idle != null) {
-                markCompletionBaseline(context, idle);
-                schedule(context, idle, nowMillis);
+                markCompletionBaseline(context, containerId, idle);
+                schedule(context, containerId, idle, nowMillis);
             }
         } else {
             keys.remove(key);
-            cancelAlarm(context, key);
-            cancelCompletionOverlayAlarm(context, key);
-            clearLegacyReminderCard(context, key);
+            cancelAlarm(context, containerId, key);
+            cancelCompletionOverlayAlarm(context, containerId, key);
+            clearLegacyReminderCard(context, containerId, key);
         }
-        saveEnabledKeys(context, keys);
+        saveEnabledKeys(context, containerId, keys);
     }
 
     static void dismissRowFromIntent(Context context, Intent intent) {

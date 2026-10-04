@@ -92,9 +92,11 @@ grep -Fq '"monthly" : "weekly"' "$SRC/DualUsageNotificationManager.java"
 grep -Fq 'RESTORABLE_METRICS = {"five_hour", "weekly", "monthly"}' "$SRC/NowBarResetReminder.java"
 grep -Fq 'setExactAndAllowWhileIdle' "$SRC/NowBarResetReminder.java"
 
-# Active process progress remains elapsed 0->100 and visible roles keep direct bells.
+# Active instance progress remains elapsed 0->100 and each visible role group keeps one direct bell.
 grep -Fq 'elapsedPercent' "$SRC/CalendarProcess.java"
-grep -Fq 'process.elapsedPercent' "$SRC/ProcessNotificationManager.java"
+grep -Fq 'instance.elapsedPercent' "$SRC/ProcessNotificationManager.java"
+grep -Fq 'ProcessRoleGroup.group(context, processes)' "$SRC/ProcessNotificationManager.java"
+grep -Fq 'IdleProcessState.isReminderEnabled(context, group.roleKey)' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'processes, idleRoles, nowMillis, true);' "$SRC/ProcessNotificationManager.java"
 
 # Notification/live-monitor IA remains direct and the old one/both selector stays hidden.

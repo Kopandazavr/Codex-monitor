@@ -243,14 +243,20 @@ final class ProcessNotificationManager {
     }
 
     private static void reconcileStaleCompletionAlerts(Context context) {
+        reconcileStaleCompletionAlerts(context, AccountContainerStore.selectedId(context));
+    }
+
+    private static void reconcileStaleCompletionAlerts(Context context, String containerId) {
         SharedPreferences state = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        if (state.getInt(KEY_COMPLETION_RECONCILED_VERSION, 0) >= AppConstants.VERSION_CODE) {
+        String versionKey = scopedKey(containerId, KEY_COMPLETION_RECONCILED_VERSION);
+        if (state.getInt(versionKey, 0) >= AppConstants.VERSION_CODE) {
             return;
         }
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return;
         int cleared = 0;
+        String tag = AccountNotificationNamespace.tag(containerId);
         try {
             if (Build.VERSION.SDK_INT >= 23) {
                 StatusBarNotification[] active = manager.getActiveNotifications();
@@ -263,20 +269,35 @@ final class ProcessNotificationManager {
                                         + COMPLETION_NOTIFICATION_RANGE) {
                             continue;
                         }
-                        manager.cancel(id);
+                        String itemTag = item.getTag();
+                        boolean accountMatch = tag.equals(itemTag);
+                        boolean legacyMatch = itemTag == null
+                                && AccountContainerStore.isLegacyOwner(context, containerId);
+                        if (!accountMatch && !legacyMatch) continue;
+                        if (accountMatch) {
+                            manager.cancel(tag, id);
+                        } else {
+                            manager.cancel(id);
+                        }
                         cleared++;
                     }
                 }
             }
-            state.edit().putInt(KEY_COMPLETION_RECONCILED_VERSION,
-                    AppConstants.VERSION_CODE).apply();
+            SharedPreferences.Editor editor = state.edit()
+                    .putInt(versionKey, AppConstants.VERSION_CODE);
+            if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+                editor.remove(KEY_COMPLETION_RECONCILED_VERSION);
+            }
+            editor.apply();
             DiagnosticLog.info(context, "notification",
                     "completion_notification_reconciled",
+                    "container_id", containerId,
                     "version_code", AppConstants.VERSION_CODE,
                     "cleared", cleared);
         } catch (RuntimeException exception) {
             DiagnosticLog.warn(context, "notification",
                     "completion_notification_reconcile_failed",
+                    "container_id", containerId,
                     "error", exception.getClass().getSimpleName());
         }
     }

@@ -323,11 +323,15 @@ final class DualUsageNotificationManager {
 
     private static String notificationResetText(UsageWindow window,
             long observedAt, long now, String resetTime) {
-        if (window == null) return "Reset in —";
+        if (window == null) return "—% · Reset in —";
+        int remainingPercent = window.remainingPercent();
         long resetAt = window.effectiveResetAtMillis(observedAt);
-        if (resetAt <= 0L) return "Reset in —";
+        if (resetAt <= 0L) return remainingPercent + "% · Reset in —";
         String duration = NowBarCopy.compactDurationWithMinutes(Math.max(0L, resetAt - now));
-        StringBuilder text = new StringBuilder("Reset in ").append(duration);
+        StringBuilder text = new StringBuilder()
+                .append(remainingPercent)
+                .append("% · Reset in ")
+                .append(duration);
         if (resetTime != null && !resetTime.isEmpty()) {
             text.append(" · ").append(resetTime);
         }

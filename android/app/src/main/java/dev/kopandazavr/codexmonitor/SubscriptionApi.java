@@ -21,11 +21,18 @@ final class SubscriptionApi {
     }
 
     static void refreshAndCacheLocked(Context context, AuthTokens tokens) {
-        refreshAndCacheLocked(context, tokens, false, "side_refresh");
+        refreshAndCacheLocked(context, AccountContainerStore.selectedId(context),
+                tokens, false, "side_refresh");
     }
 
     static void refreshAndCacheLocked(Context context, AuthTokens tokens, boolean force,
             String trigger) {
+        refreshAndCacheLocked(context, AccountContainerStore.selectedId(context),
+                tokens, force, trigger);
+    }
+
+    static void refreshAndCacheLocked(Context context, String containerId, AuthTokens tokens,
+            boolean force, String trigger) {
         if (context == null || tokens == null) return;
         long now = System.currentTimeMillis();
         String safeTrigger = trigger == null || trigger.trim().isEmpty()

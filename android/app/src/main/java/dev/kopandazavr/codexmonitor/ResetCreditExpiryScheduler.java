@@ -11,8 +11,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Schedules one alarm for each configured lead time and available reset credit. */
+/** Schedules one account-isolated alarm for each configured reset-credit reminder. */
 public final class ResetCreditExpiryScheduler {
+    static final String EXTRA_CONTAINER_ID = OAuthService.EXTRA_CONTAINER_ID;
     static final String EXTRA_CREDIT_ID = "expiry_credit_id";
     static final String EXTRA_EXPIRES_AT = "expiry_expires_at";
     static final String EXTRA_LEAD_TIME = "expiry_lead_time";
@@ -25,94 +26,144 @@ public final class ResetCreditExpiryScheduler {
     }
 
     public static void scheduleFromSnapshot(Context context, ResetCreditsSnapshot snapshot) {
+        scheduleFromSnapshot(
+                context, AccountContainerStore.selectedId(context), snapshot);
+    }
+
+    static void scheduleFromSnapshot(Context context, String containerId,
+            ResetCreditsSnapshot snapshot) {
         Context app = appContext(context);
         if (app == null) return;
-        cancelAll(app);
-        if (snapshot == null || !SecureTokenStore.isSignedIn(app)
+        cancelAll(app, containerId);
+        if (snapshot == null || !SecureTokenStore.isSignedIn(app, containerId)
                 || !ResetAlertPreferences.enabled(app)
                 || !ResetAlertPreferences.resetCreditExpiryEnabled(app)) {
             return;
         }
+
         List<ResetCreditExpiryReminder> reminders = ResetCreditExpiryReminder.plan(
-                snapshot.credits, ResetAlertPreferences.getResetCreditExpiryLeadTimes(app),
+                snapshot.credits,
+                ResetAlertPreferences.getResetCreditExpiryLeadTimes(app),
                 System.currentTimeMillis());
-        AlarmManager manager = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
+        AlarmManager manager = (AlarmManager)
+                app.getSystemService(Context.ALARM_SERVICE);
         if (manager == null) return;
+
         long now = System.currentTimeMillis();
         Set<String> scheduledUris = new HashSet<>();
         for (ResetCreditExpiryReminder reminder : reminders) {
             if (ResetNotificationManager.isResetCreditExpiryReminderAnnounced(
-                    app, reminder.token())) {
+                    app, containerId, reminder.token())) {
                 continue;
             }
-            Uri data = data(reminder.creditId, reminder.expiresAtMillis,
-                    reminder.leadTimeMillis);
-            PendingIntent pendingIntent = pending(app, data, reminder);
-            long triggerAt = Math.max(now + DELIVERY_GRACE_MS, reminder.triggerAtMillis);
+            Uri data = data(containerId, reminder.creditId,
+                    reminder.expiresAtMillis, reminder.leadTimeMillis);
+            PendingIntent pendingIntent = pending(
+                    app, containerId, data, reminder);
+            long triggerAt = Math.max(
+                    now + DELIVERY_GRACE_MS, reminder.triggerAtMillis);
             try {
                 if (Build.VERSION.SDK_INT < 31 || manager.canScheduleExactAlarms()) {
-                    manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                            triggerAt, pendingIntent);
+                    manager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
                 } else {
-                    manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                            triggerAt, pendingIntent);
+                    manager.setAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
                 }
                 scheduledUris.add(data.toString());
             } catch (SecurityException exception) {
-                manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,
-                        triggerAt, pendingIntent);
+                manager.setAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP, triggerAt, pendingIntent);
                 scheduledUris.add(data.toString());
             }
         }
-        prefs(app).edit().putStringSet(KEY_ALARM_URIS, scheduledUris).apply();
+        prefs(app).edit()
+                .putStringSet(key(containerId), scheduledUris)
+                .apply();
     }
 
     public static void cancelAll(Context context) {
         Context app = appContext(context);
         if (app == null) return;
-        AlarmManager manager = (AlarmManager) app.getSystemService(Context.ALARM_SERVICE);
-        Set<String> uris = prefs(app).getStringSet(KEY_ALARM_URIS, null);
+        for (AccountContainerStore.Account account : AccountContainerStore.all(app)) {
+            cancelAll(app, account.id);
+        }
+    }
+
+    static void cancelAll(Context context, String containerId) {
+        Context app = appContext(context);
+        if (app == null) return;
+        AlarmManager manager = (AlarmManager)
+                app.getSystemService(Context.ALARM_SERVICE);
+        SharedPreferences preferences = prefs(app);
+        String scopedKey = key(containerId);
+        Set<String> uris = preferences.getStringSet(scopedKey, null);
+        if (uris == null && AccountContainerStore.isLegacyOwner(app, containerId)) {
+            uris = preferences.getStringSet(KEY_ALARM_URIS, null);
+        }
         if (manager != null && uris != null) {
             for (String uri : new HashSet<>(uris)) {
-                PendingIntent pendingIntent = existingPending(app, Uri.parse(uri));
+                Uri data = Uri.parse(uri);
+                PendingIntent pendingIntent = existingPending(
+                        app, containerId, data);
                 if (pendingIntent != null) {
                     manager.cancel(pendingIntent);
                     pendingIntent.cancel();
                 }
             }
         }
-        prefs(app).edit().remove(KEY_ALARM_URIS).apply();
+        SharedPreferences.Editor editor = preferences.edit().remove(scopedKey);
+        if (AccountContainerStore.isLegacyOwner(app, containerId)) {
+            editor.remove(KEY_ALARM_URIS);
+        }
+        editor.apply();
     }
 
-    private static PendingIntent pending(Context context, Uri data,
+    private static PendingIntent pending(Context context, String containerId, Uri data,
             ResetCreditExpiryReminder reminder) {
-        Intent intent = baseIntent(context, data)
+        Intent intent = baseIntent(context, containerId, data)
                 .putExtra(EXTRA_CREDIT_ID, reminder.creditId)
                 .putExtra(EXTRA_EXPIRES_AT, reminder.expiresAtMillis)
                 .putExtra(EXTRA_LEAD_TIME, reminder.leadTimeMillis);
-        return PendingIntent.getBroadcast(context, REQUEST_CODE, intent,
+        return PendingIntent.getBroadcast(context,
+                requestCode(containerId), intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    private static PendingIntent existingPending(Context context, Uri data) {
-        return PendingIntent.getBroadcast(context, REQUEST_CODE, baseIntent(context, data),
+    private static PendingIntent existingPending(
+            Context context, String containerId, Uri data) {
+        return PendingIntent.getBroadcast(context,
+                requestCode(containerId),
+                baseIntent(context, containerId, data),
                 PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    private static Intent baseIntent(Context context, Uri data) {
+    private static Intent baseIntent(Context context, String containerId, Uri data) {
         return new Intent(context, ResetCreditExpiryReceiver.class)
                 .setAction(AppConstants.ACTION_RESET_CREDIT_EXPIRY_ALERT)
-                .setData(data);
+                .setData(data)
+                .putExtra(EXTRA_CONTAINER_ID, containerId);
     }
 
-    private static Uri data(String creditId, long expiresAt, long leadTime) {
+    private static Uri data(String containerId, String creditId,
+            long expiresAt, long leadTime) {
         return new Uri.Builder()
                 .scheme("codexmonitor")
                 .authority("reset-credit-expiry")
+                .appendPath(AccountNotificationNamespace.safe(containerId))
                 .appendPath(creditId == null || creditId.isEmpty() ? "_" : creditId)
                 .appendQueryParameter("expires", String.valueOf(expiresAt))
                 .appendQueryParameter("lead", String.valueOf(leadTime))
                 .build();
+    }
+
+    private static int requestCode(String containerId) {
+        return AccountNotificationNamespace.requestCode(
+                containerId, "reset_credit_expiry_" + REQUEST_CODE);
+    }
+
+    private static String key(String containerId) {
+        return KEY_ALARM_URIS + "::" + AccountNotificationNamespace.safe(containerId);
     }
 
     private static SharedPreferences prefs(Context context) {

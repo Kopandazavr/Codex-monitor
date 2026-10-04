@@ -128,26 +128,25 @@ final class IdleReminderManager {
 
     static void fireFromIntent(Context context, Intent intent) {
         if (context == null || intent == null) return;
+        String containerId = containerFromIntent(context, intent);
         String key = intent.getStringExtra(EXTRA_ROLE_KEY);
         String instanceId = intent.getStringExtra(EXTRA_INSTANCE_ID);
         long eventId = intent.getLongExtra(EXTRA_EVENT_ID, 0L);
         long expectedFinished = intent.getLongExtra(EXTRA_FINISHED_AT, 0L);
         IdleProcessState.IdleRole idle = IdleProcessState.findCompletion(
-                context, key, instanceId, eventId, expectedFinished);
+                context, containerId, key, instanceId, eventId, expectedFinished);
         if (idle == null || !idle.reminderEnabled) {
-            if (key != null) cancelAlarm(context, key);
+            if (key != null) cancelAlarm(context, containerId, key);
             return;
         }
         long now = System.currentTimeMillis();
-        List<CalendarProcess> active = CalendarProcessReader.active(context, now);
+        List<CalendarProcess> active = CalendarProcessReader.active(context, containerId, now);
         if (IdleProcessState.isRoleActive(context, active, key)) {
-            cancelAlarm(context, key);
-            clearLegacyReminderCard(context, key);
+            cancelAlarm(context, containerId, key);
+            clearLegacyReminderCard(context, containerId, key);
             return;
         }
 
-        // Recurring idle alarms never create completion overlays. Completion delivery happens
-        // once, immediately after a newly finished watchdog is observed in sync().
         boolean overlayShown = false;
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -155,17 +154,17 @@ final class IdleReminderManager {
         if (manager != null) {
             AlertSoundManager.ensureChannels(context);
             persistentSurfaceAlerted = ProcessNotificationManager.reAlertIdleReminder(
-                    context, idle, CHANNEL_ID, now);
-            // Restore the canonical live/process channel after the attention event; the ID stays
-            // the same throughout, so no second long-lived reminder card appears.
+                    context, containerId, idle, CHANNEL_ID, now);
             if (persistentSurfaceAlerted) {
-                DualUsageNotificationManager.repostForProcessChangeDelayed(context, 5_000L);
+                DualUsageNotificationManager.repostForProcessChangeDelayed(
+                        context, containerId, 5_000L);
             }
         }
         long next = now + IdleProcessState.cadenceMillis(context);
-        IdleProcessState.setNextReminderAt(context, key, next);
-        scheduleAt(context, idle, next);
+        IdleProcessState.setNextReminderAt(context, containerId, key, next);
+        scheduleAt(context, containerId, idle, next);
         DiagnosticLog.info(context, "idle_process", "reminder_fired",
+                "container_id", containerId,
                 "role", idle.displayLabel(),
                 "overlay", overlayShown,
                 "persistent_surface_alerted", persistentSurfaceAlerted);

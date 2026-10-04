@@ -10,6 +10,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
@@ -53,6 +54,7 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout content;
     private LinearLayout processesCard;
     private SwipeRefreshLayout swipeRefresh;
+    private TextView accountPill;
     private boolean dark;
     private boolean receiverRegistered;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -109,7 +111,11 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        Ui.Page page = Ui.installPage(this, "Codex Monitor", false);
+        AccountContainerStore.ensureInitialized(this);
+        Ui.Page page = Ui.installPage(this, "", false);
+        page.toolbar.setExpandable(false);
+        page.toolbar.setExpanded(false, false);
+        installAccountHeader(page.toolbar);
         this.content = page.content;
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
         int refreshAccent = Ui.accent(this, this.dark);
@@ -121,6 +127,61 @@ public final class MainActivity extends AppCompatActivity {
         WidgetUpgradeRepair.runIfNeeded(this);
         rebuild();
         RefreshScheduler.schedulePeriodic(this);
+    }
+
+    private void installAccountHeader(dev.oneuiproject.oneui.layout.ToolbarLayout toolbar) {
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView version = Ui.text(this, buildIdentity(), 13.5f, Color.WHITE);
+        version.setSingleLine(true);
+        LinearLayout.LayoutParams versionParams =
+                new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, -2);
+        versionParams.setMargins(0, 0, Ui.dp(this, 10), 0);
+        header.addView(version, versionParams);
+
+        this.accountPill = AccountSwitcherView.create(this, this.dark,
+                new AccountSwitcherView.Listener() {
+                    @Override
+                    public void onAccountSelected(AccountContainerStore.Account account) {
+                        onForegroundAccountChanged();
+                    }
+
+                    @Override
+                    public void onAccountCreated(AccountContainerStore.Account account) {
+                        Intent intent = new Intent(MainActivity.this, OnboardingActivity.class);
+                        startActivity(intent);
+                    }
+                });
+        LinearLayout.LayoutParams pillParams =
+                new LinearLayout.LayoutParams(0, -2, 1.0f);
+        header.addView(this.accountPill, pillParams);
+        toolbar.setCustomTitleView(header);
+    }
+
+    private String buildIdentity() {
+        String name = Ui.versionName(this);
+        long code;
+        try {
+            android.content.pm.PackageInfo info =
+                    getPackageManager().getPackageInfo(getPackageName(), 0);
+            code = Build.VERSION.SDK_INT >= 28
+                    ? info.getLongVersionCode() : info.versionCode;
+        } catch (Exception ignored) {
+            code = 0L;
+        }
+        return "v" + name + " (" + code + ")";
+    }
+
+    private void onForegroundAccountChanged() {
+        if (this.accountPill != null) {
+            AccountSwitcherView.bindAppearance(this, this.accountPill);
+        }
+        invalidateOptionsMenu();
+        rebuild();
+        WidgetRenderer.updateAll(this);
+        NowBarManager.restore(this);
     }
 
     @Override

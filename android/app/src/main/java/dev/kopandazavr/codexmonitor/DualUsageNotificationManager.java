@@ -31,6 +31,10 @@ final class DualUsageNotificationManager {
     }
 
     static boolean postFromSnapshot(Context context, UsageSnapshot snapshot) {
+        return postFromSnapshot(context, AccountContainerStore.selectedId(context), snapshot);
+    }
+
+    static boolean postFromSnapshot(Context context, String containerId, UsageSnapshot snapshot) {
         if (context == null || snapshot == null || !NowBarManager.isActive(context)
                 || !NowBarManager.canPostNotifications(context)) {
             return false;

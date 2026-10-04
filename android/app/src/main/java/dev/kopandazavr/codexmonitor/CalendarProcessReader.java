@@ -306,13 +306,16 @@ final class CalendarProcessReader {
     private static List<Long> providerCalendarIds(Context context, String containerId) {
         if (AccountContainerStore.all(context).size() <= 1) return null;
         List<Long> ids = new ArrayList<>();
-        String googleAccount = GoogleCalendarAuthorization.accountName(context, containerId);
+        String googleAccount =
+                GoogleCalendarAuthorization.providerAccountName(context, containerId);
         if (googleAccount.isEmpty()) return ids;
         try (Cursor cursor = context.getContentResolver().query(
                 CalendarContract.Calendars.CONTENT_URI,
                 new String[]{CalendarContract.Calendars._ID},
-                CalendarContract.Calendars.ACCOUNT_NAME + " = ?",
-                new String[]{googleAccount}, null)) {
+                CalendarContract.Calendars.ACCOUNT_NAME + " = ? AND "
+                        + CalendarContract.Calendars.ACCOUNT_TYPE + " = ?",
+                new String[]{googleAccount,
+                        GoogleCalendarAuthorization.GOOGLE_ACCOUNT_TYPE}, null)) {
             if (cursor == null) return ids;
             int idIndex = cursor.getColumnIndexOrThrow(CalendarContract.Calendars._ID);
             while (cursor.moveToNext()) ids.add(cursor.getLong(idIndex));

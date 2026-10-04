@@ -29,6 +29,7 @@ final class GoogleCalendarAuthorization {
     private static final String KEY_NEEDS_ACTION = "needs_action";
     private static final String KEY_LAST_ERROR = "last_error";
     private static final String KEY_ACCOUNT_NAME = "account_name";
+    private static final String KEY_PROVIDER_ACCOUNT_NAME = "provider_account_name";
     private static final String KEY_PENDING_ACCOUNT_NAME = "pending_account_name";
     static final String GOOGLE_ACCOUNT_TYPE = "com.google";
     private static final long TOKEN_CACHE_MS = 45L * 60L * 1000L;
@@ -95,6 +96,13 @@ final class GoogleCalendarAuthorization {
         return value == null ? "" : value.trim();
     }
 
+    static String providerAccountName(Context context, String containerId) {
+        String value = prefs(context).getString(
+                key(containerId, KEY_PROVIDER_ACCOUNT_NAME), "");
+        if (value != null && !value.trim().isEmpty()) return value.trim();
+        return accountName(context, containerId);
+    }
+
     static String statusSummary(Context context) {
         return statusSummary(context, AccountContainerStore.selectedId(context));
     }
@@ -145,6 +153,10 @@ final class GoogleCalendarAuthorization {
 
     static void beginInteractive(Activity activity, String containerId, int requestCode,
             Account account, ActionCallback callback) {
+        if (!AccountContainerLifecycleGuard.isAlive(activity, containerId)) {
+            callback.onFinished(false, "Account was removed.");
+            return;
+        }
         if (account == null || account.name == null || account.name.trim().isEmpty()) {
             callback.onFinished(false, "Choose a Google account first.");
             return;
@@ -159,6 +171,10 @@ final class GoogleCalendarAuthorization {
         AuthorizationClient client = Identity.getAuthorizationClient(activity);
         client.authorize(request(account))
                 .addOnSuccessListener(result -> {
+                    if (!AccountContainerLifecycleGuard.isAlive(activity, containerId)) {
+                        callback.onFinished(false, "Account was removed.");
+                        return;
+                    }
                     if (result.hasResolution()) {
                         PendingIntent pending = result.getPendingIntent();
                         if (pending == null) {
@@ -186,6 +202,10 @@ final class GoogleCalendarAuthorization {
                     }
                 })
                 .addOnFailureListener(exception -> {
+                    if (!AccountContainerLifecycleGuard.isAlive(activity, containerId)) {
+                        callback.onFinished(false, "Account was removed.");
+                        return;
+                    }
                     AuthOutcome outcome = recordFailure(activity, containerId,
                             "authorize", exception);
                     callback.onFinished(false, outcome.message);
@@ -203,6 +223,9 @@ final class GoogleCalendarAuthorization {
 
     static AuthOutcome consumeInteractiveResult(Activity activity, String containerId,
             int resultCode, Intent data) {
+        if (!AccountContainerLifecycleGuard.isAlive(activity, containerId)) {
+            return new AuthOutcome(false, "Account was removed.");
+        }
         String pendingAccount = prefs(activity).getString(
                 key(containerId, KEY_PENDING_ACCOUNT_NAME), "");
         DiagnosticLog.info(activity, "calendar_api", "authorization_activity_result",
@@ -260,7 +283,7 @@ final class GoogleCalendarAuthorization {
     }
 
     static void accessToken(Context context, String containerId, TokenCallback callback) {
-        if (context == null) {
+        if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId)) {
             callback.onResult(null);
             return;
         }
@@ -280,6 +303,10 @@ final class GoogleCalendarAuthorization {
         Account account = new Account(accountName, GOOGLE_ACCOUNT_TYPE);
         Identity.getAuthorizationClient(context).authorize(request(account))
                 .addOnSuccessListener(result -> {
+                    if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                        callback.onResult(null);
+                        return;
+                    }
                     if (result.hasResolution()) {
                         markNeedsAction(context, containerId, "resolution_required");
                         DiagnosticLog.warn(context, "calendar_api",
@@ -301,7 +328,9 @@ final class GoogleCalendarAuthorization {
                     callback.onResult(CACHED_TOKENS.get(containerId));
                 })
                 .addOnFailureListener(exception -> {
-                    recordFailure(context, containerId, "token_refresh", exception);
+                    if (AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                        recordFailure(context, containerId, "token_refresh", exception);
+                    }
                     callback.onResult(null);
                 });
     }
@@ -311,14 +340,18 @@ final class GoogleCalendarAuthorization {
     }
 
     static void revoke(Context context, String containerId, ActionCallback callback) {
+        if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+            callback.onFinished(true, "Google Calendar is already disconnected.");
+            return;
+        }
         String accountName = accountName(context, containerId);
         if (context == null || accountName.isEmpty()) {
-            clearState(context, containerId);
+            clearState(context, containerId, false);
             callback.onFinished(true, "Google Calendar disconnected.");
             return;
         }
         if (isAccountSharedWithAnotherContainer(context, containerId, accountName)) {
-            clearState(context, containerId);
+            clearState(context, containerId, false);
             DiagnosticLog.info(context, "calendar_api", "authorization_detached_shared_grant",
                     "container_id", containerId);
             callback.onFinished(true, "Google Calendar disconnected from this account.");
@@ -331,7 +364,7 @@ final class GoogleCalendarAuthorization {
                 .build();
         Identity.getAuthorizationClient(context).revokeAccess(revoke)
                 .addOnSuccessListener(unused -> {
-                    clearState(context, containerId);
+                    clearState(context, containerId, false);
                     DiagnosticLog.info(context, "calendar_api", "authorization_revoked",
                             "container_id", containerId);
                     callback.onFinished(true, "Google Calendar disconnected.");
@@ -386,6 +419,7 @@ final class GoogleCalendarAuthorization {
                 .putBoolean(key(containerId, KEY_CONNECTED), true)
                 .putBoolean(key(containerId, KEY_NEEDS_ACTION), false)
                 .putString(key(containerId, KEY_ACCOUNT_NAME), account)
+                .putString(key(containerId, KEY_PROVIDER_ACCOUNT_NAME), account)
                 .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME))
                 .remove(key(containerId, KEY_LAST_ERROR))
                 .apply();
@@ -397,6 +431,9 @@ final class GoogleCalendarAuthorization {
 
     private static AuthOutcome recordFailure(Context context, String containerId,
             String stage, Exception exception) {
+        if (!AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+            return new AuthOutcome(false, "Account was removed.");
+        }
         FailureInfo info = failureInfo(exception);
         if ("cancelled".equals(info.kind)) {
             markDisconnected(context, containerId);
@@ -482,7 +519,7 @@ final class GoogleCalendarAuthorization {
     }
 
     private static void markNeedsAction(Context context, String containerId, String error) {
-        if (context == null) return;
+        if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
         prefs(context).edit()
                 .putBoolean(key(containerId, KEY_CONNECTED), false)
                 .putBoolean(key(containerId, KEY_NEEDS_ACTION), true)
@@ -493,7 +530,7 @@ final class GoogleCalendarAuthorization {
     }
 
     private static void markDisconnected(Context context, String containerId) {
-        if (context == null) return;
+        if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
         prefs(context).edit()
                 .putBoolean(key(containerId, KEY_CONNECTED), false)
                 .putBoolean(key(containerId, KEY_NEEDS_ACTION), false)
@@ -506,17 +543,24 @@ final class GoogleCalendarAuthorization {
 
     static void clearContainerState(Context context, String containerId) {
         if (context == null || containerId == null || containerId.trim().isEmpty()) return;
-        clearState(context, containerId);
+        clearState(context, containerId, true);
     }
 
-    private static void clearState(Context context, String containerId) {
+    private static void clearState(Context context, String containerId,
+            boolean removeProvenance) {
         if (context == null) return;
+        String providerAccount = providerAccountName(context, containerId);
         SharedPreferences.Editor editor = prefs(context).edit()
                 .remove(key(containerId, KEY_CONNECTED))
                 .remove(key(containerId, KEY_NEEDS_ACTION))
                 .remove(key(containerId, KEY_LAST_ERROR))
                 .remove(key(containerId, KEY_ACCOUNT_NAME))
                 .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME));
+        if (removeProvenance) {
+            editor.remove(key(containerId, KEY_PROVIDER_ACCOUNT_NAME));
+        } else if (!providerAccount.isEmpty()) {
+            editor.putString(key(containerId, KEY_PROVIDER_ACCOUNT_NAME), providerAccount);
+        }
         if (AccountContainerStore.isLegacyOwner(context, containerId)) {
             editor.remove(KEY_CONNECTED).remove(KEY_NEEDS_ACTION).remove(KEY_LAST_ERROR);
         }

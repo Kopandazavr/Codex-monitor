@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android">
+    <PreferenceCategory
+        android:key="accounts_list"
+        android:title="Accounts" />
+
+    <Preference
+        android:key="account_add"
+        android:title="+ Add Account"
+        android:summary="Create a separate Codex Monitor account container" />
+</PreferenceScreen>

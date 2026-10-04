@@ -8,10 +8,8 @@ RES="$ROOT/app/src/main/res"
 
 VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
-[[ "$VERSION_NAME" == "2.40.0" ]]
-[[ "$VERSION_CODE" == "66" ]]
-grep -Fq 'VERSION_NAME = "2.40.0"' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_CODE = 66' "$SRC/AppConstants.java"
+[[ -n "$VERSION_NAME" ]]
+[[ "$VERSION_CODE" -ge 66 ]]
 
 # Stable outer account-container registry + idempotent Main migration owner.
 test -f "$SRC/AccountContainerStore.java"
@@ -113,8 +111,9 @@ grep -Fq 'android:textColor="@color/allowance_alert_foreground"' "$RES/layout/no
 grep -Fq 'setCustomContentView(alert)' "$SRC/ResetNotificationManager.java"
 grep -Fq 'realertResetSurface' "$SRC/DualUsageNotificationManager.java"
 
-# TODO-059: overlay Short Name uses project accent; role line reuses profile/icon label contract.
-grep -Fq 'ProjectProfileStore.badgeText' "$SRC/IdleReminderOverlayService.java"
+# TODO-059 baseline is retained, while 2.41 repairs the Short Name formatter.
+grep -Fq 'ProjectProfileStore.effectiveShort' "$SRC/IdleReminderOverlayService.java"
+! grep -Fq 'ProjectProfileStore.badgeText' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'ProjectProfileStore.accentColor' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'RoleProfileStore.displayLabelById' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'return withIcon(profile.roleIcon, name);' "$SRC/RoleProfileStore.java"

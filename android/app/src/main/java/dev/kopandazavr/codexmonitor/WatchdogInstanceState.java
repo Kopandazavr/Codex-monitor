@@ -121,10 +121,19 @@ final class WatchdogInstanceState {
     }
 
     static Map<String, PendingInstance> load(Context context) {
+        return load(context, AccountContainerStore.selectedId(context));
+    }
+
+    static Map<String, PendingInstance> load(Context context, String containerId) {
         Map<String, PendingInstance> pending = new LinkedHashMap<>();
         if (context == null) return pending;
-        String raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-                .getString(KEY_PENDING, "[]");
+        android.content.SharedPreferences prefs =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        String scoped = key(containerId);
+        String raw = prefs.contains(scoped)
+                ? prefs.getString(scoped, "[]")
+                : AccountContainerStore.isLegacyOwner(context, containerId)
+                        ? prefs.getString(KEY_PENDING, "[]") : "[]";
         try {
             JSONArray array = new JSONArray(raw == null ? "[]" : raw);
             for (int i = 0; i < array.length(); i++) {
@@ -141,6 +150,11 @@ final class WatchdogInstanceState {
     }
 
     static void save(Context context, Map<String, PendingInstance> pending) {
+        save(context, AccountContainerStore.selectedId(context), pending);
+    }
+
+    static void save(Context context, String containerId,
+            Map<String, PendingInstance> pending) {
         if (context == null) return;
         JSONArray array = new JSONArray();
         if (pending != null) {
@@ -148,8 +162,18 @@ final class WatchdogInstanceState {
                 if (item != null && item.deadlineMillis > 0L) array.put(item.toJson());
             }
         }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-                .putString(KEY_PENDING, array.toString()).apply();
+        android.content.SharedPreferences.Editor editor =
+                context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+                        .putString(key(containerId), array.toString());
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(KEY_PENDING);
+        }
+        editor.apply();
+    }
+
+    private static String key(String containerId) {
+        String id = containerId == null ? "" : containerId.trim();
+        return KEY_PENDING + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");
     }
 
     private static String clean(String value) {

@@ -563,6 +563,16 @@ final class ProcessNotificationManager {
         return IDLE_NOTIFICATION_BASE + (hash % PROCESS_NOTIFICATION_RANGE);
     }
 
+    private static String scopedKey(String containerId, String base) {
+        return base + "::" + AccountNotificationNamespace.safe(containerId);
+    }
+
+    private static String accountTitle(Context context, String containerId, String title) {
+        AccountContainerStore.Account account = AccountContainerStore.find(context, containerId);
+        String name = account == null ? "" : account.name;
+        return name.isEmpty() ? title : title + " · " + name;
+    }
+
     private static int textColor(Context context) {
         return (context.getResources().getConfiguration().uiMode
                 & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES

@@ -381,10 +381,17 @@ final class IdleReminderManager {
     }
 
     private static void cancelAlarm(Context context, String key) {
+        cancelAlarm(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    private static void cancelAlarm(Context context, String containerId, String key) {
         AlarmManager alarms = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (alarms == null || key == null) return;
-        Intent intent = new Intent(context, NowBarActionReceiver.class).setAction(ACTION_FIRE);
-        PendingIntent pending = PendingIntent.getBroadcast(context, requestCode(key, 1), intent,
+        Intent intent = new Intent(context, NowBarActionReceiver.class)
+                .setAction(ACTION_FIRE)
+                .putExtra(EXTRA_CONTAINER_ID, containerId);
+        PendingIntent pending = PendingIntent.getBroadcast(context,
+                requestCode(containerId, key, 1), intent,
                 PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
         if (pending != null) {
             alarms.cancel(pending);

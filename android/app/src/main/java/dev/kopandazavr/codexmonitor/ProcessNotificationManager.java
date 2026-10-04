@@ -402,7 +402,8 @@ final class ProcessNotificationManager {
                         : Collections.emptySet()));
         for (String id : activeIds) {
             try {
-                manager.cancel(Integer.parseInt(id));
+                manager.cancel(AccountNotificationNamespace.tag(containerId),
+                        Integer.parseInt(id));
             } catch (NumberFormatException ignored) {
             }
         }

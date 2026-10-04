@@ -47,12 +47,14 @@ grep -q 'process.remainingMillis(nowMillis)' "$SRC/ProcessNotificationManager.ja
 # Once an event has been observed, deleting it is an early completion rather than waiting for the
 # stale scheduled END. Fresh direct-API absence is authoritative; stale/error states stay UNKNOWN.
 grep -q 'static boolean eventExists' "$SRC/CalendarProcessReader.java"
-grep -q 'GoogleCalendarProcessSource.hasFreshCache(context, now)' "$SRC/CalendarProcessReader.java"
-grep -q 'GoogleCalendarProcessSource.cachedEventExists' "$SRC/CalendarProcessReader.java"
+grep -q 'GoogleCalendarProcessSource.hasFreshCache(' "$SRC/CalendarProcessReader.java"
+grep -q 'context, containerId, now' "$SRC/CalendarProcessReader.java"
+grep -q 'GoogleCalendarProcessSource.cachedEventExists(' "$SRC/CalendarProcessReader.java"
+grep -q 'context, containerId, eventId, now' "$SRC/CalendarProcessReader.java"
 grep -q '"watchdog_presence_checked"' "$SRC/CalendarProcessReader.java"
 grep -q '"authoritative", true' "$SRC/CalendarProcessReader.java"
 grep -q 'CalendarContract.Events.CONTENT_URI' "$SRC/CalendarProcessReader.java"
-grep -q 'if (!hasFreshCache(context, nowMillis)) return true' "$SRC/GoogleCalendarProcessSource.java"
+grep -q 'if (!hasFreshCache(context, containerId, nowMillis)) return true' "$SRC/GoogleCalendarProcessSource.java"
 grep -q 'fromDirectEvent' "$SRC/GoogleCalendarProcessSource.java"
 grep -q 'boolean directSource' "$SRC/CalendarProcess.java"
 grep -q 'WatchdogInstanceState.load(context)' "$SRC/IdleProcessState.java"

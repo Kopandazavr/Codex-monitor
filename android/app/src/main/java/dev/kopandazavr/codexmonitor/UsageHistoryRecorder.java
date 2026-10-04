@@ -8,19 +8,24 @@ final class UsageHistoryRecorder {
     }
 
     static void record(Context context, UsageSnapshot snapshot) {
+        record(context, AccountContainerStore.selectedId(context), snapshot);
+    }
+
+    static void record(Context context, String containerId, UsageSnapshot snapshot) {
         if (context == null || snapshot == null) return;
-        recordWindow(context, UsageHistory.FIVE_HOUR, snapshot.fiveHour,
+        recordWindow(context, containerId, UsageHistory.FIVE_HOUR, snapshot.fiveHour,
                 snapshot.fetchedAtMillis);
-        recordWindow(context, UsageHistory.WEEKLY, snapshot.weekly,
+        recordWindow(context, containerId, UsageHistory.WEEKLY, snapshot.weekly,
                 snapshot.fetchedAtMillis);
-        recordWindow(context, UsageHistory.MONTHLY, snapshot.monthly,
+        recordWindow(context, containerId, UsageHistory.MONTHLY, snapshot.monthly,
                 snapshot.fetchedAtMillis);
     }
 
-    private static void recordWindow(Context context, String kind, UsageWindow window,
-            long observedAtMillis) {
+    private static void recordWindow(Context context, String containerId, String kind,
+            UsageWindow window, long observedAtMillis) {
         if (window == null) return;
-        UsageHistory current = AppPreferences.loadUsageHistory(context, kind);
-        AppPreferences.saveUsageHistory(context, current.append(window, observedAtMillis));
+        UsageHistory current = AppPreferences.loadUsageHistory(context, containerId, kind);
+        AppPreferences.saveUsageHistory(context, containerId,
+                current.append(window, observedAtMillis));
     }
 }

@@ -356,7 +356,8 @@ final class ProcessNotificationManager {
         preferences.edit().putStringSet(KEY_ACTIVE_IDS, nextIds).apply();
     }
 
-    private static void clearPerProcess(Context context, NotificationManager manager) {
+    private static void clearPerProcess(Context context, String containerId,
+            NotificationManager manager) {
         SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         Set<String> activeIds = new HashSet<>(preferences.getStringSet(KEY_ACTIVE_IDS,
                 Collections.emptySet()));

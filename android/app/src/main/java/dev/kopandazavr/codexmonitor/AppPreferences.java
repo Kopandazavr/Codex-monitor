@@ -50,56 +50,102 @@ public final class AppPreferences {
     }
 
     public static boolean saveSnapshot(Context context, UsageSnapshot usageSnapshot) {
-        if (usageSnapshot == null) {
-            return false;
-        }
+        return saveSnapshot(context, AccountContainerStore.selectedId(context), usageSnapshot);
+    }
+
+    static boolean saveSnapshot(Context context, String containerId, UsageSnapshot usageSnapshot) {
+        if (usageSnapshot == null) return false;
         try {
-            return prefs(context).edit().putString(KEY_SNAPSHOT, usageSnapshot.toJson().toString()).remove(KEY_ERROR).remove(KEY_ERROR_AT).commit();
+            return prefs(context).edit()
+                    .putString(accountKey(containerId, KEY_SNAPSHOT),
+                            usageSnapshot.toJson().toString())
+                    .remove(accountKey(containerId, KEY_ERROR))
+                    .remove(accountKey(containerId, KEY_ERROR_AT))
+                    .commit();
         } catch (Exception e) {
-            setLastError(context, "Could not cache the latest usage response.");
+            setLastError(context, containerId, "Could not cache the latest usage response.");
             return false;
         }
     }
 
     public static UsageSnapshot loadSnapshot(Context context) {
-        String string = prefs(context).getString(KEY_SNAPSHOT, null);
-        if (string == null || string.isEmpty()) {
-            return null;
-        }
+        return loadSnapshot(context, AccountContainerStore.selectedId(context));
+    }
+
+    static UsageSnapshot loadSnapshot(Context context, String containerId) {
+        String stored = scopedString(context, containerId, KEY_SNAPSHOT, null);
+        if (stored == null || stored.isEmpty()) return null;
         try {
-            return UsageSnapshot.fromJson(new JSONObject(string));
-        } catch (Exception e) {
+            return UsageSnapshot.fromJson(new JSONObject(stored));
+        } catch (Exception ignored) {
             return null;
         }
     }
 
     public static void clearSnapshot(Context context) {
-        prefs(context).edit().remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
-                .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
-                .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
-                .remove(KEY_HISTORY_MONTHLY)
-                .remove(KEY_REFRESH_FAILURES).apply();
-        NowBarManager.stop(context);
-        NowBarPreferences.clearSuppression(context);
-        ResetNotificationManager.clearState(context);
-        ResetCreditExpiryScheduler.cancelAll(context);
-        PhoneWearSync.pushUsage(context, null);
+        clearSnapshot(context, AccountContainerStore.selectedId(context));
     }
 
-    public static void setLastError(Context context, String str) {
-        if (str == null || str.trim().isEmpty()) {
-            clearLastError(context);
+    static void clearSnapshot(Context context, String containerId) {
+        SharedPreferences.Editor editor = prefs(context).edit()
+                .remove(accountKey(containerId, KEY_SNAPSHOT))
+                .remove(accountKey(containerId, KEY_ERROR))
+                .remove(accountKey(containerId, KEY_ERROR_AT))
+                .remove(accountKey(containerId, KEY_RESET_CREDITS))
+                .remove(accountKey(containerId, KEY_RESET_ERROR))
+                .remove(accountKey(containerId, KEY_RESET_ERROR_AT))
+                .remove(accountKey(containerId, KEY_HISTORY_FIVE_HOUR))
+                .remove(accountKey(containerId, KEY_HISTORY_WEEKLY))
+                .remove(accountKey(containerId, KEY_HISTORY_MONTHLY))
+                .remove(accountKey(containerId, KEY_REFRESH_FAILURES));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(KEY_SNAPSHOT).remove(KEY_ERROR).remove(KEY_ERROR_AT)
+                    .remove(KEY_RESET_CREDITS).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT)
+                    .remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
+                    .remove(KEY_HISTORY_MONTHLY).remove(KEY_REFRESH_FAILURES);
+        }
+        editor.apply();
+        if (containerId.equals(AccountContainerStore.selectedId(context))) {
+            NowBarManager.stop(context);
+            NowBarPreferences.clearSuppression(context);
+            ResetNotificationManager.clearState(context);
+            ResetCreditExpiryScheduler.cancelAll(context);
+            PhoneWearSync.pushUsage(context, null);
+        }
+    }
+
+    public static void setLastError(Context context, String value) {
+        setLastError(context, AccountContainerStore.selectedId(context), value);
+    }
+
+    static void setLastError(Context context, String containerId, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            clearLastError(context, containerId);
         } else {
-            prefs(context).edit().putString(KEY_ERROR, trim(str, "Refresh failed.")).putLong(KEY_ERROR_AT, System.currentTimeMillis()).apply();
+            prefs(context).edit()
+                    .putString(accountKey(containerId, KEY_ERROR), trim(value, "Refresh failed."))
+                    .putLong(accountKey(containerId, KEY_ERROR_AT), System.currentTimeMillis())
+                    .apply();
         }
     }
 
     public static void clearLastError(Context context) {
-        prefs(context).edit().remove(KEY_ERROR).remove(KEY_ERROR_AT).apply();
+        clearLastError(context, AccountContainerStore.selectedId(context));
+    }
+
+    static void clearLastError(Context context, String containerId) {
+        prefs(context).edit()
+                .remove(accountKey(containerId, KEY_ERROR))
+                .remove(accountKey(containerId, KEY_ERROR_AT))
+                .apply();
     }
 
     public static UsageHistory loadUsageHistory(Context context, String kind) {
-        String stored = prefs(context).getString(historyKey(kind), null);
+        return loadUsageHistory(context, AccountContainerStore.selectedId(context), kind);
+    }
+
+    static UsageHistory loadUsageHistory(Context context, String containerId, String kind) {
+        String stored = scopedString(context, containerId, historyKey(kind), null);
         if (stored == null || stored.isEmpty()) return UsageHistory.empty(kind);
         try {
             return UsageHistory.fromJson(new JSONObject(stored), kind);
@@ -109,18 +155,35 @@ public final class AppPreferences {
     }
 
     public static boolean saveUsageHistory(Context context, UsageHistory history) {
+        return saveUsageHistory(context, AccountContainerStore.selectedId(context), history);
+    }
+
+    static boolean saveUsageHistory(Context context, String containerId, UsageHistory history) {
         if (history == null) return false;
         try {
             return prefs(context).edit()
-                    .putString(historyKey(history.kind), history.toJson().toString()).commit();
+                    .putString(accountKey(containerId, historyKey(history.kind)),
+                            history.toJson().toString())
+                    .commit();
         } catch (Exception ignored) {
             return false;
         }
     }
 
     public static void clearUsageHistory(Context context) {
-        prefs(context).edit().remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
-                .remove(KEY_HISTORY_MONTHLY).apply();
+        clearUsageHistory(context, AccountContainerStore.selectedId(context));
+    }
+
+    static void clearUsageHistory(Context context, String containerId) {
+        SharedPreferences.Editor editor = prefs(context).edit()
+                .remove(accountKey(containerId, KEY_HISTORY_FIVE_HOUR))
+                .remove(accountKey(containerId, KEY_HISTORY_WEEKLY))
+                .remove(accountKey(containerId, KEY_HISTORY_MONTHLY));
+        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
+            editor.remove(KEY_HISTORY_FIVE_HOUR).remove(KEY_HISTORY_WEEKLY)
+                    .remove(KEY_HISTORY_MONTHLY);
+        }
+        editor.apply();
     }
 
     private static String historyKey(String kind) {
@@ -130,91 +193,129 @@ public final class AppPreferences {
     }
 
     public static String getLastError(Context context) {
-        return prefs(context).getString(KEY_ERROR, "");
+        return getLastError(context, AccountContainerStore.selectedId(context));
+    }
+
+    static String getLastError(Context context, String containerId) {
+        return scopedString(context, containerId, KEY_ERROR, "");
     }
 
     public static String getVisibleRefreshError(Context context) {
-        String lastError = getLastError(context);
-        if (lastError.isEmpty()) {
-            return "";
-        }
-        UsageSnapshot usageSnapshotLoadSnapshot = loadSnapshot(context);
-        if (usageSnapshotLoadSnapshot != null) {
-            long j = prefs(context).getLong(KEY_ERROR_AT, 0L);
-            if (j <= 0 || j > usageSnapshotLoadSnapshot.fetchedAtMillis) {
-                return Math.max(0L, System.currentTimeMillis() - usageSnapshotLoadSnapshot.fetchedAtMillis) < 900000 ? "" : lastError;
+        String containerId = AccountContainerStore.selectedId(context);
+        String lastError = getLastError(context, containerId);
+        if (lastError.isEmpty()) return "";
+        UsageSnapshot snapshot = loadSnapshot(context, containerId);
+        if (snapshot != null) {
+            long errorAt = scopedLong(context, containerId, KEY_ERROR_AT, 0L);
+            if (errorAt <= 0 || errorAt > snapshot.fetchedAtMillis) {
+                return Math.max(0L, System.currentTimeMillis() - snapshot.fetchedAtMillis) < 900000
+                        ? "" : lastError;
             }
-            clearLastError(context);
+            clearLastError(context, containerId);
             return "";
         }
         return lastError;
     }
 
-    public static boolean saveResetCredits(Context context, ResetCreditsSnapshot resetCreditsSnapshot) {
-        if (resetCreditsSnapshot == null) {
-            return false;
-        }
+    public static boolean saveResetCredits(Context context, ResetCreditsSnapshot snapshot) {
+        return saveResetCredits(context, AccountContainerStore.selectedId(context), snapshot);
+    }
+
+    static boolean saveResetCredits(Context context, String containerId,
+            ResetCreditsSnapshot snapshot) {
+        if (snapshot == null) return false;
         try {
-            return prefs(context).edit().putString(KEY_RESET_CREDITS, resetCreditsSnapshot.toJson().toString()).remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).commit();
+            return prefs(context).edit()
+                    .putString(accountKey(containerId, KEY_RESET_CREDITS),
+                            snapshot.toJson().toString())
+                    .remove(accountKey(containerId, KEY_RESET_ERROR))
+                    .remove(accountKey(containerId, KEY_RESET_ERROR_AT))
+                    .commit();
         } catch (Exception e) {
-            setResetCreditsError(context, "Could not cache Codex reset credits.");
+            setResetCreditsError(context, containerId, "Could not cache Codex reset credits.");
             return false;
         }
     }
 
     public static ResetCreditsSnapshot loadResetCredits(Context context) {
-        ResetCreditsSnapshot resetCreditsSnapshotFromJson = null;
-        String string = prefs(context).getString(KEY_RESET_CREDITS, null);
-        if (string != null && !string.isEmpty()) {
-            try {
-                resetCreditsSnapshotFromJson = ResetCreditsSnapshot.fromJson(new JSONObject(string));
-            } catch (Exception e) {
-            }
-        }
-        UsageSnapshot usageSnapshotLoadSnapshot = loadSnapshot(context);
-        if (usageSnapshotLoadSnapshot != null && usageSnapshotLoadSnapshot.resetCreditsAvailable >= 0) {
-            if (resetCreditsSnapshotFromJson == null) {
-                return ResetCreditsSnapshot.summary(usageSnapshotLoadSnapshot.resetCreditsAvailable, usageSnapshotLoadSnapshot.fetchedAtMillis);
-            }
-            if (usageSnapshotLoadSnapshot.fetchedAtMillis > resetCreditsSnapshotFromJson.fetchedAtMillis && usageSnapshotLoadSnapshot.resetCreditsAvailable != resetCreditsSnapshotFromJson.availableCount) {
-                return ResetCreditsSnapshot.summary(usageSnapshotLoadSnapshot.resetCreditsAvailable, usageSnapshotLoadSnapshot.fetchedAtMillis);
-            }
-            return resetCreditsSnapshotFromJson;
-        }
-        return resetCreditsSnapshotFromJson;
+        return loadResetCredits(context, AccountContainerStore.selectedId(context));
     }
 
-    public static void setResetCreditsError(Context context, String str) {
-        if (str == null || str.trim().isEmpty()) {
-            clearResetCreditsError(context);
+    static ResetCreditsSnapshot loadResetCredits(Context context, String containerId) {
+        ResetCreditsSnapshot result = null;
+        String stored = scopedString(context, containerId, KEY_RESET_CREDITS, null);
+        if (stored != null && !stored.isEmpty()) {
+            try {
+                result = ResetCreditsSnapshot.fromJson(new JSONObject(stored));
+            } catch (Exception ignored) {
+            }
+        }
+        UsageSnapshot usage = loadSnapshot(context, containerId);
+        if (usage != null && usage.resetCreditsAvailable >= 0) {
+            if (result == null) {
+                return ResetCreditsSnapshot.summary(
+                        usage.resetCreditsAvailable, usage.fetchedAtMillis);
+            }
+            if (usage.fetchedAtMillis > result.fetchedAtMillis
+                    && usage.resetCreditsAvailable != result.availableCount) {
+                return ResetCreditsSnapshot.summary(
+                        usage.resetCreditsAvailable, usage.fetchedAtMillis);
+            }
+        }
+        return result;
+    }
+
+    public static void setResetCreditsError(Context context, String value) {
+        setResetCreditsError(context, AccountContainerStore.selectedId(context), value);
+    }
+
+    static void setResetCreditsError(Context context, String containerId, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            clearResetCreditsError(context, containerId);
         } else {
-            prefs(context).edit().putString(KEY_RESET_ERROR, trim(str, "Reset-credit refresh failed.")).putLong(KEY_RESET_ERROR_AT, System.currentTimeMillis()).apply();
+            prefs(context).edit()
+                    .putString(accountKey(containerId, KEY_RESET_ERROR),
+                            trim(value, "Reset-credit refresh failed."))
+                    .putLong(accountKey(containerId, KEY_RESET_ERROR_AT),
+                            System.currentTimeMillis())
+                    .apply();
         }
     }
 
     public static void clearResetCreditsError(Context context) {
-        prefs(context).edit().remove(KEY_RESET_ERROR).remove(KEY_RESET_ERROR_AT).apply();
+        clearResetCreditsError(context, AccountContainerStore.selectedId(context));
+    }
+
+    static void clearResetCreditsError(Context context, String containerId) {
+        prefs(context).edit()
+                .remove(accountKey(containerId, KEY_RESET_ERROR))
+                .remove(accountKey(containerId, KEY_RESET_ERROR_AT))
+                .apply();
     }
 
     public static String getResetCreditsError(Context context) {
-        return prefs(context).getString(KEY_RESET_ERROR, "");
+        return getResetCreditsError(context, AccountContainerStore.selectedId(context));
+    }
+
+    static String getResetCreditsError(Context context, String containerId) {
+        return scopedString(context, containerId, KEY_RESET_ERROR, "");
     }
 
     public static String getVisibleResetCreditsError(Context context) {
-        String resetCreditsError = getResetCreditsError(context);
-        if (resetCreditsError.isEmpty()) {
-            return "";
-        }
-        ResetCreditsSnapshot resetCreditsSnapshotLoadResetCredits = loadResetCredits(context);
-        if (resetCreditsSnapshotLoadResetCredits != null) {
-            long j = prefs(context).getLong(KEY_RESET_ERROR_AT, 0L);
-            if (j <= 0 || j > resetCreditsSnapshotLoadResetCredits.fetchedAtMillis) {
-                return Math.max(0L, System.currentTimeMillis() - resetCreditsSnapshotLoadResetCredits.fetchedAtMillis) < 1800000 ? "" : resetCreditsError;
+        String containerId = AccountContainerStore.selectedId(context);
+        String error = getResetCreditsError(context, containerId);
+        if (error.isEmpty()) return "";
+        ResetCreditsSnapshot snapshot = loadResetCredits(context, containerId);
+        if (snapshot != null) {
+            long errorAt = scopedLong(context, containerId, KEY_RESET_ERROR_AT, 0L);
+            if (errorAt <= 0 || errorAt > snapshot.fetchedAtMillis) {
+                return Math.max(0L, System.currentTimeMillis() - snapshot.fetchedAtMillis) < 1800000
+                        ? "" : error;
             }
-            clearResetCreditsError(context);
+            clearResetCreditsError(context, containerId);
             return "";
         }
-        return resetCreditsError;
+        return error;
     }
 
     public static void setSchedulerError(Context context, String str) {
@@ -254,16 +355,31 @@ public final class AppPreferences {
     }
 
     public static int getRefreshFailures(Context context) {
-        return Math.max(0, Math.min(3, prefs(context).getInt(KEY_REFRESH_FAILURES, 0)));
+        return getRefreshFailures(context, AccountContainerStore.selectedId(context));
+    }
+
+    static int getRefreshFailures(Context context, String containerId) {
+        int value = (int) scopedLong(context, containerId, KEY_REFRESH_FAILURES, 0L);
+        return Math.max(0, Math.min(3, value));
     }
 
     public static void recordRefreshSuccess(Context context) {
-        prefs(context).edit().remove(KEY_REFRESH_FAILURES).apply();
+        recordRefreshSuccess(context, AccountContainerStore.selectedId(context));
+    }
+
+    static void recordRefreshSuccess(Context context, String containerId) {
+        prefs(context).edit().remove(accountKey(containerId, KEY_REFRESH_FAILURES)).apply();
     }
 
     public static void recordRefreshFailure(Context context) {
-        int failures = Math.min(3, getRefreshFailures(context) + 1);
-        prefs(context).edit().putInt(KEY_REFRESH_FAILURES, failures).apply();
+        recordRefreshFailure(context, AccountContainerStore.selectedId(context));
+    }
+
+    static void recordRefreshFailure(Context context, String containerId) {
+        int failures = Math.min(3, getRefreshFailures(context, containerId) + 1);
+        prefs(context).edit()
+                .putInt(accountKey(containerId, KEY_REFRESH_FAILURES), failures)
+                .apply();
     }
 
     public static boolean getRefreshOnLaunch(Context context) {
@@ -732,6 +848,30 @@ public final class AppPreferences {
                 .putBoolean(accountKey(containerId, KEY_ONBOARDING_COMPLETE), true)
                 .remove(accountKey(containerId, KEY_ONBOARDING_STEP))
                 .apply();
+    }
+
+    private static String scopedString(Context context, String containerId,
+            String base, String fallback) {
+        SharedPreferences shared = prefs(context);
+        String key = accountKey(containerId, base);
+        if (shared.contains(key)) return shared.getString(key, fallback);
+        return legacyString(context, containerId, base, fallback);
+    }
+
+    private static long scopedLong(Context context, String containerId,
+            String base, long fallback) {
+        SharedPreferences shared = prefs(context);
+        String key = accountKey(containerId, base);
+        if (shared.contains(key)) {
+            try {
+                Object value = shared.getAll().get(key);
+                return value instanceof Integer ? ((Integer) value).longValue()
+                        : value instanceof Long ? (Long) value : fallback;
+            } catch (RuntimeException ignored) {
+                return fallback;
+            }
+        }
+        return legacyLong(context, containerId, base, fallback);
     }
 
     private static String accountKey(String containerId, String base) {

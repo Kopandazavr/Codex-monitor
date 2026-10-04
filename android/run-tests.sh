@@ -211,7 +211,7 @@ grep -Fq 'TextView roleView = text(role, 16f, Color.WHITE);' "$SRC/IdleReminderO
 grep -Fq 'metadata.get("instance_id")' "$SRC/CalendarProcess.java"
 grep -Fq 'instanceIdentity()' "$SRC/CalendarProcess.java"
 grep -Fq 'instance:' "$SRC/WatchdogCanonicalizer.java"
-grep -Fq 'WatchdogInstanceState.load(context)' "$SRC/IdleProcessState.java"
+grep -Fq 'WatchdogInstanceState.load(context, containerId)' "$SRC/IdleProcessState.java"
 grep -Fq 'recentCompletions(Context context' "$SRC/IdleProcessState.java"
 grep -Fq 'findCompletion(Context context' "$SRC/IdleProcessState.java"
 grep -Fq 'ProcessRoleGroup.group(this, active)' "$SRC/MainActivity.java"

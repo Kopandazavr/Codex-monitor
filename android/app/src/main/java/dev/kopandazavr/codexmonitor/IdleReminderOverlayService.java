@@ -120,9 +120,14 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     static void dismiss(Context context, String key) {
+        dismiss(context, AccountContainerStore.selectedId(context), key);
+    }
+
+    static void dismiss(Context context, String containerId, String key) {
         IdleReminderOverlayService service = running;
         if (service == null || key == null) return;
-        new Handler(Looper.getMainLooper()).post(() -> service.removeRole(key));
+        new Handler(Looper.getMainLooper())
+                .post(() -> service.removeRole(containerId, key));
     }
 
     @Override
@@ -479,8 +484,23 @@ public final class IdleReminderOverlayService extends Service {
     }
 
     private void removeRole(String key) {
-        ProcessNotificationManager.clearCompletionAlert(this, key);
-        roles.entrySet().removeIf(entry -> key.equals(entry.getValue().key));
+        removeRole(AccountContainerStore.selectedId(this), key);
+    }
+
+    private void removeRole(String containerId, String key) {
+        ProcessNotificationManager.clearCompletionAlert(this, containerId, key);
+        java.util.Set<String> removeKeys = new java.util.HashSet<>();
+        for (Map.Entry<String, IdleProcessState.IdleRole> entry : roles.entrySet()) {
+            IdleProcessState.IdleRole value = entry.getValue();
+            String owner = roleAccounts.get(entry.getKey());
+            if (value != null && key.equals(value.key) && containerId.equals(owner)) {
+                removeKeys.add(entry.getKey());
+            }
+        }
+        for (String entryKey : removeKeys) {
+            roles.remove(entryKey);
+            roleAccounts.remove(entryKey);
+        }
         if (roles.isEmpty()) {
             stopSelf();
         } else {

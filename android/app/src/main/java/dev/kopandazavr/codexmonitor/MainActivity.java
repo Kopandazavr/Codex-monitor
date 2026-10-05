@@ -55,6 +55,7 @@ public final class MainActivity extends AppCompatActivity {
     private LinearLayout processesCard;
     private SwipeRefreshLayout swipeRefresh;
     private TextView accountPill;
+    private LinearLayout toolbarActionRow;
     private boolean dark;
     private boolean receiverRegistered;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -82,11 +83,12 @@ public final class MainActivity extends AppCompatActivity {
                 }
                 Toast.makeText(mainActivity, stringExtra2, 1).show();
                 PhoneWearSync.pushAll(MainActivity.this);
+                MainActivity.this.rebuildCollapsedToolbarActions();
                 MainActivity.this.rebuild();
                 return;
             }
             if (AppConstants.ACTION_CALENDAR_HEALTH_CHANGED.equals(action)) {
-                MainActivity.this.invalidateOptionsMenu();
+                MainActivity.this.rebuildCollapsedToolbarActions();
                 return;
             }
             if (AppConstants.ACTION_PROCESS_UPDATED.equals(action)) {
@@ -133,17 +135,67 @@ public final class MainActivity extends AppCompatActivity {
         RefreshScheduler.schedulePeriodic(this);
     }
 
-    private void installAccountHeader(dev.oneuiproject.oneui.layout.ToolbarLayout toolbar) {
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
+    private void installAccountHeader(
+            dev.oneuiproject.oneui.layout.ToolbarLayout toolbarLayout) {
+        androidx.appcompat.widget.Toolbar toolbar = toolbarLayout.getToolbar();
+        toolbarLayout.setTitle("", "");
+        toolbar.setTitle(null);
+        toolbar.setSubtitle(null);
+        toolbar.setContentInsetsAbsolute(0, 0);
+        toolbar.setContentInsetStartWithNavigation(0);
+        toolbar.setContentInsetEndWithActions(0);
 
-        TextView version = Ui.text(this, buildIdentity(), 13.5f, Color.WHITE);
+        int toolbarHeight = Ui.dp(this, 96);
+        toolbarLayout.getAppBarLayout().seslSetCustomHeight(toolbarHeight);
+        toolbar.setMinimumHeight(toolbarHeight);
+        android.view.ViewGroup.LayoutParams existingParams = toolbar.getLayoutParams();
+        if (existingParams != null) {
+            existingParams.height = toolbarHeight;
+            toolbar.setLayoutParams(existingParams);
+        }
+
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(Ui.dp(this, 24), Ui.dp(this, 5),
+                Ui.dp(this, 8), Ui.dp(this, 5));
+
+        LinearLayout identityRow = new LinearLayout(this);
+        identityRow.setOrientation(LinearLayout.HORIZONTAL);
+        identityRow.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView title = Ui.text(this, "Codex Monitor", 20.0f, Ui.mainText(this.dark));
+        title.setSingleLine(true);
+        title.setTypeface(Ui.mediumTypeface(this));
+        identityRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
+
+        TextView version = Ui.text(this, buildIdentity(), 12.5f,
+                Ui.secondaryText(this.dark));
         version.setSingleLine(true);
         LinearLayout.LayoutParams versionParams =
                 new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, -2);
-        versionParams.setMargins(0, 0, Ui.dp(this, 10), 0);
-        header.addView(version, versionParams);
+        versionParams.setMargins(Ui.dp(this, 8), 0, 0, 0);
+        identityRow.addView(version, versionParams);
+        header.addView(identityRow, new LinearLayout.LayoutParams(-1, Ui.dp(this, 34)));
+
+        this.toolbarActionRow = new LinearLayout(this);
+        this.toolbarActionRow.setOrientation(LinearLayout.HORIZONTAL);
+        this.toolbarActionRow.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(this.toolbarActionRow,
+                new LinearLayout.LayoutParams(-1, Ui.dp(this, 48)));
+
+        androidx.appcompat.widget.Toolbar.LayoutParams headerParams =
+                new androidx.appcompat.widget.Toolbar.LayoutParams(
+                        -1, -1, Gravity.CENTER_VERTICAL);
+        toolbar.addView(header, headerParams);
+        rebuildCollapsedToolbarActions();
+        toolbar.requestLayout();
+        toolbarLayout.requestLayout();
+    }
+
+    private void rebuildCollapsedToolbarActions() {
+        if (this.toolbarActionRow == null) return;
+        this.toolbarActionRow.removeAllViews();
 
         this.accountPill = AccountSwitcherView.create(this, this.dark,
                 new AccountSwitcherView.Listener() {
@@ -160,8 +212,17 @@ public final class MainActivity extends AppCompatActivity {
                 });
         LinearLayout.LayoutParams pillParams =
                 new LinearLayout.LayoutParams(0, -2, 1.0f);
-        header.addView(this.accountPill, pillParams);
-        toolbar.setCustomTitleView(header);
+        pillParams.setMargins(0, 0, Ui.dp(this, 4), 0);
+        this.toolbarActionRow.addView(this.accountPill, pillParams);
+
+        if (!MonitorHealthDiagnostics.isDirectHealthy(this)) {
+            this.toolbarActionRow.addView(buildCalendarHealthActionView(),
+                    new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)));
+        }
+        this.toolbarActionRow.addView(buildPermissionsActionView(),
+                new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)));
+        this.toolbarActionRow.addView(buildSettingsActionView(),
+                new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)));
     }
 
     private String buildIdentity() {
@@ -175,66 +236,19 @@ public final class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {
             code = 0L;
         }
-        return "v" + name + " (" + code + ")";
+        return "B" + name + " (" + code + ")";
     }
 
     private void onForegroundAccountChanged() {
-        if (this.accountPill != null) {
-            AccountSwitcherView.bindAppearance(this, this.accountPill);
-        }
-        invalidateOptionsMenu();
+        rebuildCollapsedToolbarActions();
         rebuild();
         // AccountSwitcherView already reconciled system surfaces before this callback.
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        MenuItem calendarHealth = menu.add(Menu.NONE, MENU_CALENDAR_HEALTH, 0,
-                "Direct Calendar health");
-        calendarHealth.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-        calendarHealth.setActionView(buildCalendarHealthActionView());
-        calendarHealth.setVisible(!MonitorHealthDiagnostics.isDirectHealthy(this));
-
-        MenuItem permissions = menu.add(Menu.NONE, MENU_PERMISSIONS, 1,
-                "Permissions & connections");
-        permissions.setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
-        permissions.setActionView(buildPermissionsActionView());
-
-        menu.add(Menu.NONE, MENU_SETTINGS, 2, "Settings")
-                .setIcon(R.drawable.ic_oui_settings_outline)
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS);
+        menu.clear();
         return true;
-    }
-
-    @Override
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        MenuItem calendarHealth = menu.findItem(MENU_CALENDAR_HEALTH);
-        if (calendarHealth != null) {
-            boolean degraded = !MonitorHealthDiagnostics.isDirectHealthy(this);
-            calendarHealth.setVisible(degraded);
-            if (degraded) calendarHealth.setActionView(buildCalendarHealthActionView());
-        }
-        MenuItem permissions = menu.findItem(MENU_PERMISSIONS);
-        if (permissions != null) permissions.setActionView(buildPermissionsActionView());
-        return super.onPrepareOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == MENU_CALENDAR_HEALTH) {
-            showCalendarHealthDialog();
-            return true;
-        }
-        if (item.getItemId() == MENU_PERMISSIONS) {
-            openPermissionsConnections();
-            return true;
-        }
-        if (item.getItemId() == MENU_SETTINGS) {
-            DiagnosticLog.info(this, "user", "settings_opened");
-            Ui.startSecondaryActivity(this, SettingsActivity.class);
-            return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     private View buildCalendarHealthActionView() {
@@ -279,13 +293,35 @@ public final class MainActivity extends AppCompatActivity {
                 "source", "dashboard");
         Toast.makeText(this, "Retrying Direct Calendar…", Toast.LENGTH_SHORT).show();
         GoogleCalendarProcessSource.forceRefresh(this, () -> runOnUiThread(() -> {
-            invalidateOptionsMenu();
+            rebuildCollapsedToolbarActions();
             boolean healthy = MonitorHealthDiagnostics.isDirectHealthy(this);
             Toast.makeText(this,
                     healthy ? "Direct Calendar recovered."
                             : "Direct Calendar is still degraded.",
                     healthy ? Toast.LENGTH_SHORT : Toast.LENGTH_LONG).show();
         }));
+    }
+
+    private View buildSettingsActionView() {
+        FrameLayout root = new FrameLayout(this);
+        root.setContentDescription("Settings");
+        root.setClickable(true);
+        root.setFocusable(true);
+        root.setPadding(Ui.dp(this, 8), Ui.dp(this, 8),
+                Ui.dp(this, 8), Ui.dp(this, 8));
+        root.setOnClickListener(view -> {
+            DiagnosticLog.info(this, "user", "settings_opened");
+            Ui.startSecondaryActivity(this, SettingsActivity.class);
+        });
+
+        ImageView icon = new ImageView(this);
+        icon.setImageResource(R.drawable.ic_oui_settings_outline);
+        icon.setImageTintList(ColorStateList.valueOf(Ui.mainText(this.dark)));
+        root.addView(icon, new FrameLayout.LayoutParams(
+                Ui.dp(this, 26), Ui.dp(this, 26), Gravity.CENTER));
+        root.setMinimumWidth(Ui.dp(this, 48));
+        root.setMinimumHeight(Ui.dp(this, 48));
+        return root;
     }
 
     private View buildPermissionsActionView() {
@@ -345,6 +381,7 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         handleLaunchIntent(intent);
+        rebuildCollapsedToolbarActions();
         rebuild();
     }
 
@@ -367,11 +404,8 @@ public final class MainActivity extends AppCompatActivity {
         } else {
             handleLaunchIntent(getIntent());
             ForegroundAccountCoordinator.reconcile(this);
-            if (this.accountPill != null) {
-                AccountSwitcherView.bindAppearance(this, this.accountPill);
-            }
+            rebuildCollapsedToolbarActions();
             rebuild();
-            invalidateOptionsMenu();
         }
     }
 

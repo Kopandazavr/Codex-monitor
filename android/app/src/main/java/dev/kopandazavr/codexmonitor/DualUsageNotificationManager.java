@@ -367,16 +367,8 @@ final class DualUsageNotificationManager {
             views.setTextColor(R.id.notification_plan_text, textColor);
         }
 
-        if (layoutId == R.layout.notification_usage_dual_bars) {
-            String processSummary = ProcessNotificationMode.COMBINED.equals(processMode)
-                    ? ProcessNotificationManager.collapsedSummary(context, processes, idleRoles, now)
-                    : "";
-            views.setViewVisibility(R.id.notification_process_summary,
-                    processSummary.isEmpty() ? View.GONE : View.VISIBLE);
-            views.setTextViewText(R.id.notification_process_summary, processSummary);
-            views.setTextColor(R.id.notification_process_summary, textColor);
-        }
-
+        // Compact SystemUI has a strict line budget. Process identity belongs only
+        // to the expanded surface; compact keeps account + usage/reset rows + bars.
         if (fiveHour == null) {
             views.setViewVisibility(R.id.notification_five_row, View.GONE);
         } else {

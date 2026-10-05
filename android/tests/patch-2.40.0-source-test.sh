@@ -62,7 +62,7 @@ grep -Fq 'Local calendar fallback can only be assigned to one account.' "$SRC/On
 test -f "$SRC/AccountSwitcherView.java"
 grep -Fq '"+ Add Account"' "$SRC/AccountSwitcherView.java"
 grep -Fq 'setGroupDividerEnabled(true)' "$SRC/AccountSwitcherView.java"
-grep -Fq 'installAccountHeader(page.toolbar)' "$SRC/MainActivity.java"
+grep -Fq 'this.toolbarActionRow.addView(this.accountPill, pillParams);' "$SRC/MainActivity.java"
 grep -Fq 'page.toolbar.setExpandable(false)' "$SRC/MainActivity.java"
 grep -Eq 'return "[vB]" \+ name \+ " \(" \+ code \+ "\)"' "$SRC/MainActivity.java"
 grep -Fq 'AccountSwitcherView.create(this, this.dark' "$SRC/OnboardingActivity.java"

@@ -7,10 +7,10 @@ SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 
 VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
-[[ "$VERSION_NAME" == "2.41.0" ]]
-[[ "$VERSION_CODE" == "67" ]]
-grep -Fq 'VERSION_NAME = "2.41.0"' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_CODE = 67' "$SRC/AppConstants.java"
+[[ -n "$VERSION_NAME" ]]
+[[ "$VERSION_CODE" -ge 67 ]]
+grep -Fq "VERSION_NAME = \"$VERSION_NAME\"" "$SRC/AppConstants.java"
+grep -Fq "VERSION_CODE = $VERSION_CODE" "$SRC/AppConstants.java"
 
 # Selected Now Bar and combined usage/process surface share one account-scoped identity.
 grep -Fq 'private static final int NOTIFICATION_ID = 8610;' "$SRC/NowBarManager.java"

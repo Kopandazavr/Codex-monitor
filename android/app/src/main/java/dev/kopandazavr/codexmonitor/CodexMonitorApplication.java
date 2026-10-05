@@ -129,7 +129,6 @@ public final class CodexMonitorApplication extends Application
         DiagnosticLog.info(this, "screen", "resumed",
                 "activity", activity.getClass().getSimpleName());
         Branding.apply(activity);
-        HomeVersionLabel.apply(activity);
         // Settings can start the native monitor from cached usage without a network refresh.
         // Collapse rapid Activity transitions and never let maintenance notification rendering
         // kill the foreground screen if an OEM RemoteViews path throws.

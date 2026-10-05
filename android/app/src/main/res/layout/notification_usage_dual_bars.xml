@@ -27,16 +27,6 @@
         android:textSize="11sp"
         android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/notification_process_summary"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="1dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textSize="10sp"
-        android:visibility="gone" />
-
     <LinearLayout
         android:id="@+id/notification_five_row"
         android:layout_width="match_parent"

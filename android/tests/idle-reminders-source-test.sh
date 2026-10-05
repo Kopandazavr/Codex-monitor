@@ -86,17 +86,19 @@ grep -q 'PROCESS_COMPLETION_CHANNEL_ID' "$SRC/AlertSoundManager.java"
 ! grep -q 'AlertSoundManager.playProcessCompletion(context)' "$SRC/IdleReminderManager.java"
 grep -q 'Recurring idle alarms never create completion overlays' "$SRC/IdleReminderManager.java"
 
-# Every process-notification mode has a useful collapsed summary. Combined mode surfaces it inside
-# the usage card; grouped / one-each use a compact summary view plus the full expanded row layout.
+# Grouped / one-each process notifications keep their own useful compact summary plus expanded
+# rows. Combined mode reserves the compact usage card's line budget for account + limits + bars;
+# process rows remain available in the expanded usage surface only.
 grep -q 'static String collapsedSummary' "$SRC/ProcessNotificationManager.java"
 grep -q 'process.remainingPercent(nowMillis)' "$SRC/ProcessNotificationManager.java"
 grep -q 'R.layout.notification_processes_expanded' "$SRC/ProcessNotificationManager.java"
 grep -q 'setCustomContentView(compact)' "$SRC/ProcessNotificationManager.java"
 grep -q 'setCustomBigContentView(expanded)' "$SRC/ProcessNotificationManager.java"
-grep -q 'ProcessNotificationManager.collapsedSummary' "$SRC/DualUsageNotificationManager.java"
+! grep -q 'ProcessNotificationManager.collapsedSummary' "$SRC/DualUsageNotificationManager.java"
 grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_processes.xml"
 grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_processes_expanded.xml"
-grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_usage_dual_bars.xml"
+! grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_usage_dual_bars.xml"
+grep -q 'notification_process_section' "$ROOT/app/src/main/res/layout/notification_usage_dual_bars_expanded.xml"
 
 # 2.10: every active process row exposes the same per-role reminder bell in combined, grouped,
 # and one-each modes; idle rows retain their bell as before.

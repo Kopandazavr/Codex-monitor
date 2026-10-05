@@ -144,8 +144,12 @@ public final class MainActivity extends AppCompatActivity {
         // only cleared the Toolbar text; the retained expanded CollapsingToolbar
         // title/subtitle could still render behind the custom two-row header.
         toolbarLayout.setTitle(null, null);
+        // expanded/collapsed subtitle caches may already be null while Samsung's
+        // CollapsingToolbar still holds rendered text. Force one public setter
+        // transition so both actual subtitle surfaces are cleared without
+        // calling OneUI's @RestrictTo setTitlesNoCache().
+        toolbarLayout.setSubtitle("");
         toolbarLayout.setSubtitle(null);
-        toolbarLayout.setTitlesNoCache(null, null, null, null);
         toolbar.setTitle(null);
         toolbar.setSubtitle(null);
         toolbar.setContentInsetsAbsolute(0, 0);

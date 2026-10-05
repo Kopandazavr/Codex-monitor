@@ -43,7 +43,7 @@ grep -Fq 'GoogleCalendarProcessSource.hasFreshCache' "$SRC/MonitorHealthDiagnost
 grep -Fq '"calendar_provider_fallback"' "$SRC/MonitorHealthDiagnostics.java"
 grep -Fq 'notifyHealthChanged(context, containerId);' "$SRC/MonitorHealthDiagnostics.java"
 grep -Fq 'buildCalendarHealthActionView()' "$SRC/MainActivity.java"
-grep -Fq 'calendarHealth.setVisible(!MonitorHealthDiagnostics.isDirectHealthy(this));' "$SRC/MainActivity.java"
+grep -Eq 'calendarHealth\.setVisible\(!MonitorHealthDiagnostics\.isDirectHealthy\(this\)\);|if \(!MonitorHealthDiagnostics\.isDirectHealthy\(this\)\) \{' "$SRC/MainActivity.java"
 grep -Fq '"Retry now"' "$SRC/MainActivity.java"
 grep -Fq 'GoogleCalendarProcessSource.forceRefresh(this' "$SRC/MainActivity.java"
 grep -Fq '"Reconnect"' "$SRC/MainActivity.java"

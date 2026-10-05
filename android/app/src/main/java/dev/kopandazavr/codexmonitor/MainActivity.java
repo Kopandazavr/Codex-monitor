@@ -119,8 +119,10 @@ public final class MainActivity extends AppCompatActivity {
         }
         this.dark = Ui.isDark(this);
         Ui.Page page = Ui.installPage(this, "", false);
-        page.toolbar.setExpandable(false);
+        // Collapse while expansion is still enabled; ToolbarLayout ignores
+        // setExpanded() after expandable has already been disabled.
         page.toolbar.setExpanded(false, false);
+        page.toolbar.setExpandable(false);
         installAccountHeader(page.toolbar);
         this.content = page.content;
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
@@ -138,7 +140,12 @@ public final class MainActivity extends AppCompatActivity {
     private void installAccountHeader(
             dev.oneuiproject.oneui.layout.ToolbarLayout toolbarLayout) {
         androidx.appcompat.widget.Toolbar toolbar = toolbarLayout.getToolbar();
-        toolbarLayout.setTitle("", "");
+        // Clear both the cached and the actual OneUI title/subtitle surfaces. 2.42
+        // only cleared the Toolbar text; the retained expanded CollapsingToolbar
+        // title/subtitle could still render behind the custom two-row header.
+        toolbarLayout.setTitle(null, null);
+        toolbarLayout.setSubtitle(null);
+        toolbarLayout.setTitlesNoCache(null, null, null, null);
         toolbar.setTitle(null);
         toolbar.setSubtitle(null);
         toolbar.setContentInsetsAbsolute(0, 0);

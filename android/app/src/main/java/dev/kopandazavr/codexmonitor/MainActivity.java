@@ -247,7 +247,7 @@ public final class MainActivity extends AppCompatActivity {
         } catch (Exception ignored) {
             code = 0L;
         }
-        return "B" + name + " (" + code + ")";
+        return "v" + name + " (" + code + ")";
     }
 
     private void onForegroundAccountChanged() {

@@ -29,7 +29,8 @@ grep -Fq 'IdleReminderOverlayService.showTest' "$SRC/SettingsActivity.java"
 grep -Fq 'ACTION_SHOW_TEST' "$SRC/IdleReminderOverlayService.java"
 grep -Fq 'TEST_ROLE_KEY' "$SRC/IdleReminderOverlayService.java"
 
-grep -Fq 'BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"' "$SRC/HomeVersionLabel.java"
+! test -f "$SRC/HomeVersionLabel.java"
+grep -Fq 'return "v" + name + " (" + code + ")";' "$SRC/MainActivity.java"
 
 grep -Fq 'fillPercent = percent;' "$SRC/UsageWaveView.java"
 grep -Fq 'if (fillPercent > 0)' "$SRC/UsageWaveView.java"

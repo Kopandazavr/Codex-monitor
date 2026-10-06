@@ -10,10 +10,9 @@ VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradl
 grep -Fq 'VERSION_CODE = ' "$SRC/AppConstants.java"
 grep -Fq 'VERSION_NAME = ' "$SRC/AppConstants.java"
 
-grep -Fq 'toolbar.setTitle(HOME_TITLE, HOME_TITLE);' "$SRC/HomeVersionLabel.java"
-grep -Fq 'toolbar.setSubtitle(expandedSubtitle);' "$SRC/HomeVersionLabel.java"
-grep -Fq 'toolbar.setCollapsedSubtitle(collapsedSubtitle);' "$SRC/HomeVersionLabel.java"
-! grep -Fq 'findHomeTitle' "$SRC/HomeVersionLabel.java"
+! test -f "$SRC/HomeVersionLabel.java"
+! grep -Fq 'HomeVersionLabel.apply(activity);' "$SRC/CodexMonitorApplication.java"
+grep -Fq 'return "v" + name + " (" + code + ")";' "$SRC/MainActivity.java"
 
 test -f "$SRC/RoleProfileStore.java"
 test -f "$SRC/RoleSettingsDialog.java"

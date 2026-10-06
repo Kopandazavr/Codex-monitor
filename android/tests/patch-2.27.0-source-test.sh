@@ -40,10 +40,10 @@ grep -Fq 'disc.setStroke(Ui.dp(context, 1.5f), accent);' "$SRC/ProjectBadgeView.
 grep -Fq 'fillPaint.setColor(weekly ? WEEKLY_ORANGE : Ui.accent(getContext(), dark));' "$SRC/UsageWaveView.java"
 grep -Fq 'int seriesColor = isWeekly() ? WEEKLY_ORANGE : Ui.accent(getContext(), dark);' "$SRC/UsageBurnChartView.java"
 
-# 2.29 supersedes the fragile internal TextView header mutation while preserving full build identity.
-grep -Fq 'BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ")"' "$SRC/HomeVersionLabel.java"
-grep -Fq 'toolbar.setTitle(HOME_TITLE, HOME_TITLE);' "$SRC/HomeVersionLabel.java"
-grep -Fq 'toolbar.setCollapsedSubtitle(collapsedSubtitle);' "$SRC/HomeVersionLabel.java"
+# Later toolbar work supersedes the legacy HomeVersionLabel owner while preserving full build identity.
+! test -f "$SRC/HomeVersionLabel.java"
+! grep -Fq 'HomeVersionLabel.apply(activity);' "$SRC/CodexMonitorApplication.java"
+grep -Fq 'return "v" + name + " (" + code + ")";' "$SRC/MainActivity.java"
 
 # Accepted 2.26 process controls are frozen.
 grep -Fq 'PROCESS_ACTION_GUTTER_DP = 42' "$SRC/MainActivity.java"

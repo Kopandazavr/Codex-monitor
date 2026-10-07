@@ -104,7 +104,9 @@ final class IdleProcessState {
         }
 
         String completionIdentity() {
-            return instanceId.isEmpty() ? "legacy-event:" + eventId : "instance:" + instanceId;
+            if (!instanceId.isEmpty()) return "instance:" + instanceId;
+            return legacySessionIdentity(project, projectShort, role, topic,
+                    lastStartedMillis, lastFinishedMillis);
         }
     }
 
@@ -492,7 +494,13 @@ final class IdleProcessState {
         String cleanInstance = clean(instanceId);
         for (SessionRecord record : row.history) {
             boolean sameInstance = !cleanInstance.isEmpty()
-                    ? cleanInstance.equals(record.instanceId) : record.eventId == eventId;
+                    ? cleanInstance.equals(record.instanceId)
+                    : (record.eventId == eventId
+                            || legacySessionIdentity(project, projectShort, role, topic,
+                                    startedMillis, finishedMillis).equals(
+                                    legacySessionIdentity(record.project, record.projectShort,
+                                            record.role, record.topic,
+                                            record.startedMillis, record.finishedMillis)));
             if (sameInstance && record.finishedMillis == finishedMillis) return;
         }
         row.history.add(new SessionRecord(project, projectShort, role, topic, cleanInstance,
@@ -563,6 +571,15 @@ final class IdleProcessState {
             editor.remove(KEY_ROWS);
         }
         editor.apply();
+    }
+
+    private static String legacySessionIdentity(String project, String projectShort,
+            String role, String topic, long startedMillis, long finishedMillis) {
+        return "legacy-session:" + clean(project) + "\u001f"
+                + clean(projectShort) + "\u001f"
+                + clean(role) + "\u001f"
+                + clean(topic) + "\u001f"
+                + startedMillis + "\u001f" + finishedMillis;
     }
 
     private static String rowsKey(String containerId) {

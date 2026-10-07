@@ -115,9 +115,36 @@ final class WatchdogInstanceState {
 
     static void remember(Map<String, PendingInstance> pending, String roleKey,
             CalendarProcess process) {
-        if (pending == null) return;
+        if (pending == null || process == null) return;
         PendingInstance value = fromProcess(roleKey, process);
-        if (value != null) pending.put(value.storageKey, value);
+        if (value == null) return;
+
+        // Reconcile pre-2.45 provider-specific legacy records when the same watchdog is
+        // observed through another Calendar source. Start/deadline are part of the semantic
+        // identity, so genuinely distinct same-role sessions remain separate.
+        if (process.instanceId.isEmpty()) {
+            java.util.Iterator<Map.Entry<String, PendingInstance>> iterator =
+                    pending.entrySet().iterator();
+            while (iterator.hasNext()) {
+                PendingInstance existing = iterator.next().getValue();
+                if (sameLogicalLegacyWatchdog(existing, process)) {
+                    iterator.remove();
+                }
+            }
+        }
+        pending.put(value.storageKey, value);
+    }
+
+    private static boolean sameLogicalLegacyWatchdog(
+            PendingInstance existing, CalendarProcess process) {
+        if (existing == null || process == null || !existing.instanceId.isEmpty()
+                || !process.instanceId.isEmpty()) return false;
+        return clean(existing.project).equals(clean(process.project))
+                && clean(existing.projectShort).equals(clean(process.projectShort))
+                && clean(existing.role).equals(clean(process.role))
+                && clean(existing.topic).equals(clean(process.topic))
+                && existing.startedMillis == process.workStartMillis()
+                && existing.deadlineMillis == process.beginMillis;
     }
 
     static Map<String, PendingInstance> load(Context context) {

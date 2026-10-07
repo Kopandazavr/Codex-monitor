@@ -227,9 +227,29 @@ final class CalendarProcess {
                 && !"-".equals(cleanValue);
     }
 
-    /** Stable across an in-place Calendar reschedule of the same provider event. */
+    /**
+     * Stable logical identity for a watchdog. Explicit instance_id remains authoritative.
+     * Legacy watchdogs use semantic watchdog fields rather than provider event ids, so the
+     * Local Provider and Direct API representations of one event remain equivalent.
+     */
     String instanceIdentity() {
-        return instanceId.isEmpty() ? "legacy-event:" + eventId : "instance:" + instanceId;
+        if (!instanceId.isEmpty()) return "instance:" + instanceId;
+        return logicalLegacyIdentity();
+    }
+
+    String logicalLegacyIdentity() {
+        String semantic = semanticIdentityString();
+        return "legacy-semantic:" + Integer.toHexString(semantic.hashCode())
+                + ":" + semantic.length();
+    }
+
+    String semanticIdentityString() {
+        return clean(project) + "\u001f"
+                + clean(projectShort) + "\u001f"
+                + clean(role) + "\u001f"
+                + clean(topic) + "\u001f"
+                + workStartMillis() + "\u001f"
+                + beginMillis;
     }
 
     String identity() {

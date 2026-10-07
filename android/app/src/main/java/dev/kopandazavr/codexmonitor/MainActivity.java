@@ -156,7 +156,9 @@ public final class MainActivity extends AppCompatActivity {
         toolbar.setContentInsetStartWithNavigation(0);
         toolbar.setContentInsetEndWithActions(0);
 
-        int toolbarHeight = Ui.dp(this, 96);
+        // Leave headroom for OneUI toolbar measurement/insets; 96dp clipped the top and bottom
+        // of the custom two-row header on Samsung devices even though child rows fit nominally.
+        int toolbarHeight = Ui.dp(this, 108);
         toolbarLayout.getAppBarLayout().seslSetCustomHeight(toolbarHeight);
         toolbar.setMinimumHeight(toolbarHeight);
         android.view.ViewGroup.LayoutParams existingParams = toolbar.getLayoutParams();
@@ -168,8 +170,8 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(Ui.dp(this, 24), Ui.dp(this, 5),
-                Ui.dp(this, 8), Ui.dp(this, 5));
+        header.setPadding(Ui.dp(this, 24), Ui.dp(this, 4),
+                Ui.dp(this, 8), Ui.dp(this, 4));
 
         LinearLayout identityRow = new LinearLayout(this);
         identityRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -187,7 +189,7 @@ public final class MainActivity extends AppCompatActivity {
                 new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, -2);
         versionParams.setMargins(Ui.dp(this, 8), 0, 0, 0);
         identityRow.addView(version, versionParams);
-        header.addView(identityRow, new LinearLayout.LayoutParams(-1, Ui.dp(this, 34)));
+        header.addView(identityRow, new LinearLayout.LayoutParams(-1, Ui.dp(this, 40)));
 
         this.toolbarActionRow = new LinearLayout(this);
         this.toolbarActionRow.setOrientation(LinearLayout.HORIZONTAL);

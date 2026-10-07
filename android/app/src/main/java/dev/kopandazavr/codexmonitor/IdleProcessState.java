@@ -251,9 +251,18 @@ final class IdleProcessState {
         if (row == null || finishedMillis <= 0L) return null;
         String wantedInstance = clean(instanceId);
         for (SessionRecord record : row.history) {
-            boolean identityMatch = !wantedInstance.isEmpty()
-                    ? wantedInstance.equals(record.instanceId)
-                    : record.eventId == eventId;
+            boolean identityMatch;
+            if (!wantedInstance.isEmpty()) {
+                identityMatch = wantedInstance.equals(record.instanceId);
+            } else {
+                identityMatch = record.eventId == eventId
+                        || legacySessionIdentity(record.project, record.projectShort,
+                                record.role, record.topic, record.startedMillis,
+                                record.finishedMillis).equals(
+                                legacySessionIdentity(row.project, row.projectShort,
+                                        row.role, row.topic,
+                                        record.startedMillis, finishedMillis));
+            }
             if (identityMatch && record.finishedMillis == finishedMillis) {
                 return row.freeze(record);
             }

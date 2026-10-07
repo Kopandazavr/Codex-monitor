@@ -238,9 +238,7 @@ final class CalendarProcess {
     }
 
     String logicalLegacyIdentity() {
-        String semantic = semanticIdentityString();
-        return "legacy-semantic:" + Integer.toHexString(semantic.hashCode())
-                + ":" + semantic.length();
+        return "legacy-semantic:" + semanticIdentityString();
     }
 
     String semanticIdentityString() {

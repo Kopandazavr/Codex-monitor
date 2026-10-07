@@ -198,8 +198,15 @@ public final class CalendarProcessSelfTest {
                 78L, "GPT_WATCHDOG|urgent|Data Matrix",
                 "codex_monitor_watchdog=v1 project=Data Matrix role=Planner topic=legacy",
                 30_000L, 31_000L);
+        CalendarProcess legacyDirect = CalendarProcess.fromDirectEvent(
+                901L, "GPT_WATCHDOG|urgent|Data Matrix",
+                "codex_monitor_watchdog=v1 project=Data Matrix role=Planner topic=legacy",
+                30_000L, 31_000L, 29_000L);
         require(legacy != null && legacy.instanceId.isEmpty(), "legacy instance_id optional");
-        require("legacy-event:78".equals(legacy.identity()), "legacy identity keeps event ID");
+        require(legacyDirect != null && legacyDirect.instanceId.isEmpty(),
+                "legacy direct instance_id optional");
+        require(legacy.identity().equals(legacyDirect.identity()),
+                "legacy identity survives source-specific event IDs");
     }
 
     private static void testRoleIconMetadata() {

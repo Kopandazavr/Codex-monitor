@@ -148,7 +148,7 @@ jobs:
           ./lint.sh
 
       - name: Configure release signing
-        if: github.ref_type == 'tag' || github.ref == 'refs/heads/feature/data-matrix-process-notifications'
+        if: github.ref_type == 'tag'
         shell: bash
         env:
           ANDROID_SIGNING_PASSWORD: ${{ secrets.ANDROID_SIGNING_PASSWORD }}

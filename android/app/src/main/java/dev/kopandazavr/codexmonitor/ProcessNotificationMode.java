@@ -3,17 +3,12 @@ package dev.kopandazavr.codexmonitor;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-/** Placement policy for long-running calendar-backed process notifications. */
+/** Only rich combined One Card is supported; old stored modes migrate safely. */
 final class ProcessNotificationMode {
     static final String COMBINED = "combined";
-    static final String PER_PROCESS = "per_process";
-    static final String GROUPED = "grouped";
-
     static final String PREFERENCE_KEY = "process_notification_mode_ui";
     private static final String SETTINGS_PREFS = "codex_monitor_settings_v1";
-
-    private ProcessNotificationMode() {
-    }
+    private ProcessNotificationMode() {}
 
     static String current(Context context) {
         return current(context, AccountContainerStore.selectedId(context));
@@ -21,46 +16,26 @@ final class ProcessNotificationMode {
 
     static String current(Context context, String containerId) {
         if (context == null) return COMBINED;
-        SharedPreferences preferences = context.getSharedPreferences(
-                SETTINGS_PREFS, Context.MODE_PRIVATE);
-        String scopedKey = scopedKey(containerId);
-        if (preferences.contains(scopedKey)) {
-            return normalize(preferences.getString(scopedKey, COMBINED));
-        }
-        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
-            return normalize(preferences.getString(PREFERENCE_KEY, COMBINED));
+        SharedPreferences prefs = context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE);
+        String scoped = scopedKey(containerId);
+        if (prefs.contains(scoped) || (AccountContainerStore.isLegacyOwner(context, containerId)
+                && prefs.contains(PREFERENCE_KEY))) {
+            prefs.edit().remove(scoped).remove(PREFERENCE_KEY).apply();
         }
         return COMBINED;
     }
 
-    static void set(Context context, String value) {
-        set(context, AccountContainerStore.selectedId(context), value);
-    }
-
-    static void set(Context context, String containerId, String value) {
-        if (context == null) return;
-        context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE)
-                .edit().putString(scopedKey(containerId), normalize(value)).apply();
-    }
-
     static void clearContainer(Context context, String containerId) {
         if (context == null || containerId == null || containerId.trim().isEmpty()) return;
-        SharedPreferences.Editor editor = context.getSharedPreferences(
-                SETTINGS_PREFS, Context.MODE_PRIVATE).edit().remove(scopedKey(containerId));
-        if (AccountContainerStore.isLegacyOwner(context, containerId)) {
-            editor.remove(PREFERENCE_KEY);
-        }
-        editor.apply();
+        context.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).edit()
+                .remove(scopedKey(containerId)).apply();
     }
 
     private static String scopedKey(String containerId) {
-        String id = containerId == null ? "" : containerId.trim();
-        return PREFERENCE_KEY + "::" + id.replaceAll("[^A-Za-z0-9_.-]", "_");
+        return PREFERENCE_KEY + "::" + AccountNotificationNamespace.safe(containerId);
     }
 
-    static String normalize(String value) {
-        if (PER_PROCESS.equals(value)) return PER_PROCESS;
-        if (GROUPED.equals(value)) return GROUPED;
+    static String normalize(String ignored) {
         return COMBINED;
     }
 }

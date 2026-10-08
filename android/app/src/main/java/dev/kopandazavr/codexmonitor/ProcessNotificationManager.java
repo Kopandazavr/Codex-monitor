@@ -36,6 +36,7 @@ final class ProcessNotificationManager {
     private ProcessNotificationManager() {
     }
 
+    /** Retired per-process/grouped surfaces are cleaned but never republished. */
     static void sync(Context context, List<CalendarProcess> processes,
             List<IdleProcessState.IdleRole> idleRoles, String mode, long nowMillis) {
         sync(context, AccountContainerStore.selectedId(context),
@@ -46,36 +47,10 @@ final class ProcessNotificationManager {
             List<IdleProcessState.IdleRole> idleRoles, String mode, long nowMillis) {
         if (context == null) return;
         reconcileStaleCompletionAlerts(context, containerId);
-        String normalizedMode = ProcessNotificationMode.normalize(mode);
-        if (ProcessNotificationMode.COMBINED.equals(normalizedMode)) {
-            clearAll(context, containerId);
-            return;
-        }
-        NotificationManager manager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager == null) return;
-        AlertSoundManager.ensureChannels(context);
-        String tag = AccountNotificationNamespace.tag(containerId);
-        if (ProcessNotificationMode.GROUPED.equals(normalizedMode)) {
-            clearPerProcess(context, containerId, manager);
-            if (isEmpty(processes) && isEmpty(idleRoles)) {
-                manager.cancel(tag, GROUPED_NOTIFICATION_ID);
-                return;
-            }
-            manager.notify(tag, GROUPED_NOTIFICATION_ID,
-                    buildNotification(context, containerId, processes, idleRoles,
-                            accountTitle(context, containerId, "Processes"), nowMillis,
-                            CHANNEL_ID, NotificationSurfaceContract.SORT_PROCESSES, true));
-            return;
-        }
-        manager.cancel(tag, GROUPED_NOTIFICATION_ID);
-        syncPerProcess(context, containerId, manager, processes, idleRoles, nowMillis);
+        clearAll(context, containerId);
     }
 
-    /**
-     * Re-alerts the persistent surface that already owns an idle role. This deliberately reuses
-     * the same notification ID instead of creating a second long-lived reminder card.
-     */
+    /** An idle-role attention event is independent from visibility of the persistent card. */
     static boolean reAlertIdleReminder(Context context, IdleProcessState.IdleRole idle,
             String alertChannelId, long nowMillis) {
         return reAlertIdleReminder(context, AccountContainerStore.selectedId(context),
@@ -85,48 +60,10 @@ final class ProcessNotificationManager {
     static boolean reAlertIdleReminder(Context context, String containerId,
             IdleProcessState.IdleRole idle, String alertChannelId, long nowMillis) {
         if (context == null || idle == null || alertChannelId == null) return false;
-        String mode = ProcessNotificationMode.current(context, containerId);
-        if (ProcessNotificationMode.COMBINED.equals(mode)) {
-            return DualUsageNotificationManager.realertUsageSurface(
-                    context, containerId, alertChannelId,
-                    notificationIdentity(context, idle.project, idle.role, "", false) + " is idle",
-                    "Idle reminder · " + formatIdle(nowMillis - idle.lastFinishedMillis));
-        }
-        NotificationManager manager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager == null) return false;
-        List<CalendarProcess> observed =
-                CalendarProcessReader.observed(context, containerId, nowMillis);
-        List<CalendarProcess> active = CalendarProcessReader.active(observed, nowMillis);
-        List<CalendarProcess> finished =
-                CalendarProcessReader.recentlyFinished(observed, nowMillis);
-        List<IdleProcessState.IdleRole> idleRoles =
-                IdleProcessState.synchronize(context, containerId,
-                        active, finished, observed, nowMillis);
-        String tag = AccountNotificationNamespace.tag(containerId);
-        try {
-            if (ProcessNotificationMode.GROUPED.equals(mode)) {
-                manager.notify(tag, GROUPED_NOTIFICATION_ID,
-                        buildNotification(context, containerId, active, idleRoles,
-                                accountTitle(context, containerId, "Processes"), nowMillis,
-                                alertChannelId, NotificationSurfaceContract.SORT_PROCESSES,
-                                false));
-            } else {
-                manager.notify(tag, idleNotificationId(idle.key),
-                        buildNotification(context, containerId, Collections.emptyList(),
-                                Collections.singletonList(idle),
-                                accountTitle(context, containerId,
-                                        notificationIdentity(context, idle.project,
-                                                idle.role, "", false)),
-                                nowMillis, alertChannelId,
-                                NotificationSurfaceContract.sortRole(idle.key), false));
-            }
-            return true;
-        } catch (RuntimeException exception) {
-            DiagnosticLog.error(context, "idle_process", "persistent_surface_realert_failed",
-                    exception, "container_id", containerId, "role", idle.displayLabel());
-            return false;
-        }
+        return DualUsageNotificationManager.realertUsageSurface(
+                context, containerId, alertChannelId,
+                notificationIdentity(context, idle.project, idle.role, "", false) + " is idle",
+                "Idle reminder · " + formatIdle(nowMillis - idle.lastFinishedMillis));
     }
 
     /**
@@ -381,59 +318,6 @@ final class ProcessNotificationManager {
         return "";
     }
 
-    private static void syncPerProcess(Context context, String accountId,
-            NotificationManager manager, List<CalendarProcess> processes,
-            List<IdleProcessState.IdleRole> idleRoles, long nowMillis) {
-        Set<String> nextIds = new HashSet<>();
-        for (ProcessRoleGroup group : ProcessRoleGroup.group(context, processes)) {
-            CalendarProcess representative = group.representative();
-            if (representative == null) continue;
-            int id = activeRoleNotificationId(group.roleKey);
-            nextIds.add(String.valueOf(id));
-            boolean single = group.processes.size() == 1;
-            manager.notify(AccountNotificationNamespace.tag(accountId), id,
-                    buildNotification(context, accountId,
-                    group.processes, Collections.emptyList(),
-                    accountTitle(context, accountId,
-                            notificationIdentity(context, representative.project,
-                                    representative.role, representative.topic, single)),
-                    nowMillis, CHANNEL_ID, NotificationSurfaceContract.sortRole(group.roleKey),
-                    true));
-        }
-        if (idleRoles != null) {
-            for (IdleProcessState.IdleRole idle : idleRoles) {
-                int id = idleNotificationId(idle.key);
-                nextIds.add(String.valueOf(id));
-                manager.notify(AccountNotificationNamespace.tag(accountId), id,
-                        buildNotification(context, accountId,
-                        Collections.emptyList(), Collections.singletonList(idle),
-                        accountTitle(context, accountId,
-                                notificationIdentity(context, idle.project, idle.role, "", false)),
-                        nowMillis, CHANNEL_ID,
-                        NotificationSurfaceContract.sortRole(idle.key), true));
-            }
-        }
-        SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        String activeKey = scopedKey(accountId, KEY_ACTIVE_IDS);
-        Set<String> previous = new HashSet<>(preferences.getStringSet(activeKey,
-                AccountContainerStore.isLegacyOwner(context, accountId)
-                        ? preferences.getStringSet(KEY_ACTIVE_IDS, Collections.emptySet())
-                        : Collections.emptySet()));
-        for (String id : previous) {
-            if (nextIds.contains(id)) continue;
-            try {
-                manager.cancel(AccountNotificationNamespace.tag(accountId),
-                        Integer.parseInt(id));
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        SharedPreferences.Editor save = preferences.edit().putStringSet(activeKey, nextIds);
-        if (AccountContainerStore.isLegacyOwner(context, accountId)) {
-            save.remove(KEY_ACTIVE_IDS);
-        }
-        save.apply();
-    }
-
     private static void clearPerProcess(Context context, String containerId,
             NotificationManager manager) {
         SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -454,89 +338,6 @@ final class ProcessNotificationManager {
             clear.remove(KEY_ACTIVE_IDS);
         }
         clear.apply();
-    }
-
-    private static Notification buildNotification(Context context, String accountId,
-            List<CalendarProcess> processes, List<IdleProcessState.IdleRole> idleRoles,
-            String title, long nowMillis, String channelId, String sortKey,
-            boolean onlyAlertOnce) {
-        Intent open = new Intent(context, MainActivity.class)
-                .putExtra(OAuthService.EXTRA_CONTAINER_ID, accountId)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent contentIntent = PendingIntent.getActivity(context,
-                AccountNotificationNamespace.requestCode(
-                        accountId, "process_content"), open,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        int textColor = textColor(context);
-        int activeCount = processes == null ? 0 : processes.size();
-        int idleCount = idleRoles == null ? 0 : idleRoles.size();
-        String summary = collapsedSummary(context, processes, idleRoles, nowMillis);
-
-        RemoteViews compact = new RemoteViews(context.getPackageName(),
-                R.layout.notification_processes);
-        bindAccountProvenance(context, accountId, compact);
-        bindHeader(compact, title, activeCount, idleCount, summary, textColor);
-
-        RemoteViews expanded = new RemoteViews(context.getPackageName(),
-                R.layout.notification_processes_expanded);
-        bindAccountProvenance(context, accountId, expanded);
-        bindHeader(expanded, title, activeCount, idleCount, summary, textColor);
-        // Active and idle rows both own their per-role bell in every notification mode.
-        addRows(context, accountId, expanded, R.id.notification_processes_container,
-                processes, idleRoles, nowMillis, true);
-
-        String content = summary.isEmpty() ? countLabel(activeCount, idleCount) : summary;
-        return new Notification.Builder(context, channelId)
-                .setSmallIcon(R.drawable.ic_notification_codex_monitor)
-                .setContentTitle(title)
-                .setContentText(content)
-                .setContentIntent(contentIntent)
-                .setOngoing(true)
-                .setOnlyAlertOnce(onlyAlertOnce)
-                // Keep both persistent cards in the same status-ranking class. Samsung can promote
-                // CATEGORY_PROGRESS above the group's stable sortKey, which made Processes outrank
-                // usage in Two cards despite 00_usage / 10_processes ordering.
-                .setCategory(Notification.CATEGORY_STATUS)
-                .setVisibility(Notification.VISIBILITY_PUBLIC)
-                .setColor(Color.rgb(3, 129, 254))
-                .setShowWhen(false)
-                .setGroup(NotificationSurfaceContract.groupKey(accountId))
-                .setSortKey(sortKey)
-                .setStyle(new Notification.DecoratedCustomViewStyle())
-                .setCustomContentView(compact)
-                .setCustomBigContentView(expanded)
-                .build();
-    }
-
-    private static void bindAccountProvenance(
-            Context context, String containerId, RemoteViews views) {
-        if (AccountContainerStore.all(context).size() <= 1) {
-            views.setViewVisibility(R.id.notification_account_text, View.GONE);
-            return;
-        }
-        AccountContainerStore.Account account =
-                AccountContainerStore.find(context, containerId);
-        if (account == null || account.name == null || account.name.trim().isEmpty()) {
-            views.setViewVisibility(R.id.notification_account_text, View.GONE);
-            return;
-        }
-        views.setViewVisibility(R.id.notification_account_text, View.VISIBLE);
-        views.setTextViewText(R.id.notification_account_text, account.name.trim());
-        views.setTextColor(R.id.notification_account_text,
-                AccountContainerStore.accentColor(account));
-    }
-
-    private static void bindHeader(RemoteViews views, String title, int activeCount,
-            int idleCount, String summary, int textColor) {
-        views.setTextViewText(R.id.notification_processes_title, title);
-        views.setTextColor(R.id.notification_processes_title, textColor);
-        views.setTextViewText(R.id.notification_processes_count,
-                countLabel(activeCount, idleCount));
-        views.setTextColor(R.id.notification_processes_count, textColor);
-        views.setTextViewText(R.id.notification_process_summary, summary);
-        views.setTextColor(R.id.notification_process_summary, textColor);
-        views.setViewVisibility(R.id.notification_process_summary,
-                summary.isEmpty() ? View.GONE : View.VISIBLE);
     }
 
     private static RemoteViews buildActiveGroupRow(Context context, String accountId,

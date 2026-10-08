@@ -685,8 +685,14 @@ public final class NowBarManager {
                 "remaining_percent", remaining,
                 "focus", focus);
         try {
-            manager.notify(AccountNotificationNamespace.tag(containerId),
-                    NOTIFICATION_ID, notification);
+            // Now Bar and the rich usage view own the SAME per-account One Card ID.
+            // Route the Live Update publisher through the shared order/visibility gate.
+            boolean published = PersistentCardCoordinator.publish(context, containerId,
+                    notification, snapshot == null ? now : snapshot.fetchedAtMillis, false);
+            if (!published && PersistentCardVisibility.isShown(context, containerId)) {
+                DiagnosticLog.warn(context, "now_bar", "live_card_publishing_skipped",
+                        "container_id", containerId);
+            }
             manager.cancel(NOTIFICATION_ID);
             state(context).edit()
                     .putString(KEY_POSTED_CONTAINER, containerId)

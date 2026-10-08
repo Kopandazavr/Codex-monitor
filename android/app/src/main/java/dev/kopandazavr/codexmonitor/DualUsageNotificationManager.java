@@ -48,12 +48,13 @@ final class DualUsageNotificationManager {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null || notification == null) return false;
         try {
-            manager.notify(AccountNotificationNamespace.tag(containerId), NOTIFICATION_ID, notification);
+            boolean published = PersistentCardCoordinator.publish(context, containerId,
+                    notification, snapshot.fetchedAtMillis, false);
             ProcessNotificationManager.sync(context, containerId, state.processes, state.idleRoles,
                     state.processMode, state.now);
             // Keep local timer presentation independent from the remote refresh scheduler.
             ProcessNotificationScheduler.schedule(context);
-            return true;
+            return published;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "dual_notification_post_failed", exception);
             return false;
@@ -87,8 +88,10 @@ final class DualUsageNotificationManager {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null || notification == null) return false;
         try {
-            manager.notify(AccountNotificationNamespace.tag(containerId),
-                    NOTIFICATION_ID, notification);
+            boolean alerted = PersistentCardVisibility.isShown(context, containerId)
+                    ? PersistentCardCoordinator.publish(context, containerId, notification,
+                            snapshot.fetchedAtMillis, true)
+                    : PersistentCardCoordinator.attentionWhenHidden(context, containerId, notification);
             DiagnosticLog.info(context, "notification", "persistent_surface_realerted",
                     "surface", "usage",
                     "container_id", containerId,
@@ -96,7 +99,7 @@ final class DualUsageNotificationManager {
                     "channel", alertChannelId,
                     "mode", state.processMode,
                     "fingerprint", semanticFingerprint(state));
-            return true;
+            return alerted;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar", "usage_surface_realert_failed", exception);
             return false;
@@ -147,13 +150,15 @@ final class DualUsageNotificationManager {
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null) return false;
         try {
-            manager.notify(AccountNotificationNamespace.tag(containerId),
-                    NOTIFICATION_ID, notification);
+            boolean alerted = PersistentCardVisibility.isShown(context, containerId)
+                    ? PersistentCardCoordinator.publish(context, containerId, notification,
+                            System.currentTimeMillis(), true)
+                    : PersistentCardCoordinator.attentionWhenHidden(context, containerId, notification);
             DiagnosticLog.info(context, "notification", "persistent_reset_surface_realerted",
                     "notification_id", NOTIFICATION_ID,
                     "channel", alertChannelId,
                     "layout", layoutResId);
-            return true;
+            return alerted;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "now_bar",
                     "persistent_reset_surface_realert_failed", exception);
@@ -163,11 +168,7 @@ final class DualUsageNotificationManager {
 
     static void clearUsageSurface(Context context, String containerId) {
         if (context == null) return;
-        NotificationManager manager = (NotificationManager)
-                context.getSystemService(Context.NOTIFICATION_SERVICE);
-        if (manager != null) {
-            manager.cancel(AccountNotificationNamespace.tag(containerId), NOTIFICATION_ID);
-        }
+        PersistentCardCoordinator.clear(context, containerId);
     }
 
     static void clearAccountSurface(Context context, String containerId) {
@@ -185,36 +186,12 @@ final class DualUsageNotificationManager {
         return snapshot != null && postFromSnapshot(context, containerId, snapshot);
     }
 
-    /**
-     * Rebuild only the process-owned persistent surface. In Two cards / One each this keeps the
-     * upper usage notification untouched while process countdowns, bells, or idle rows change.
-     */
-    static boolean repostProcessesFromCache(Context context) {
-        return repostProcessesFromCache(context, AccountContainerStore.selectedId(context));
-    }
-
-    static boolean repostProcessesFromCache(Context context, String containerId) {
-        if (context == null) return false;
-        UsageSnapshot snapshot = AppPreferences.loadSnapshot(context, containerId);
-        if (snapshot == null) return false;
-        SurfaceState state = surfaceState(context, containerId, snapshot);
-        if (state == null) return false;
-        ProcessNotificationManager.sync(context, containerId,
-                state.processes, state.idleRoles, state.processMode, state.now);
-        ProcessNotificationScheduler.schedule(context);
-        return true;
-    }
-
     static boolean repostForProcessChange(Context context) {
         return repostForProcessChange(context, AccountContainerStore.selectedId(context));
     }
 
     static boolean repostForProcessChange(Context context, String containerId) {
-        if (context == null) return false;
-        return ProcessNotificationMode.COMBINED.equals(
-                ProcessNotificationMode.current(context, containerId))
-                ? repostFromCache(context, containerId)
-                : repostProcessesFromCache(context, containerId);
+        return repostFromCache(context, containerId);
     }
 
     static void repostForProcessChangeDelayed(Context context, long delayMillis) {
@@ -402,9 +379,8 @@ final class DualUsageNotificationManager {
         }
 
         if (layoutId == R.layout.notification_usage_dual_bars_expanded) {
-            boolean showProcesses = ProcessNotificationMode.COMBINED.equals(processMode)
-                    && ((processes != null && !processes.isEmpty())
-                    || (idleRoles != null && !idleRoles.isEmpty()));
+            boolean showProcesses = (processes != null && !processes.isEmpty())
+                    || (idleRoles != null && !idleRoles.isEmpty());
             views.setViewVisibility(R.id.notification_process_section,
                     showProcesses ? View.VISIBLE : View.GONE);
             if (showProcesses) {

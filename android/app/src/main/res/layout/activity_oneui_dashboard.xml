@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
-<dev.oneuiproject.oneui.layout.ToolbarLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/toolbar_layout"
+<!-- Fixed Home header is structurally separate from the scrolling dashboard body. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_dashboard_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    app:expanded="true"
-    app:expandable="true">
-
+    android:orientation="vertical">
+    <LinearLayout
+        android:id="@+id/main_fixed_header"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false" />
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/dashboard_refresh"
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
+        android:layout_height="0dp"
+        android:layout_weight="1">
         <androidx.core.widget.NestedScrollView
             android:id="@+id/dashboard_scroll"
             android:layout_width="match_parent"
@@ -19,7 +24,6 @@
             android:clipToPadding="false"
             android:fillViewport="true"
             android:overScrollMode="ifContentScrolls">
-
             <LinearLayout
                 android:id="@+id/dashboard_content"
                 android:layout_width="match_parent"
@@ -31,5 +35,4 @@
                 android:paddingBottom="28dp" />
         </androidx.core.widget.NestedScrollView>
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
-</dev.oneuiproject.oneui.layout.ToolbarLayout>
+</LinearLayout>

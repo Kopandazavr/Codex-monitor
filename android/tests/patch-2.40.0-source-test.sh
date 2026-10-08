@@ -86,7 +86,8 @@ grep -Fq 'notification_account_text' "$RES/layout/notification_usage_dual_bars_e
 grep -Fq 'notification_account_text' "$RES/layout/notification_processes.xml"
 grep -Fq 'notification_account_text' "$RES/layout/notification_processes_expanded.xml"
 grep -Fq 'AccountContainerStore.accentColor(account)' "$SRC/DualUsageNotificationManager.java"
-grep -Fq 'AccountContainerStore.accentColor(account)' "$SRC/ProcessNotificationManager.java"
+# Separate per-process cards were deleted in 2.46, while rich combined rows remain.
+grep -Fq 'ProcessRoleGroup.group(context, processes)' "$SRC/ProcessNotificationManager.java"
 
 # ChatGPT sign-out is container-scoped and must not kill another account's jobs/process loop.
 grep -Fq 'static AuthTokens disconnectChatGPT(Context context, String containerId)' "$SRC/AccountContainerLifecycle.java"

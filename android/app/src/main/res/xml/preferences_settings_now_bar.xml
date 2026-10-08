@@ -16,13 +16,4 @@
             android:title="Play alert sounds on phone speaker"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
-    <PreferenceCategory android:title="Long-running processes">
-        <dev.oneuiproject.oneui.preference.HorizontalRadioPreference
-            android:defaultValue="combined"
-            android:key="process_notification_mode_ui"
-            android:title="Process notifications"
-            app:entries="@array/process_notification_mode_entries"
-            app:entryValues="@array/process_notification_mode_values"
-            app:viewType="noImage" />
-    </PreferenceCategory>
 </PreferenceScreen>

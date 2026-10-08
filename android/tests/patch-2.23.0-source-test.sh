@@ -43,8 +43,8 @@ grep -Fq '"Weekly".equals(longLabel)' "$SRC/DualUsageNotificationManager.java"
 
 grep -Fq 'setStatusTokenColor(summary, summaryText, "Connected", statusGreen())' "$SRC/OnboardingActivity.java"
 grep -Fq 'COMBINED = "combined"' "$SRC/ProcessNotificationMode.java"
-grep -Fq 'PER_PROCESS = "per_process"' "$SRC/ProcessNotificationMode.java"
-grep -Fq 'GROUPED = "grouped"' "$SRC/ProcessNotificationMode.java"
+! grep -Fq 'PER_PROCESS = "per_process"' "$SRC/ProcessNotificationMode.java"
+! grep -Fq 'GROUPED = "grouped"' "$SRC/ProcessNotificationMode.java"
 grep -Fq 'DEFAULT_CADENCE_MINUTES = 5' "$SRC/IdleProcessState.java"
 grep -Fq 'android:key="diagnostic_monitor_health"' "$RES/xml/preferences_settings_diagnostics.xml"
 

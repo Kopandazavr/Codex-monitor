@@ -7,6 +7,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -30,6 +31,7 @@ import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceCategory;
 import androidx.preference.PreferenceFragmentCompat;
+import androidx.preference.PreferenceViewHolder;
 import androidx.preference.SwitchPreferenceCompat;
 import dev.kopandazavr.codexmonitor.wear.PhoneWearSync;
 import dev.oneuiproject.oneui.layout.ToolbarLayout;
@@ -289,7 +291,31 @@ public final class SettingsActivity extends AppCompatActivity {
             accountsCategory.removeAll();
             String selectedId = AccountContainerStore.selectedId(context);
             for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
-                Preference row = new Preference(context);
+                Preference row = new Preference(context) {
+                    @Override
+                    public void onBindViewHolder(PreferenceViewHolder holder) {
+                        super.onBindViewHolder(holder);
+                        TextView pill = (TextView) holder.findViewById(
+                                R.id.account_visibility_pill);
+                        if (pill == null) return;
+                        boolean shown = PersistentCardVisibility.isShown(context, account.id);
+                        pill.setText(shown ? "Shown" : "Hidden");
+                        pill.setContentDescription(account.name + " persistent notification "
+                                + (shown ? "shown" : "hidden") + "; tap to toggle");
+                        GradientDrawable background = new GradientDrawable();
+                        background.setCornerRadius(Ui.dp(context, 20));
+                        background.setColor(shown
+                                ? Ui.accent(context, Ui.isDark(context)) : 0xFF62666E);
+                        pill.setBackground(background);
+                        pill.setTextColor(0xFFFFFFFF);
+                        pill.setOnClickListener(view -> {
+                            if (PersistentCardVisibility.setShown(context, account.id, !shown)) {
+                                refreshAccountsPage();
+                            }
+                        });
+                    }
+                };
+                row.setWidgetLayoutResource(R.layout.preference_account_visibility_widget);
                 row.setPersistent(false);
                 SpannableString title = new SpannableString("● " + account.name);
                 title.setSpan(new ForegroundColorSpan(

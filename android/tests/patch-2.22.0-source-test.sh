@@ -38,8 +38,8 @@ grep -Fq 'toolbar.setTitle("Diagnostics", "Diagnostics")' "$SRC/SettingsActivity
 grep -Fq 'toolbar.setCollapsedSubtitle(collapsedSubtitle)' "$SRC/SettingsActivity.java"
 
 grep -Fq 'COMBINED = "combined"' "$SRC/ProcessNotificationMode.java"
-grep -Fq 'PER_PROCESS = "per_process"' "$SRC/ProcessNotificationMode.java"
-grep -Fq 'GROUPED = "grouped"' "$SRC/ProcessNotificationMode.java"
+! grep -Fq 'PER_PROCESS = "per_process"' "$SRC/ProcessNotificationMode.java"
+! grep -Fq 'GROUPED = "grouped"' "$SRC/ProcessNotificationMode.java"
 grep -Fq 'DEFAULT_CADENCE_MINUTES = 5' "$SRC/IdleProcessState.java"
 
 echo "Codex Monitor 2.22 source contract PASS"

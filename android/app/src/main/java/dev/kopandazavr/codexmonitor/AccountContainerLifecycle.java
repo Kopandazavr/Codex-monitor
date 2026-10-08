@@ -77,6 +77,8 @@ final class AccountContainerLifecycle {
         WatchdogInstanceState.clearContainer(context, target);
         MonitorHealthDiagnostics.clearContainer(context, target);
         ProcessNotificationMode.clearContainer(context, target);
+        PersistentCardVisibility.clear(context, target);
+        PersistentCardCoordinator.clear(context, target);
 
         LocalCalendarFallbackOwner.onContainerRemoved(context, target);
         if (removedSelected) {

@@ -118,13 +118,11 @@ public final class MainActivity extends AppCompatActivity {
             return;
         }
         this.dark = Ui.isDark(this);
-        Ui.Page page = Ui.installPage(this, "", false);
-        // Collapse while expansion is still enabled; ToolbarLayout ignores
-        // setExpanded() after expandable has already been disabled.
-        page.toolbar.setExpanded(false, false);
-        page.toolbar.setExpandable(false);
-        installAccountHeader(page.toolbar);
-        this.content = page.content;
+        // One measured, fixed Home header. Only the dashboard body scrolls.
+        setContentView(R.layout.activity_oneui_dashboard);
+        installAccountHeader((LinearLayout) findViewById(R.id.main_fixed_header));
+        this.content = findViewById(R.id.dashboard_content);
+        Ui.configureSystemBars(this, findViewById(R.id.main_dashboard_root), this.dark);
         this.swipeRefresh = findViewById(R.id.dashboard_refresh);
         int refreshAccent = Ui.accent(this, this.dark);
         // OneUI's four-dot SwipeRefresh drawable indexes two palette entries while drawing.
@@ -137,73 +135,42 @@ public final class MainActivity extends AppCompatActivity {
         RefreshScheduler.schedulePeriodic(this);
     }
 
-    private void installAccountHeader(
-            dev.oneuiproject.oneui.layout.ToolbarLayout toolbarLayout) {
-        androidx.appcompat.widget.Toolbar toolbar = toolbarLayout.getToolbar();
-        // Clear both the cached and the actual OneUI title/subtitle surfaces. 2.42
-        // only cleared the Toolbar text; the retained expanded CollapsingToolbar
-        // title/subtitle could still render behind the custom two-row header.
-        toolbarLayout.setTitle(null, null);
-        // expanded/collapsed subtitle caches may already be null while Samsung's
-        // CollapsingToolbar still holds rendered text. Force one public setter
-        // transition so both actual subtitle surfaces are cleared without
-        // calling OneUI's @RestrictTo setTitlesNoCache().
-        toolbarLayout.setSubtitle("");
-        toolbarLayout.setSubtitle(null);
-        toolbar.setTitle(null);
-        toolbar.setSubtitle(null);
-        toolbar.setContentInsetsAbsolute(0, 0);
-        toolbar.setContentInsetStartWithNavigation(0);
-        toolbar.setContentInsetEndWithActions(0);
-
-        // Leave headroom for OneUI toolbar measurement/insets; 96dp clipped the top and bottom
-        // of the custom two-row header on Samsung devices even though child rows fit nominally.
-        int toolbarHeight = Ui.dp(this, 108);
-        toolbarLayout.getAppBarLayout().seslSetCustomHeight(toolbarHeight);
-        toolbar.setMinimumHeight(toolbarHeight);
-        android.view.ViewGroup.LayoutParams existingParams = toolbar.getLayoutParams();
-        if (existingParams != null) {
-            existingParams.height = toolbarHeight;
-            toolbar.setLayoutParams(existingParams);
-        }
-
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.VERTICAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(Ui.dp(this, 24), Ui.dp(this, 4),
-                Ui.dp(this, 8), Ui.dp(this, 4));
+    private void installAccountHeader(LinearLayout host) {
+        // Title/actions are not descendants of OneUI's collapsing/expanded Toolbar.
+        // The rows wrap measured text and font scale rather than clipping at fixed heights.
+        host.removeAllViews();
+        host.setPadding(Ui.dp(this, 24), Ui.dp(this, 8),
+                Ui.dp(this, 8), Ui.dp(this, 8));
+        host.setClipChildren(false);
+        host.setClipToPadding(false);
 
         LinearLayout identityRow = new LinearLayout(this);
         identityRow.setOrientation(LinearLayout.HORIZONTAL);
         identityRow.setGravity(Gravity.CENTER_VERTICAL);
+        identityRow.setMinimumHeight(Ui.dp(this, 40));
 
         TextView title = Ui.text(this, "Codex Monitor", 20.0f, Ui.mainText(this.dark));
         title.setSingleLine(true);
+        title.setIncludeFontPadding(true);
         title.setTypeface(Ui.mediumTypeface(this));
         identityRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1.0f));
 
         TextView version = Ui.text(this, buildIdentity(), 12.5f,
                 Ui.secondaryText(this.dark));
         version.setSingleLine(true);
+        version.setIncludeFontPadding(true);
         LinearLayout.LayoutParams versionParams =
-                new LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, -2);
+                new LinearLayout.LayoutParams(-2, -2);
         versionParams.setMargins(Ui.dp(this, 8), 0, 0, 0);
         identityRow.addView(version, versionParams);
-        header.addView(identityRow, new LinearLayout.LayoutParams(-1, Ui.dp(this, 40)));
+        host.addView(identityRow, new LinearLayout.LayoutParams(-1, -2));
 
-        this.toolbarActionRow = new LinearLayout(this);
-        this.toolbarActionRow.setOrientation(LinearLayout.HORIZONTAL);
-        this.toolbarActionRow.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(this.toolbarActionRow,
-                new LinearLayout.LayoutParams(-1, Ui.dp(this, 48)));
-
-        androidx.appcompat.widget.Toolbar.LayoutParams headerParams =
-                new androidx.appcompat.widget.Toolbar.LayoutParams(
-                        -1, -1, Gravity.CENTER_VERTICAL);
-        toolbar.addView(header, headerParams);
+        toolbarActionRow = new LinearLayout(this);
+        toolbarActionRow.setOrientation(LinearLayout.HORIZONTAL);
+        toolbarActionRow.setGravity(Gravity.CENTER_VERTICAL);
+        toolbarActionRow.setMinimumHeight(Ui.dp(this, 48));
+        host.addView(toolbarActionRow, new LinearLayout.LayoutParams(-1, -2));
         rebuildCollapsedToolbarActions();
-        toolbar.requestLayout();
-        toolbarLayout.requestLayout();
     }
 
     private void rebuildCollapsedToolbarActions() {

@@ -138,6 +138,8 @@ jobs:
           bash ./tests/patch-2.41.0-source-test.sh
           echo "SOURCE CONTRACT: 2.45.0"
           bash ./tests/patch-2.45.0-source-test.sh
+          echo "SOURCE CONTRACT: 2.46.0"
+          bash ./tests/patch-2.46.0-source-test.sh
 
       - name: Run Android lint
         shell: bash

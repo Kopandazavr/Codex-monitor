@@ -89,6 +89,18 @@ public final class Ui {
                 : R.style.AppTheme);
     }
 
+    /** Secondary screens retain OneUI reach-toolbar behavior; Home alone uses a fixed header. */
+    public static Page installPage(AppCompatActivity activity, String title, boolean back) {
+        ViewGroup parent = activity.findViewById(android.R.id.content);
+        View root = LayoutInflater.from(activity).inflate(
+                R.layout.activity_oneui_secondary, parent, false);
+        ToolbarLayout toolbar = root.findViewById(R.id.toolbar_layout);
+        LinearLayout content = root.findViewById(R.id.dashboard_content);
+        configureReachToolbar(toolbar, title, back);
+        activity.setContentView(root);
+        return new Page(toolbar, content);
+    }
+
     public static void configureReachToolbar(ToolbarLayout toolbar, String title, boolean back) {
         toolbar.setTitle(title);
         toolbar.setShowNavigationButtonAsBack(back);

@@ -7,10 +7,10 @@ RES="$ROOT/app/src/main/res"
 
 VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
-[[ "$VERSION_NAME" == "2.46.0" ]]
-[[ "$VERSION_CODE" -eq 72 ]]
-grep -Fq 'VERSION_NAME = "2.46.0"' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_CODE = 72' "$SRC/AppConstants.java"
+[[ "$VERSION_NAME" == "2.47.0" ]]
+[[ "$VERSION_CODE" -eq 73 ]]
+grep -Fq 'VERSION_NAME = "2.47.0"' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_CODE = 73' "$SRC/AppConstants.java"
 
 # Header is a single fixed measured view; only its sibling body scrolls.
 grep -Fq '@+id/main_fixed_header' "$RES/layout/activity_oneui_dashboard.xml"
@@ -41,10 +41,10 @@ grep -Fq 'PersistentCardVisibility.isShown(context, containerId)' "$SRC/Persiste
 
 # Every persistent publisher routes through one serialized, non-network reorder path.
 grep -Fq 'static synchronized boolean publish(' "$SRC/PersistentCardCoordinator.java"
-grep -Fq 'for (int i = index - 1; i >= 0; i--)' "$SRC/PersistentCardCoordinator.java"
+! grep -Fq 'for (int i = index - 1; i >= 0; i--)' "$SRC/PersistentCardCoordinator.java"
 grep -Fq 'for (int i = accounts.size() - 1; i >= 0; i--)' "$SRC/PersistentCardCoordinator.java"
-grep -Fq '.setOnlyAlertOnce(true).setDefaults(0)' "$SRC/PersistentCardCoordinator.java"
-grep -Fq '.setSound(null).setVibrate(null).build()' "$SRC/PersistentCardCoordinator.java"
+grep -Fq 'unchanged_suppressed' "$SRC/PersistentCardCoordinator.java"
+grep -Fq 'needsQuietRestore' "$SRC/PersistentCardCoordinator.java"
 grep -Fq 'PersistentCardCoordinator.publish(context, containerId' "$SRC/NowBarManager.java"
 grep -Fq 'PersistentCardCoordinator.restoreOrder(this)' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'PersistentCardCoordinator.publish(context, containerId' "$SRC/DualUsageNotificationManager.java"

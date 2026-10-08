@@ -16,6 +16,10 @@ final class PersistentCardCoordinator {
     private static final int CARD_ID = 8610;
     private static final Map<String, Notification> ordinaryCards = new HashMap<>();
     private static final Map<String, Long> snapshotVersions = new HashMap<>();
+    private static final Map<String, String> ordinaryFingerprints = new HashMap<>();
+    private static final Map<String, Boolean> needsQuietRestore = new HashMap<>();
+    private static final Map<String, Long> lastDiagnosticAt = new HashMap<>();
+    static final String FINGERPRINT_EXTRA = "codex_monitor_card_fingerprint";
 
     private PersistentCardCoordinator() {}
 
@@ -29,6 +33,8 @@ final class PersistentCardCoordinator {
             manager.cancel(AccountNotificationNamespace.tag(containerId), CARD_ID);
             ordinaryCards.remove(containerId);
             snapshotVersions.remove(containerId);
+            ordinaryFingerprints.remove(containerId);
+            needsQuietRestore.remove(containerId);
             return false;
         }
 
@@ -37,32 +43,32 @@ final class PersistentCardCoordinator {
             // A late older network callback cannot downgrade the current persistent card.
             return false;
         }
+        String fingerprint = card.extras == null ? null
+                : card.extras.getString(FINGERPRINT_EXTRA);
+        if (!attention && fingerprint != null
+                && fingerprint.equals(ordinaryFingerprints.get(containerId))
+                && !Boolean.TRUE.equals(needsQuietRestore.get(containerId))) {
+            // Semantic no-op: a timestamp-only refresh must not move an account card in OneUI.
+            snapshotVersions.put(containerId, Math.max(fetchedAtMillis,
+                    previousVersion == null ? 0L : previousVersion));
+            trace(context, containerId, "unchanged_suppressed");
+            return true;
+        }
         try {
             manager.notify(AccountNotificationNamespace.tag(containerId), CARD_ID, card);
-            if (!attention) {
+            if (attention) {
+                // Next ordinary post must return from the alerting channel even with identical data.
+                needsQuietRestore.put(containerId, true);
+            } else {
                 ordinaryCards.put(containerId, card);
                 snapshotVersions.put(containerId, fetchedAtMillis);
+                if (fingerprint == null) ordinaryFingerprints.remove(containerId);
+                else ordinaryFingerprints.put(containerId, fingerprint);
+                needsQuietRestore.remove(containerId);
             }
-            // Publish nearest predecessor first, Main last. No upstream refreshes and no alerts.
-            List<AccountContainerStore.Account> accounts = AccountContainerStore.all(context);
-            int index = -1;
-            for (int i = 0; i < accounts.size(); i++) {
-                if (containerId.equals(accounts.get(i).id)) {
-                    index = i;
-                    break;
-                }
-            }
-            for (int i = index - 1; i >= 0; i--) {
-                String predecessor = accounts.get(i).id;
-                if (!PersistentCardVisibility.isShown(context, predecessor)) continue;
-                Notification cached = ordinaryCards.get(predecessor);
-                if (cached == null) continue;
-                // Reposts only: preserve existing content/intent, but force silent presentation.
-                Notification quiet = Notification.Builder.recoverBuilder(context, cached)
-                        .setOnlyAlertOnce(true).setDefaults(0)
-                        .setSound(null).setVibrate(null).build();
-                manager.notify(AccountNotificationNamespace.tag(predecessor), CARD_ID, quiet);
-            }
+            // Do not repost predecessors: that caused a visible second reorder after each refresh.
+            // Android/OneUI owns cross-group ranking, so a zero-jank guarantee still needs PHONE.
+            trace(context, containerId, attention ? "attention_post" : "content_changed");
             return true;
         } catch (RuntimeException exception) {
             DiagnosticLog.error(context, "notification", "ordered_card_post_failed",
@@ -81,8 +87,8 @@ final class PersistentCardCoordinator {
             clear(context, containerId);
             return true;
         }
+        // A single post on Shown is enough; the old subsequent full reorder bounced cards.
         DualUsageNotificationManager.repostFromCache(context, containerId);
-        restoreOrder(context);
         return true;
     }
 
@@ -97,20 +103,10 @@ final class PersistentCardCoordinator {
                 manager.cancel(AccountNotificationNamespace.tag(id), CARD_ID);
                 continue;
             }
-            Notification cached = ordinaryCards.get(id);
-            if (cached == null) {
+            // Rehydrate only genuinely absent cards after process death/reboot; do not
+            // refresh or re-rank already displayed cards on ordinary Activity resumes.
+            if (!ordinaryCards.containsKey(id)) {
                 DualUsageNotificationManager.repostFromCache(context, id);
-                cached = ordinaryCards.get(id);
-            }
-            if (cached == null) continue;
-            try {
-                Notification quiet = Notification.Builder.recoverBuilder(context, cached)
-                        .setOnlyAlertOnce(true).setDefaults(0)
-                        .setSound(null).setVibrate(null).build();
-                manager.notify(AccountNotificationNamespace.tag(id), CARD_ID, quiet);
-            } catch (RuntimeException exception) {
-                DiagnosticLog.warn(context, "notification", "ordered_card_restore_failed",
-                        "container_id", id);
             }
         }
     }
@@ -118,6 +114,9 @@ final class PersistentCardCoordinator {
     static synchronized void clear(Context context, String containerId) {
         ordinaryCards.remove(containerId);
         snapshotVersions.remove(containerId);
+        ordinaryFingerprints.remove(containerId);
+        needsQuietRestore.remove(containerId);
+        lastDiagnosticAt.remove(containerId);
         NotificationManager manager = manager(context);
         if (manager != null) {
             manager.cancel(AccountNotificationNamespace.tag(containerId), CARD_ID);
@@ -140,6 +139,23 @@ final class PersistentCardCoordinator {
                     exception, "container_id", containerId);
             return false;
         }
+    }
+
+    private static void trace(Context context, String containerId, String decision) {
+        long now = android.os.SystemClock.elapsedRealtime();
+        String key = containerId + ":" + decision;
+        Long previous = lastDiagnosticAt.get(key);
+        if (previous != null && now - previous < 30_000L) return;
+        lastDiagnosticAt.put(key, now);
+        List<AccountContainerStore.Account> accounts = AccountContainerStore.all(context);
+        int rank = -1;
+        int shown = 0;
+        for (int i = 0; i < accounts.size(); i++) {
+            if (containerId.equals(accounts.get(i).id)) rank = i;
+            if (PersistentCardVisibility.isShown(context, accounts.get(i).id)) shown++;
+        }
+        DiagnosticLog.info(context, "notification", "persistent_card_publish_decision",
+                "account_rank", rank, "shown_count", shown, "decision", decision);
     }
 
     private static NotificationManager manager(Context context) {

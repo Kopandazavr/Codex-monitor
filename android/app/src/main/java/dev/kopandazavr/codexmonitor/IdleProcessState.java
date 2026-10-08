@@ -325,6 +325,68 @@ final class IdleProcessState {
         save(context, containerId, rows);
     }
 
+    /** Snapshot of recoverable dismissed latest episodes only; never modifies Calendar state. */
+    static List<IdleRole> deleted(Context context, String containerId,
+            List<CalendarProcess> active) {
+        if (context == null) return Collections.emptyList();
+        List<IdleRole> result = new ArrayList<>();
+        for (MutableRole row : load(context, containerId).values()) {
+            if (isRecoverable(row) && !isRoleActive(context, active, row.key)) {
+                result.add(row.freeze());
+            }
+        }
+        result.sort(Comparator.comparingLong(
+                (IdleRole item) -> item.lastFinishedMillis).reversed());
+        return result;
+    }
+
+    /** Never dismiss an episode that changed while a stale Home row was on screen. */
+    static boolean dismissSpecific(Context context, String containerId, IdleRole expected,
+            List<CalendarProcess> active) {
+        if (context == null || expected == null) return false;
+        Map<String, MutableRole> rows = load(context, containerId);
+        MutableRole row = rows.get(expected.key);
+        if (row == null || !matchesEpisode(row, expected)
+                || row.dismissedThroughMillis >= row.lastFinishedMillis
+                || isRoleActive(context, active, expected.key)) return false;
+        row.dismissedThroughMillis = row.lastFinishedMillis;
+        save(context, containerId, rows);
+        return true;
+    }
+
+    /** Restores only the exact locally hidden latest session; history/reminders stay intact. */
+    static boolean restore(Context context, String containerId, IdleRole expected,
+            List<CalendarProcess> active) {
+        if (context == null || expected == null) return false;
+        Map<String, MutableRole> rows = load(context, containerId);
+        MutableRole row = rows.get(expected.key);
+        if (!isRecoverable(row) || !matchesEpisode(row, expected)
+                || isRoleActive(context, active, expected.key)) return false;
+        row.dismissedThroughMillis = 0L;
+        save(context, containerId, rows);
+        return true;
+    }
+
+    private static boolean matchesEpisode(MutableRole row, IdleRole expected) {
+        return row != null && row.key.equals(expected.key)
+                && IdleProcessRestorePolicy.sameEpisode(
+                        row.lastInstanceId, row.eventId, row.lastStartedMillis,
+                        row.lastFinishedMillis, expected.instanceId, expected.eventId,
+                        expected.lastStartedMillis, expected.lastFinishedMillis);
+    }
+
+    private static boolean isRecoverable(MutableRole row) {
+        if (row == null || !IdleProcessRestorePolicy.isDeleted(
+                row.dismissedThroughMillis, row.lastFinishedMillis)) return false;
+        for (SessionRecord record : row.history) {
+            if (IdleProcessRestorePolicy.sameEpisode(
+                    row.lastInstanceId, row.eventId, row.lastStartedMillis,
+                    row.lastFinishedMillis, record.instanceId, record.eventId,
+                    record.startedMillis, record.finishedMillis)) return true;
+        }
+        return false;
+    }
+
     static boolean toggleReminder(Context context, String key, long nowMillis) {
         return toggleReminder(context, AccountContainerStore.selectedId(context), key, nowMillis);
     }

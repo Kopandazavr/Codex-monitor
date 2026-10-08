@@ -8,8 +8,8 @@ SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
 # 2.45 header geometry failed on PHONE; verify its 2.46 structural successor instead.
-[[ "$VERSION_NAME" == "2.46.0" ]]
-[[ "$VERSION_CODE" -eq 72 ]]
+[[ "$VERSION_NAME" == "2.47.0" ]]
+[[ "$VERSION_CODE" -eq 73 ]]
 grep -Fq 'R.id.main_fixed_header' "$SRC/MainActivity.java"
 ! grep -Fq 'seslSetCustomHeight' "$SRC/MainActivity.java"
 

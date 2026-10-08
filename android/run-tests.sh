@@ -82,6 +82,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageHistoryTickGrid.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageHistoryStripeCadence.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CompletionAudioRoute.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/IdleProcessRestorePolicy.java" \
   "$FILTERED_TEST" \
   "$ROOT/tests/ProjectProfileRulesSelfTest.java" \
   "$ROOT/tests/CalendarProcessSelfTest.java" \
@@ -92,7 +93,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/tests/UsageHistoryViewportSelfTest.java" \
   "$ROOT/tests/UsageHistoryTickGridSelfTest.java" \
   "$ROOT/tests/UsageHistoryStripeCadenceSelfTest.java" \
-  "$ROOT/tests/CompletionAudioRouteSelfTest.java"
+  "$ROOT/tests/CompletionAudioRouteSelfTest.java" \
+  "$ROOT/tests/IdleProcessRestorePolicySelfTest.java"
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarProcessSelfTest
@@ -104,6 +106,7 @@ java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryViewportS
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryTickGridSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryStripeCadenceSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CompletionAudioRouteSelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.IdleProcessRestorePolicySelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"

@@ -47,6 +47,9 @@ final class DualUsageNotificationManager {
         NotificationManager manager = (NotificationManager)
                 context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager == null || notification == null) return false;
+        notification.extras.putString(PersistentCardCoordinator.FINGERPRINT_EXTRA,
+                semanticFingerprint(state) + "|" + state.fallbackText + "|"
+                        + state.planText + "|" + accountTitle(context, containerId, "Codex usage"));
         try {
             boolean published = PersistentCardCoordinator.publish(context, containerId,
                     notification, snapshot.fetchedAtMillis, false);
@@ -485,7 +488,9 @@ final class DualUsageNotificationManager {
                     .append(process.elapsedPercent(state.now));
         }
         for (IdleProcessState.IdleRole idle : state.idleRoles) {
-            value.append('|').append(idle.key).append(':').append(idle.lastFinishedMillis);
+            value.append('|').append(idle.key).append(':').append(idle.lastFinishedMillis)
+                    .append(':').append(idle.reminderEnabled)
+                    .append(':').append(idle.nextReminderAtMillis);
         }
         return Integer.toHexString(value.toString().hashCode());
     }

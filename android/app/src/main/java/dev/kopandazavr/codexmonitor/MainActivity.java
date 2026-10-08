@@ -53,6 +53,8 @@ public final class MainActivity extends AppCompatActivity {
     private boolean appliedMaterialYou;
     private LinearLayout content;
     private LinearLayout processesCard;
+    private LinearLayout deletedProcessesCard;
+    private boolean deletedProcessesExpanded;
     private SwipeRefreshLayout swipeRefresh;
     private TextView accountPill;
     private LinearLayout toolbarActionRow;
@@ -220,6 +222,7 @@ public final class MainActivity extends AppCompatActivity {
     }
 
     private void onForegroundAccountChanged() {
+        this.deletedProcessesExpanded = false;
         rebuildCollapsedToolbarActions();
         rebuild();
         // AccountSwitcherView already reconciled system surfaces before this callback.
@@ -355,6 +358,7 @@ public final class MainActivity extends AppCompatActivity {
     @Override // android.app.Activity
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
+        this.deletedProcessesExpanded = false;
         if (!selectAccountFromIntent(intent)) return;
         setIntent(intent);
         if (routeToOnboarding(intent)) {
@@ -375,6 +379,8 @@ public final class MainActivity extends AppCompatActivity {
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        // New Home entry (including Settings return) starts collapsed; passive rebuilds do not.
+        this.deletedProcessesExpanded = false;
         String appTheme = AppPreferences.getAppTheme(this);
         boolean zIsDark = Ui.isDark(this);
         boolean materialYou = AppPreferences.isMaterialYouEnabled(this);
@@ -509,6 +515,7 @@ public final class MainActivity extends AppCompatActivity {
     public void rebuild() {
         if (this.content != null) {
             this.processesCard = null;
+            this.deletedProcessesCard = null;
             this.content.removeAllViews();
             LinearLayout dashboard = buildUsageDashboard();
             if (dashboard.getChildCount() > 0) {
@@ -550,7 +557,7 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout column = new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         if (!signedIn) {
-            addDashboardCard(column, buildProcessesCard());
+            addProcessesSectionPair(column, false);
             return column;
         }
         Map<String, List<UsageLimit>> limitsByKey = new LinkedHashMap<>();
@@ -602,6 +609,7 @@ public final class MainActivity extends AppCompatActivity {
         }
         boolean inverted = false;
         boolean processesAdded = false;
+        boolean showResets = available.contains(DashboardSections.RESET_CREDITS);
         for (String key : DashboardSections.resolveOrder(
                 AppPreferences.getDashboardOrder(this), available)) {
             if (DashboardSections.FIVE_HOUR.equals(key)) {
@@ -620,10 +628,11 @@ public final class MainActivity extends AppCompatActivity {
                 addDashboardCard(column, buildUsageCreditsCard(snapshot.usageCredits));
             } else if (DashboardSections.USAGE_HISTORY.equals(key)) {
                 addDashboardCard(column, buildUsageHistoryCard());
-                addDashboardCard(column, buildProcessesCard());
+                addProcessesSectionPair(column, showResets);
                 processesAdded = true;
             } else if (DashboardSections.RESET_CREDITS.equals(key)) {
-                addDashboardCard(column, buildResetCreditsCard());
+                // Placed directly after Delete Processes, regardless of saved card order.
+                continue;
             } else {
                 List<UsageLimit> group = limitsByKey.get(key);
                 if (group == null) {
@@ -646,9 +655,15 @@ public final class MainActivity extends AppCompatActivity {
             }
         }
         if (!processesAdded) {
-            addDashboardCard(column, buildProcessesCard());
+            addProcessesSectionPair(column, showResets);
         }
         return column;
+    }
+
+    private void addProcessesSectionPair(LinearLayout column, boolean showResets) {
+        addDashboardCard(column, buildProcessesCard());
+        addDashboardCard(column, buildDeletedProcessesCard());
+        if (showResets) addDashboardCard(column, buildResetCreditsCard());
     }
 
     private void addDashboardCard(LinearLayout column, View card) {
@@ -673,6 +688,64 @@ public final class MainActivity extends AppCompatActivity {
         LinearLayout replacement = buildProcessesCard();
         parent.removeViewAt(index);
         parent.addView(replacement, index);
+        LinearLayout oldDeleted = this.deletedProcessesCard;
+        if (oldDeleted != null && oldDeleted.getParent() == parent) {
+            int deletedIndex = parent.indexOfChild(oldDeleted);
+            LinearLayout restored = buildDeletedProcessesCard();
+            parent.removeViewAt(deletedIndex);
+            parent.addView(restored, deletedIndex);
+        }
+    }
+
+    private LinearLayout buildDeletedProcessesCard() {
+        long now = System.currentTimeMillis();
+        List<CalendarProcess> active = CalendarProcessReader.active(
+                CalendarProcessReader.observed(this, now), now);
+        List<IdleProcessState.IdleRole> deleted = IdleProcessState.deleted(
+                this, AccountContainerStore.selectedId(this), active);
+        LinearLayout card = Ui.card(this, this.dark);
+        card.setPadding(Ui.dp(this, 18), Ui.dp(this, 15),
+                Ui.dp(this, 14), Ui.dp(this, 15));
+        LinearLayout header = Ui.horizontal(this, Gravity.CENTER_VERTICAL);
+        LinearLayout headings = new LinearLayout(this);
+        headings.setOrientation(LinearLayout.VERTICAL);
+        TextView title = Ui.text(this, "Delete Processes", 18.0f, Ui.mainText(this.dark));
+        title.setTypeface(Ui.mediumTypeface(this));
+        headings.addView(title);
+        TextView count = Ui.text(this, deleted.size() + " hidden", 12.5f,
+                Ui.secondaryText(this.dark));
+        headings.addView(count);
+        header.addView(headings, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView chevron = Ui.text(this, deletedProcessesExpanded ? "⌃" : "⌄",
+                25f, Ui.secondaryText(this.dark));
+        chevron.setGravity(Gravity.CENTER);
+        header.addView(chevron, new LinearLayout.LayoutParams(
+                Ui.dp(this, 42), Ui.dp(this, 42)));
+        header.setContentDescription("Delete Processes · "
+                + (deletedProcessesExpanded ? "Collapse" : "Expand"));
+        header.setClickable(true);
+        header.setFocusable(true);
+        header.setOnClickListener(view -> {
+            deletedProcessesExpanded = !deletedProcessesExpanded;
+            refreshProcessesCard();
+        });
+        card.addView(header);
+        if (deletedProcessesExpanded) {
+            if (deleted.isEmpty()) {
+                TextView empty = Ui.text(this, "No deleted processes.",
+                        13f, Ui.secondaryText(this.dark));
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+                params.setMargins(0, Ui.dp(this, 10), 0, 0);
+                card.addView(empty, params);
+            } else {
+                for (IdleProcessState.IdleRole idle : deleted) {
+                    addProcessDivider(card);
+                    card.addView(buildIdleProcessRow(idle, now, true));
+                }
+            }
+        }
+        this.deletedProcessesCard = card;
+        return card;
     }
 
     private LinearLayout buildProcessesCard() {
@@ -720,7 +793,7 @@ public final class MainActivity extends AppCompatActivity {
         }
         for (IdleProcessState.IdleRole idle : idleRoles) {
             if (!first) addProcessDivider(card);
-            card.addView(buildIdleProcessRow(idle, now));
+            card.addView(buildIdleProcessRow(idle, now, false));
             first = false;
         }
 
@@ -820,14 +893,21 @@ public final class MainActivity extends AppCompatActivity {
         return row;
     }
 
-    private View buildIdleProcessRow(IdleProcessState.IdleRole idle, long nowMillis) {
+    private View buildIdleProcessRow(IdleProcessState.IdleRole idle, long nowMillis,
+            boolean deleted) {
         LinearLayout row = Ui.horizontal(this, Gravity.TOP);
         row.setPadding(0, Ui.dp(this, 9), 0, Ui.dp(this, 7));
 
-        ImageView trash = processActionIcon(R.drawable.ic_idle_trash,
-                Ui.secondaryText(this.dark), "Hide this idle episode");
-        trash.setOnClickListener(view -> dismissIdleProcess(idle));
-        addProcessActionGutter(row, trash);
+        String ownerContainerId = AccountContainerStore.selectedId(this);
+        ImageView action = processActionIcon(
+                deleted ? R.drawable.ic_idle_restore : R.drawable.ic_idle_trash,
+                Ui.secondaryText(this.dark),
+                deleted ? "Restore this idle episode" : "Hide this idle episode");
+        action.setOnClickListener(view -> {
+            if (deleted) restoreIdleProcess(idle, ownerContainerId);
+            else dismissIdleProcess(idle, ownerContainerId);
+        });
+        addProcessActionGutter(row, action);
 
         LinearLayout body = new LinearLayout(this);
         body.setOrientation(LinearLayout.VERTICAL);
@@ -955,10 +1035,29 @@ public final class MainActivity extends AppCompatActivity {
         refreshProcessesCard();
     }
 
-    private void dismissIdleProcess(IdleProcessState.IdleRole idle) {
-        IdleProcessState.dismiss(this, idle.key, idle.lastFinishedMillis);
-        DualUsageNotificationManager.repostForProcessChangeDelayed(this, 120L);
+    private List<CalendarProcess> currentActiveProcesses(String containerId) {
+        long now = System.currentTimeMillis();
+        return CalendarProcessReader.active(CalendarProcessReader.observed(
+                this, containerId, now), now);
+    }
+
+    private void dismissIdleProcess(IdleProcessState.IdleRole idle, String containerId) {
+        if (!IdleProcessState.dismissSpecific(this, containerId, idle,
+                currentActiveProcesses(containerId))) return;
+        DualUsageNotificationManager.repostForProcessChangeDelayed(this, containerId, 120L);
         DiagnosticLog.info(this, "idle_process", "dashboard_idle_row_dismissed",
+                "role", idle.displayLabel(), "finished_at", idle.lastFinishedMillis);
+        refreshProcessesCard();
+    }
+
+    private void restoreIdleProcess(IdleProcessState.IdleRole idle, String containerId) {
+        if (!IdleProcessState.restore(this, containerId, idle,
+                currentActiveProcesses(containerId))) {
+            refreshProcessesCard();
+            return;
+        }
+        DualUsageNotificationManager.repostForProcessChangeDelayed(this, containerId, 120L);
+        DiagnosticLog.info(this, "idle_process", "dashboard_idle_row_restored",
                 "role", idle.displayLabel(), "finished_at", idle.lastFinishedMillis);
         refreshProcessesCard();
     }

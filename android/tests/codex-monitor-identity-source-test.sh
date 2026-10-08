@@ -118,11 +118,10 @@ grep -Fq 'json.optString("project_short", "")' "$IDLE_STATE"
 grep -Fq 'CalendarProcess.isCanonicalIdentity(process.project, process.role)' "$IDLE_STATE"
 grep -Fq 'ProjectProfileStore.effectiveShort(profile)' "$PROCESS_NOTIF"
 
-# Two-card ordering remains structural: common group + stable keys, with both surfaces in STATUS
-# ranking class so Samsung cannot promote Processes just because it was CATEGORY_PROGRESS.
+# 2.46 retires separate process notifications; One Card is coordinated per account.
 grep -Fq 'SORT_USAGE = "00_usage"' "$SURFACE_CONTRACT"
-grep -Fq 'SORT_PROCESSES = "10_processes"' "$SURFACE_CONTRACT"
-grep -Fq '.setCategory(Notification.CATEGORY_STATUS)' "$PROCESS_NOTIF"
 ! grep -Fq '.setCategory(Notification.CATEGORY_PROGRESS)' "$PROCESS_NOTIF"
+grep -Fq 'PersistentCardCoordinator.publish(context, containerId' "$SRC/NowBarManager.java"
+grep -Fq 'PersistentCardCoordinator.publish(context, containerId' "$SRC/DualUsageNotificationManager.java"
 
 echo 'Codex Monitor critical correction source contract PASS'

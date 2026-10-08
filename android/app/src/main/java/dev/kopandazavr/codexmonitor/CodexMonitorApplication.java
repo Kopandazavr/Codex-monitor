@@ -47,6 +47,9 @@ public final class CodexMonitorApplication extends Application
         reconcileNotificationSurfacesAfterInstallOrUpdate();
         IdleReminderManager.restore(this);
         DualUsageNotificationManager.repostDelayed(this, 350L);
+        // On a fresh process/install, restore ALL visible account cards in reverse order,
+        // from cached snapshots only. This never initiates a network refresh or alert.
+        lifecycleHandler.postDelayed(() -> PersistentCardCoordinator.restoreOrder(this), 700L);
     }
 
     private void normalizeAutomaticDefaults() {

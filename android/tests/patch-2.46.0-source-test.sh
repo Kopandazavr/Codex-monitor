@@ -45,6 +45,7 @@ grep -Fq 'for (int i = index - 1; i >= 0; i--)' "$SRC/PersistentCardCoordinator.
 grep -Fq 'for (int i = accounts.size() - 1; i >= 0; i--)' "$SRC/PersistentCardCoordinator.java"
 grep -Fq '.setSilent(true).setOnlyAlertOnce(true).build()' "$SRC/PersistentCardCoordinator.java"
 grep -Fq 'PersistentCardCoordinator.publish(context, containerId' "$SRC/NowBarManager.java"
+grep -Fq 'PersistentCardCoordinator.restoreOrder(this)' "$SRC/CodexMonitorApplication.java"
 grep -Fq 'PersistentCardCoordinator.publish(context, containerId' "$SRC/DualUsageNotificationManager.java"
 grep -Fq 'PersistentCardCoordinator.attentionWhenHidden' "$SRC/DualUsageNotificationManager.java"
 ! grep -Fq 'UsageApi.' "$SRC/PersistentCardCoordinator.java"

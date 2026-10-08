@@ -203,11 +203,10 @@ grep -q '@drawable/codex_monitor_focus_fg_safe' "$ROOT/app/src/main/res/mipmap-a
 grep -q '@drawable/codex_monitor_focus_fg_safe' "$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
 grep -q '@drawable/codex_monitor_monochrome_safe' "$ROOT/app/src/main/res/mipmap-anydpi-v33/ic_launcher.xml"
 
-# OneUI HorizontalRadioPreference needs an explicit title and view type at runtime; missing these
-# caused the Settings -> Now Bar page to fail during preference inflation on the target Samsung.
+# The old mode preference no longer inflates: One Card is the only persistent mode.
 NOW_BAR_XML="$ROOT/app/src/main/res/xml/preferences_settings_now_bar.xml"
-grep -q 'android:title="Process notifications"' "$NOW_BAR_XML"
-grep -q 'app:viewType="noImage"' "$NOW_BAR_XML"
+! grep -q 'android:title="Process notifications"' "$NOW_BAR_XML"
+! grep -q 'process_notification_mode_ui' "$NOW_BAR_XML"
 
 # Run focused pure-Java metadata + 27-minute timing regression coverage without Android stubs.
 META_OUT="$ROOT/build/calendar-process-metadata-tests"

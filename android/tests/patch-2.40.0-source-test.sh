@@ -75,7 +75,7 @@ grep -Fq 'android:key="settings_accounts"' "$RES/xml/preferences_settings.xml"
 test -f "$RES/xml/preferences_settings_accounts.xml"
 
 # Runtime/process/history identity and notification namespace include the owning container.
-grep -Fq 'AccountNotificationNamespace.tag(containerId)' "$SRC/DualUsageNotificationManager.java"
+grep -Fq 'AccountNotificationNamespace.tag(containerId)' "$SRC/PersistentCardCoordinator.java"
 grep -Fq 'AccountNotificationNamespace.tag(containerId)' "$SRC/ProcessNotificationManager.java"
 grep -Fq 'scopedKey(containerId' "$SRC/IdleReminderManager.java"
 grep -Fq 'rowsKey(containerId)' "$SRC/IdleProcessState.java"

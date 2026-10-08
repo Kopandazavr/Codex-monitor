@@ -59,7 +59,8 @@ final class PersistentCardCoordinator {
                 if (cached == null) continue;
                 // Reposts only: preserve existing content/intent, but force silent presentation.
                 Notification quiet = Notification.Builder.recoverBuilder(context, cached)
-                        .setSilent(true).setOnlyAlertOnce(true).build();
+                        .setOnlyAlertOnce(true).setDefaults(0)
+                        .setSound(null).setVibrate(null).build();
                 manager.notify(AccountNotificationNamespace.tag(predecessor), CARD_ID, quiet);
             }
             return true;
@@ -104,7 +105,8 @@ final class PersistentCardCoordinator {
             if (cached == null) continue;
             try {
                 Notification quiet = Notification.Builder.recoverBuilder(context, cached)
-                        .setSilent(true).setOnlyAlertOnce(true).build();
+                        .setOnlyAlertOnce(true).setDefaults(0)
+                        .setSound(null).setVibrate(null).build();
                 manager.notify(AccountNotificationNamespace.tag(id), CARD_ID, quiet);
             } catch (RuntimeException exception) {
                 DiagnosticLog.warn(context, "notification", "ordered_card_restore_failed",

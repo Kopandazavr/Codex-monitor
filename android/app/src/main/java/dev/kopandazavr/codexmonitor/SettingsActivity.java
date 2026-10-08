@@ -971,22 +971,6 @@ public final class SettingsActivity extends AppCompatActivity {
                 });
             }
 
-            Preference processMode = findPreference(ProcessNotificationMode.PREFERENCE_KEY);
-            if (processMode != null) {
-                processMode.setOnPreferenceChangeListener((preference, value) -> {
-                    String previous = ProcessNotificationMode.current(requireContext());
-                    String next = ProcessNotificationMode.normalize(String.valueOf(value));
-                    if (previous.equals(next)) return true;
-                    ProcessNotificationManager.clearAll(requireContext());
-                    ProcessNotificationMode.set(requireContext(), next);
-                    boolean reposted = DualUsageNotificationManager.repostFromCache(
-                            requireContext());
-                    DiagnosticLog.info(requireContext(), "notification",
-                            "process_notification_mode_changed",
-                            "from", previous, "to", next, "reposted", reposted);
-                    return true;
-                });
-            }
             updateNowBarSummary();
         }
 

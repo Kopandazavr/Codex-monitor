@@ -41,7 +41,7 @@ grep -Fq 'markCompletionBaseline(context, containerId, idle)' "$SRC/IdleReminder
 grep -Fq 'nowMillis < beginMillis' "$SRC/CalendarProcess.java"
 grep -Fq 'Math.max(0L, beginMillis - nowMillis)' "$SRC/CalendarProcess.java"
 grep -Fq 'String instanceIdentity()' "$SRC/CalendarProcess.java"
-grep -Fq '"legacy-event:" + eventId' "$SRC/CalendarProcess.java"
+grep -Fq 'return "legacy-semantic:" + semanticIdentityString();' "$SRC/CalendarProcess.java"
 grep -Fq '"instance:" + instanceId' "$SRC/CalendarProcess.java"
 grep -Fq 'WatchdogInstanceState.remember(pending, row.key, process)' "$SRC/IdleProcessState.java"
 grep -Fq 'instance.deadlineMillis' "$SRC/IdleProcessState.java"

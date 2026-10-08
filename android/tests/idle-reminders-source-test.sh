@@ -86,19 +86,14 @@ grep -q 'PROCESS_COMPLETION_CHANNEL_ID' "$SRC/AlertSoundManager.java"
 ! grep -q 'AlertSoundManager.playProcessCompletion(context)' "$SRC/IdleReminderManager.java"
 grep -q 'Recurring idle alarms never create completion overlays' "$SRC/IdleReminderManager.java"
 
-# Grouped / one-each process notifications keep their own useful compact summary plus expanded
-# rows. Combined mode reserves the compact usage card's line budget for account + limits + bars;
-# process rows remain available in the expanded usage surface only.
+# Since 2.46, the combined usage card is the only persistent owner. Processes
+# remain expanded rows; standalone grouped/individual notification builders are retired.
 grep -q 'static String collapsedSummary' "$SRC/ProcessNotificationManager.java"
 grep -q 'process.remainingPercent(nowMillis)' "$SRC/ProcessNotificationManager.java"
-grep -q 'R.layout.notification_processes_expanded' "$SRC/ProcessNotificationManager.java"
-grep -q 'setCustomContentView(compact)' "$SRC/ProcessNotificationManager.java"
-grep -q 'setCustomBigContentView(expanded)' "$SRC/ProcessNotificationManager.java"
-! grep -q 'ProcessNotificationManager.collapsedSummary' "$SRC/DualUsageNotificationManager.java"
-grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_processes.xml"
-grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_processes_expanded.xml"
-! grep -q 'notification_process_summary' "$ROOT/app/src/main/res/layout/notification_usage_dual_bars.xml"
+! grep -q 'R.layout.notification_processes_expanded' "$SRC/ProcessNotificationManager.java"
+! grep -q 'setCustomContentView(compact)' "$SRC/ProcessNotificationManager.java"
 grep -q 'notification_process_section' "$ROOT/app/src/main/res/layout/notification_usage_dual_bars_expanded.xml"
+grep -q 'ProcessNotificationManager.addRows(context, views,' "$SRC/DualUsageNotificationManager.java"
 
 # 2.10: every active process row exposes the same per-role reminder bell in combined, grouped,
 # and one-each modes; idle rows retain their bell as before.
@@ -125,7 +120,7 @@ grep -q 'SORT_USAGE = "00_usage"' "$SRC/NotificationSurfaceContract.java"
 grep -q 'SORT_PROCESSES = "10_processes"' "$SRC/NotificationSurfaceContract.java"
 grep -q 'setGroup(NotificationSurfaceContract.groupKey(containerId))' "$SRC/DualUsageNotificationManager.java"
 grep -q 'setSortKey(NotificationSurfaceContract.SORT_USAGE)' "$SRC/DualUsageNotificationManager.java"
-grep -q 'setGroup(NotificationSurfaceContract.groupKey(accountId))' "$SRC/ProcessNotificationManager.java"
+! grep -q 'setGroup(NotificationSurfaceContract.groupKey(accountId))' "$SRC/ProcessNotificationManager.java"
 grep -q 'reAlertIdleReminder' "$SRC/ProcessNotificationManager.java"
 grep -q 'realertResetSurface' "$SRC/ResetNotificationManager.java"
 grep -q 'notification_reset_alert_five' "$SRC/ResetNotificationManager.java"

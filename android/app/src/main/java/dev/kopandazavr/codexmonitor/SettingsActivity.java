@@ -579,7 +579,27 @@ public final class SettingsActivity extends AppCompatActivity {
                 export.setEnabled(stats.hasLogs());
             }
             Preference clear = findPreference("clear_diagnostic_logs");
-            if (clear != null) clear.setEnabled(stats.hasLogs());
+            if (clear != null) {
+                boolean enabled = stats.hasLogs();
+                clear.setEnabled(enabled);
+                android.util.TypedValue themeColor = new android.util.TypedValue();
+                if (requireContext().getTheme().resolveAttribute(
+                        android.R.attr.colorError, themeColor, true)) {
+                    int red = themeColor.resourceId != 0
+                            ? androidx.core.content.ContextCompat.getColor(
+                                    requireContext(), themeColor.resourceId)
+                            : themeColor.data;
+                    if (!enabled) {
+                        red = androidx.core.graphics.ColorUtils.setAlphaComponent(
+                                red, Math.round(android.graphics.Color.alpha(red) * 0.55f));
+                    }
+                    android.text.SpannableString title =
+                            new android.text.SpannableString("Clear logs");
+                    title.setSpan(new android.text.style.ForegroundColorSpan(red), 0,
+                            title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                    clear.setTitle(title);
+                }
+            }
         }
 
         private void launchDiagnosticExport() {

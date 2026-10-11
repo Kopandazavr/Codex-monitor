@@ -266,7 +266,10 @@ public final class MainActivity extends AppCompatActivity {
                     (dialog, which) -> openPermissionsConnections());
         } else {
             builder.setPositiveButton("Reconnect",
-                    (dialog, which) -> openPermissionsConnections());
+                    (dialog, which) -> startActivity(new Intent(this,
+                            GoogleCalendarAuthorizationActivity.class)
+                            .putExtra(OAuthService.EXTRA_CONTAINER_ID,
+                                    AccountContainerStore.selectedId(this))));
         }
         builder.show();
     }
@@ -379,6 +382,8 @@ public final class MainActivity extends AppCompatActivity {
     @Override // android.app.Activity
     protected void onResume() {
         super.onResume();
+        GoogleCalendarAuthorization.noteRecoverySignal(this, "foreground");
+        ProcessNotificationScheduler.schedule(this);
         // New Home entry (including Settings return) starts collapsed; passive rebuilds do not.
         this.deletedProcessesExpanded = false;
         String appTheme = AppPreferences.getAppTheme(this);

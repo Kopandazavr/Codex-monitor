@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.48.0 — 2026-10-11 (Codex Monitor personal Android fork)
+- Recover Google Calendar Direct API after temporary token/service failures with account-scoped backoff; surface explicit reconnect for required consent, retaining local Calendar fallback.
+- Use the theme error color for Settings → Diagnostics → Clear logs title only.
+- Keep 2.47 PHONE acceptance items pending independently of CI.
+
 ## 2.18.0 — 2026-09-25
 
 ### Added

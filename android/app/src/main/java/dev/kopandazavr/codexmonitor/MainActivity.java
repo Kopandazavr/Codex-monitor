@@ -383,7 +383,7 @@ public final class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         GoogleCalendarAuthorization.noteRecoverySignal(this, "foreground");
-        ProcessNotificationScheduler.schedule(this);
+        if (NowBarManager.isActive(this)) ProcessNotificationScheduler.schedule(this);
         // New Home entry (including Settings return) starts collapsed; passive rebuilds do not.
         this.deletedProcessesExpanded = false;
         String appTheme = AppPreferences.getAppTheme(this);

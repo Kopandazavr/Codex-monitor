@@ -127,7 +127,7 @@ final class GoogleCalendarProcessSource {
     }
 
     static void refreshIfDue(Context context, String containerId, Runnable completion) {
-        if (context == null || !GoogleCalendarAuthorization.isConnected(context, containerId)) {
+        if (context == null || !GoogleCalendarAuthorization.shouldAttemptDirect(context, containerId)) {
             run(completion);
             return;
         }
@@ -145,7 +145,7 @@ final class GoogleCalendarProcessSource {
     }
 
     static void forceRefresh(Context context, String containerId, Runnable completion) {
-        if (context == null || !GoogleCalendarAuthorization.isConnected(context, containerId)) {
+        if (context == null || !GoogleCalendarAuthorization.shouldAttemptDirect(context, containerId)) {
             run(completion);
             return;
         }
@@ -212,6 +212,9 @@ final class GoogleCalendarProcessSource {
                                 "container_id", containerId);
                         requestAndFetch(app, containerId, true);
                         return;
+                    }
+                    if (exception.status == 401 && retriedUnauthorized) {
+                        GoogleCalendarAuthorization.onFreshTokenRejected(app, containerId);
                     }
                     if (AccountContainerLifecycleGuard.isAlive(app, containerId)) {
                         MonitorHealthDiagnostics.recordPollFailure(app, containerId, exception);

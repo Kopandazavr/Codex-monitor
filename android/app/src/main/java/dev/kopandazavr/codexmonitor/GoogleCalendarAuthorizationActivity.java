@@ -70,6 +70,26 @@ public final class GoogleCalendarAuthorizationActivity extends AppCompatActivity
         AccountContainerStore.Account container =
                 AccountContainerStore.find(this, this.flowContainerId);
         String name = container == null ? "this account" : container.name;
+        String previousAccount =
+                GoogleCalendarAuthorization.accountName(this, this.flowContainerId);
+        if (!previousAccount.isEmpty()) {
+            // The known binding is stable: reconnect it without silently choosing another user.
+            new AlertDialog.Builder(this)
+                    .setTitle("Reconnect Google Calendar")
+                    .setMessage("Google Calendar needs authorization in " + name
+                            + ". Continue with " + previousAccount
+                            + ", or choose a different account explicitly.")
+                    .setPositiveButton("Reconnect", (dialog, which) ->
+                            begin(new Account(previousAccount,
+                                    GoogleCalendarAuthorization.GOOGLE_ACCOUNT_TYPE)))
+                    .setNeutralButton("Choose account", (dialog, which) ->
+                            chooseExistingAccount())
+                    .setNegativeButton("Add Google account", (dialog, which) ->
+                            addGoogleAccount())
+                    .setOnCancelListener(dialog -> finish())
+                    .show();
+            return;
+        }
         new AlertDialog.Builder(this)
                 .setTitle("Connect Google Calendar")
                 .setMessage("Choose a Google account for Calendar in " + name

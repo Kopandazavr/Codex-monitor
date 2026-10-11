@@ -83,6 +83,7 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/UsageHistoryStripeCadence.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CompletionAudioRoute.java" \
   "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/IdleProcessRestorePolicy.java" \
+  "$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor/CalendarAuthorizationRecoveryPolicy.java" \
   "$FILTERED_TEST" \
   "$ROOT/tests/ProjectProfileRulesSelfTest.java" \
   "$ROOT/tests/CalendarProcessSelfTest.java" \
@@ -94,7 +95,8 @@ javac -encoding UTF-8 -cp "$JSON_JAR" -d "$OUT" \
   "$ROOT/tests/UsageHistoryTickGridSelfTest.java" \
   "$ROOT/tests/UsageHistoryStripeCadenceSelfTest.java" \
   "$ROOT/tests/CompletionAudioRouteSelfTest.java" \
-  "$ROOT/tests/IdleProcessRestorePolicySelfTest.java"
+  "$ROOT/tests/IdleProcessRestorePolicySelfTest.java" \
+  "$ROOT/tests/CalendarAuthorizationRecoveryPolicySelfTest.java"
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ParserSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.ProjectProfileRulesSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarProcessSelfTest
@@ -107,6 +109,7 @@ java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryTickGridS
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.UsageHistoryStripeCadenceSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CompletionAudioRouteSelfTest
 java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.IdleProcessRestorePolicySelfTest
+java -ea -cp "$OUT:$JSON_JAR" dev.kopandazavr.codexmonitor.CalendarAuthorizationRecoveryPolicySelfTest
 
 APP_VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 APP_VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
@@ -262,6 +265,18 @@ grep -q 'invalidateCachedToken' "$SRC/GoogleCalendarAuthorization.java"
 grep -q 'exception.status == 401 && !retriedUnauthorized' "$SRC/GoogleCalendarProcessSource.java"
 grep -q 'calendar_http_401_retrying_with_fresh_token' "$SRC/GoogleCalendarProcessSource.java"
 grep -q '"authorization_retry_scheduled"' "$SRC/GoogleCalendarAuthorizationActivity.java"
+# 2.48 consent-safe Direct Calendar recovery/source and destructive title contract.
+grep -Fq 'CalendarAuthorizationRecoveryPolicy.mayPoll(' "$SRC/GoogleCalendarAuthorization.java"
+grep -Fq 'CalendarAuthorizationRecoveryPolicy.mayMonitor(' "$SRC/GoogleCalendarAuthorization.java"
+grep -Fq 'onFreshTokenRejected(app, containerId)' "$SRC/GoogleCalendarProcessSource.java"
+grep -Fq 'shouldAttemptDirect(context, containerId)' "$SRC/GoogleCalendarProcessSource.java"
+grep -Fq 'noteRecoverySignal(app, "network")' "$SRC/ProcessNotificationScheduler.java"
+grep -Fq 'noteRecoverySignal(this, "foreground")' "$SRC/MainActivity.java"
+grep -Fq 'GoogleCalendarAuthorizationActivity.class' "$SRC/MainActivity.java"
+grep -Fq 'new android.text.SpannableString("Clear logs")' "$SRC/SettingsActivity.java"
+grep -Fq 'android.R.attr.colorError' "$SRC/SettingsActivity.java"
+grep -Fq '.setTitle("Clear diagnostic logs?")' "$SRC/SettingsActivity.java"
+grep -Fq 'android:key="clear_diagnostic_logs"' "$RES/preferences_settings_diagnostics.xml"
 grep -q 'eventExists(' "$SRC/IdleProcessState.java"
 grep -q 'IdleProcessState.history(activity,profile.id)' "$SRC/RoleSettingsDialog.java"
 grep -q 'new ListView(activity)' "$SRC/RoleSettingsDialog.java"

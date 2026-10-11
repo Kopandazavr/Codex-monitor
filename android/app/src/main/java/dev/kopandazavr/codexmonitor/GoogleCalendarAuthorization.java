@@ -31,6 +31,10 @@ final class GoogleCalendarAuthorization {
     private static final String KEY_ACCOUNT_NAME = "account_name";
     private static final String KEY_PROVIDER_ACCOUNT_NAME = "provider_account_name";
     private static final String KEY_PENDING_ACCOUNT_NAME = "pending_account_name";
+    private static final String KEY_RECOVERY_KIND = "recovery_kind";
+    private static final String KEY_RECOVERY_ATTEMPTS = "recovery_attempts";
+    private static final String KEY_RETRY_AT = "recovery_retry_at";
+    private static final String KEY_LAST_SIGNAL_AT = "recovery_last_signal_at";
     static final String GOOGLE_ACCOUNT_TYPE = "com.google";
     private static final long TOKEN_CACHE_MS = 45L * 60L * 1000L;
 
@@ -87,6 +91,48 @@ final class GoogleCalendarAuthorization {
                 && !prefs.getBoolean(key(containerId, KEY_NEEDS_ACTION), false);
     }
 
+    /** An existing explicit binding is not equivalent to currently healthy Direct API. */
+    static boolean shouldAttemptDirect(Context context, String containerId) {
+        if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId))
+            return false;
+        SharedPreferences p = prefs(context);
+        return CalendarAuthorizationRecoveryPolicy.mayPoll(
+                !accountName(context, containerId).isEmpty(),
+                isConnected(context, containerId),
+                p.getString(key(containerId, KEY_RECOVERY_KIND), ""),
+                p.getLong(key(containerId, KEY_RETRY_AT), 0L),
+                System.currentTimeMillis());
+    }
+
+    static boolean hasPendingRecovery(Context context, String containerId) {
+        if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId))
+            return false;
+        SharedPreferences p = prefs(context);
+        return CalendarAuthorizationRecoveryPolicy.mayMonitor(
+                !accountName(context, containerId).isEmpty(),
+                isConnected(context, containerId),
+                p.getString(key(containerId, KEY_RECOVERY_KIND), ""),
+                p.getLong(key(containerId, KEY_RETRY_AT), 0L));
+    }
+
+    /** Foreground and network triggers may accelerate transient failures, never consent. */
+    static void noteRecoverySignal(Context context, String source) {
+        if (context == null) return;
+        SharedPreferences p = prefs(context);
+        long now = System.currentTimeMillis();
+        for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
+            String id = account.id;
+            if (accountName(context, id).isEmpty() || isConnected(context, id)) continue;
+            String kind = p.getString(key(id, KEY_RECOVERY_KIND), "");
+            long prior = p.getLong(key(id, KEY_LAST_SIGNAL_AT), 0L);
+            if (!CalendarAuthorizationRecoveryPolicy.mayAccelerate(kind, prior, now)) continue;
+            p.edit().putLong(key(id, KEY_RETRY_AT), now)
+                    .putLong(key(id, KEY_LAST_SIGNAL_AT), now).apply();
+            DiagnosticLog.info(context, "calendar_api", "authorization_retry_accelerated",
+                    "container_id", id, "trigger", source == null ? "" : source);
+        }
+    }
+
     static String accountName(Context context) {
         return accountName(context, AccountContainerStore.selectedId(context));
     }
@@ -115,7 +161,11 @@ final class GoogleCalendarAuthorization {
                     : "Connected · " + account;
         }
         if (prefs.getBoolean(key(containerId, KEY_NEEDS_ACTION), false)) {
-            return "Reconnect required";
+            return "Reconnect required · approve Google Calendar access";
+        }
+        if ("transient".equals(prefs.getString(
+                key(containerId, KEY_RECOVERY_KIND), ""))) {
+            return "Temporarily unavailable · reconnecting automatically";
         }
         if (AccountContainerStore.isLegacyOwner(context, containerId)
                 && prefs.getBoolean(KEY_CONNECTED, false) && account.isEmpty()) {
@@ -293,6 +343,10 @@ final class GoogleCalendarAuthorization {
             callback.onResult(null);
             return;
         }
+        if (!shouldAttemptDirect(context, containerId)) {
+            callback.onResult(null);
+            return;
+        }
         String token = CACHED_TOKENS.get(containerId);
         Long cachedAt = CACHED_TOKEN_AT.get(containerId);
         long age = cachedAt == null ? Long.MAX_VALUE : System.currentTimeMillis() - cachedAt;
@@ -307,12 +361,19 @@ final class GoogleCalendarAuthorization {
                         callback.onResult(null);
                         return;
                     }
+                    if (!accountName.equals(accountName(context, containerId))
+                            || "cancelled".equals(prefs(context).getString(
+                            key(containerId, KEY_RECOVERY_KIND), ""))) {
+                        callback.onResult(null);
+                        return;
+                    }
                     if (result.hasResolution()) {
                         markNeedsAction(context, containerId, "resolution_required");
                         DiagnosticLog.warn(context, "calendar_api",
                                 "token_resolution_required",
                                 "container_id", containerId,
-                                "recoverable", true);
+                                "recoverable", true,
+                                "disposition", "interactive_consent_required");
                         callback.onResult(null);
                         return;
                     }
@@ -328,11 +389,19 @@ final class GoogleCalendarAuthorization {
                     callback.onResult(CACHED_TOKENS.get(containerId));
                 })
                 .addOnFailureListener(exception -> {
-                    if (AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+                    if (AccountContainerLifecycleGuard.isAlive(context, containerId)
+                            && accountName.equals(accountName(context, containerId))) {
                         recordFailure(context, containerId, "token_refresh", exception);
                     }
                     callback.onResult(null);
                 });
+    }
+
+    /** Exhausted fresh-token HTTP 401 must not spin every ten seconds. */
+    static void onFreshTokenRejected(Context context, String containerId) {
+        if (context != null && AccountContainerLifecycleGuard.isAlive(context, containerId)) {
+            markRetryable(context, containerId, "http_401_after_fresh_token");
+        }
     }
 
     static void revoke(Context context, ActionCallback callback) {
@@ -422,6 +491,10 @@ final class GoogleCalendarAuthorization {
                 .putString(key(containerId, KEY_PROVIDER_ACCOUNT_NAME), account)
                 .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME))
                 .remove(key(containerId, KEY_LAST_ERROR))
+                .remove(key(containerId, KEY_RECOVERY_KIND))
+                .remove(key(containerId, KEY_RECOVERY_ATTEMPTS))
+                .remove(key(containerId, KEY_RETRY_AT))
+                .remove(key(containerId, KEY_LAST_SIGNAL_AT))
                 .apply();
         DiagnosticLog.info(context, "calendar_api", "authorized",
                 "scope", "calendar.events.readonly",
@@ -435,7 +508,7 @@ final class GoogleCalendarAuthorization {
             return new AuthOutcome(false, "Account was removed.");
         }
         FailureInfo info = failureInfo(exception);
-        if ("cancelled".equals(info.kind)) {
+        if ("cancelled".equals(info.kind) && !"token_refresh".equals(stage)) {
             markDisconnected(context, containerId);
             DiagnosticLog.info(context, "calendar_api", "authorization_cancelled",
                     "container_id", containerId,
@@ -445,7 +518,12 @@ final class GoogleCalendarAuthorization {
                     "status_name", info.statusName);
             return new AuthOutcome(false, "Google Calendar authorization was canceled.");
         }
-        markNeedsAction(context, containerId, info.kind + ":" + info.statusName);
+        if ("transient".equals(info.kind)
+                || ("cancelled".equals(info.kind) && "token_refresh".equals(stage))) {
+            markRetryable(context, containerId, info.kind + ":" + info.statusName);
+        } else {
+            markNeedsAction(context, containerId, info.kind + ":" + info.statusName);
+        }
         logFailure(context, containerId, stage, info);
         return new AuthOutcome(false,
                 userMessage(info, "Google Calendar authorization failed."));
@@ -520,13 +598,53 @@ final class GoogleCalendarAuthorization {
 
     private static void markNeedsAction(Context context, String containerId, String error) {
         if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
-        prefs(context).edit()
+        SharedPreferences p = prefs(context);
+        boolean resolution = "resolution_required".equals(error);
+        int attempt = resolution && "consent".equals(
+                p.getString(key(containerId, KEY_RECOVERY_KIND), ""))
+                ? p.getInt(key(containerId, KEY_RECOVERY_ATTEMPTS), 0) + 1 : 1;
+        long delay = resolution
+                ? CalendarAuthorizationRecoveryPolicy.delayMillis("consent", attempt)
+                : CalendarAuthorizationRecoveryPolicy.NEVER;
+        long next = delay == CalendarAuthorizationRecoveryPolicy.NEVER
+                ? delay : System.currentTimeMillis() + delay;
+        p.edit()
                 .putBoolean(key(containerId, KEY_CONNECTED), false)
                 .putBoolean(key(containerId, KEY_NEEDS_ACTION), true)
                 .putString(key(containerId, KEY_LAST_ERROR), error == null ? "" : error)
+                .putString(key(containerId, KEY_RECOVERY_KIND), "consent")
+                .putInt(key(containerId, KEY_RECOVERY_ATTEMPTS), attempt)
+                .putLong(key(containerId, KEY_RETRY_AT), next)
                 .apply();
         CACHED_TOKENS.remove(containerId);
         CACHED_TOKEN_AT.remove(containerId);
+        DiagnosticLog.warn(context, "calendar_api", "authorization_interactive_required",
+                "container_id", containerId, "reason", error == null ? "" : error,
+                "silent_probe", next != CalendarAuthorizationRecoveryPolicy.NEVER,
+                "attempt", attempt);
+    }
+
+    private static void markRetryable(Context context, String containerId, String error) {
+        if (context == null || !AccountContainerLifecycleGuard.isAlive(context, containerId)) return;
+        SharedPreferences p = prefs(context);
+        int old = "transient".equals(p.getString(key(containerId, KEY_RECOVERY_KIND), ""))
+                ? p.getInt(key(containerId, KEY_RECOVERY_ATTEMPTS), 0) : 0;
+        int attempt = Math.min(1000, old + 1);
+        long delay = CalendarAuthorizationRecoveryPolicy.delayMillis("transient", attempt);
+        p.edit()
+                .putBoolean(key(containerId, KEY_CONNECTED), false)
+                .putBoolean(key(containerId, KEY_NEEDS_ACTION), false)
+                .putString(key(containerId, KEY_LAST_ERROR), error == null ? "" : error)
+                .putString(key(containerId, KEY_RECOVERY_KIND), "transient")
+                .putInt(key(containerId, KEY_RECOVERY_ATTEMPTS), attempt)
+                .putLong(key(containerId, KEY_RETRY_AT),
+                        System.currentTimeMillis() + delay)
+                .apply();
+        CACHED_TOKENS.remove(containerId);
+        CACHED_TOKEN_AT.remove(containerId);
+        DiagnosticLog.warn(context, "calendar_api", "authorization_silent_retry_scheduled",
+                "container_id", containerId, "attempt", attempt, "delay_ms", delay,
+                "category", "transient");
     }
 
     private static void markDisconnected(Context context, String containerId) {
@@ -536,6 +654,9 @@ final class GoogleCalendarAuthorization {
                 .putBoolean(key(containerId, KEY_NEEDS_ACTION), false)
                 .remove(key(containerId, KEY_LAST_ERROR))
                 .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME))
+                .putString(key(containerId, KEY_RECOVERY_KIND), "cancelled")
+                .putLong(key(containerId, KEY_RETRY_AT),
+                        CalendarAuthorizationRecoveryPolicy.NEVER)
                 .apply();
         CACHED_TOKENS.remove(containerId);
         CACHED_TOKEN_AT.remove(containerId);
@@ -555,7 +676,11 @@ final class GoogleCalendarAuthorization {
                 .remove(key(containerId, KEY_NEEDS_ACTION))
                 .remove(key(containerId, KEY_LAST_ERROR))
                 .remove(key(containerId, KEY_ACCOUNT_NAME))
-                .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME));
+                .remove(key(containerId, KEY_PENDING_ACCOUNT_NAME))
+                .remove(key(containerId, KEY_RECOVERY_KIND))
+                .remove(key(containerId, KEY_RECOVERY_ATTEMPTS))
+                .remove(key(containerId, KEY_RETRY_AT))
+                .remove(key(containerId, KEY_LAST_SIGNAL_AT));
         if (removeProvenance) {
             editor.remove(key(containerId, KEY_PROVIDER_ACCOUNT_NAME));
         } else if (!providerAccount.isEmpty()) {

@@ -583,22 +583,23 @@ public final class SettingsActivity extends AppCompatActivity {
                 boolean enabled = stats.hasLogs();
                 clear.setEnabled(enabled);
                 android.util.TypedValue themeColor = new android.util.TypedValue();
-                if (requireContext().getTheme().resolveAttribute(
-                        android.R.attr.colorError, themeColor, true)) {
-                    int red = themeColor.resourceId != 0
-                            ? androidx.core.content.ContextCompat.getColor(
-                                    requireContext(), themeColor.resourceId)
-                            : themeColor.data;
-                    if (!enabled) {
-                        red = androidx.core.graphics.ColorUtils.setAlphaComponent(
-                                red, Math.round(android.graphics.Color.alpha(red) * 0.55f));
-                    }
-                    android.text.SpannableString title =
-                            new android.text.SpannableString("Clear logs");
-                    title.setSpan(new android.text.style.ForegroundColorSpan(red), 0,
-                            title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                    clear.setTitle(title);
+                boolean hasThemeErrorColor = requireContext().getTheme().resolveAttribute(
+                        android.R.attr.colorError, themeColor, true);
+                int red = hasThemeErrorColor
+                        ? (themeColor.resourceId != 0
+                                ? androidx.core.content.ContextCompat.getColor(
+                                        requireContext(), themeColor.resourceId)
+                                : themeColor.data)
+                        : (Ui.isDark(requireContext()) ? 0xFFFF6B6B : 0xFFD32F2F);
+                if (!enabled) {
+                    red = androidx.core.graphics.ColorUtils.setAlphaComponent(
+                            red, Math.round(android.graphics.Color.alpha(red) * 0.55f));
                 }
+                android.text.SpannableString title =
+                        new android.text.SpannableString("Clear logs");
+                title.setSpan(new android.text.style.ForegroundColorSpan(red), 0,
+                        title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                clear.setTitle(title);
             }
         }
 

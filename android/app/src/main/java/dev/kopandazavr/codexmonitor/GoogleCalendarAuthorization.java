@@ -457,7 +457,7 @@ final class GoogleCalendarAuthorization {
             if (account.id.equals(containerId)) continue;
             String other = accountName(context, account.id);
             if (!other.isEmpty() && other.equalsIgnoreCase(accountName.trim())
-                    && isConnected(context, account.id)) {
+                    && !accountName(context, account.id).isEmpty()) {
                 return true;
             }
         }

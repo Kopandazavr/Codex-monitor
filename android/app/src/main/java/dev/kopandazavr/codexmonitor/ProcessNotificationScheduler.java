@@ -156,7 +156,8 @@ final class ProcessNotificationScheduler {
     static boolean shouldRun(Context context) {
         if (context == null) return false;
         for (AccountContainerStore.Account account : AccountContainerStore.all(context)) {
-            if (GoogleCalendarAuthorization.isConnected(context, account.id)) return true;
+            if (GoogleCalendarAuthorization.isConnected(context, account.id)
+                    || GoogleCalendarAuthorization.hasPendingRecovery(context, account.id)) return true;
         }
         return LocalCalendarFallbackOwner.owner(context) != null
                 && context.checkSelfPermission(Manifest.permission.READ_CALENDAR)
@@ -186,6 +187,7 @@ final class ProcessNotificationScheduler {
                                 if (shouldRun(app)) {
                                     DiagnosticLog.info(app, "calendar_process",
                                             "calendar_poll_network_available");
+                                    GoogleCalendarAuthorization.noteRecoverySignal(app, "network");
                                     recover(app);
                                 }
                             });

@@ -7,10 +7,10 @@ RES="$ROOT/app/src/main/res"
 
 VERSION_NAME="$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")"
 VERSION_CODE="$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")"
-[[ "$VERSION_NAME" == "2.48.0" ]]
-[[ "$VERSION_CODE" -eq 74 ]]
-grep -Fq 'VERSION_NAME = "2.48.0"' "$SRC/AppConstants.java"
-grep -Fq 'VERSION_CODE = 74' "$SRC/AppConstants.java"
+[[ "$VERSION_NAME" == "2.49.0" ]]
+[[ "$VERSION_CODE" -eq 75 ]]
+grep -Fq 'VERSION_NAME = "2.49.0"' "$SRC/AppConstants.java"
+grep -Fq 'VERSION_CODE = 75' "$SRC/AppConstants.java"
 
 # Header is a single fixed measured view; only its sibling body scrolls.
 grep -Fq '@+id/main_fixed_header' "$RES/layout/activity_oneui_dashboard.xml"

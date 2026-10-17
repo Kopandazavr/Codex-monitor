@@ -440,4 +440,5 @@ grep -q 'acceleratedWarning && percent > 0' "$SRC/UsageWaveView.java"
 test -f "$ROOT/app/src/main/assets/licenses/OpenAI-Apps-SDK-UI-LICENSE.txt"
 
 bash "$ROOT/tests/wear-retirement-source-test.sh"
+bash "$ROOT/tests/patch-2.49.0-source-test.sh"
 echo "Codex Monitor regression/source checks PASS"

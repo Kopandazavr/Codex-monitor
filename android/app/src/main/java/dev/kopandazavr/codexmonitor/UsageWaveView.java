@@ -38,6 +38,7 @@ public final class UsageWaveView extends View {
     private int resetRingPercent = -1;
     private boolean warning;
     private boolean weekly;
+    private boolean compactReset;
     private float phase;
     private float phaseOffset;
 
@@ -78,14 +79,19 @@ public final class UsageWaveView extends View {
         fillPercent = percent;
         resetRingPercent = resetTimeRemainingPercent < 0 ? -1
                 : Math.max(0, Math.min(100, resetTimeRemainingPercent));
-        pace = paceEstimate == null ? "" : paceEstimate;
+        compactReset = "5-hour".equals(label) || "Weekly".equals(label);
+        pace = compactReset || paceEstimate == null ? "" : paceEstimate;
         warning = acceleratedWarning && percent > 0;
         weekly = "Weekly".equals(label);
         if (animator != null) {
             animator.setDuration(warning ? WARNING_WAVE_DURATION_MS : NORMAL_WAVE_DURATION_MS);
         }
         phaseOffset = invertedWave ? (float) Math.PI : 0f;
-        if (reset != null && reset.startsWith("Resets in ")) {
+        if (compactReset) {
+            // Two primary Home cards use one reset line, without a depletion forecast.
+            resetTop = reset == null ? "" : reset;
+            resetBottom = "";
+        } else if (reset != null && reset.startsWith("Resets in ")) {
             resetTop = "Resets in";
             resetBottom = reset.substring("Resets in ".length());
         } else {
@@ -169,7 +175,23 @@ public final class UsageWaveView extends View {
         drawRefreshState(canvas, density, foreground,
                 titleX + titlePaint.measureText(title) + 9f * density, titleBaseline);
         if (!resetTop.isEmpty()) {
-            canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
+            if (compactReset) {
+                // Reserve the entire right metrics column, even on narrow devices.
+                float left = 12f * density;
+                float right = Math.max(left, getWidth() - 90f * density);
+                float available = Math.max(0f, right - left);
+                float actual = resetPaint.measureText(resetTop);
+                if (actual > available && actual > 0f) {
+                    resetPaint.setTextSize(Math.max(10f * density,
+                            13f * density * available / actual));
+                }
+                canvas.save();
+                canvas.clipRect(left, 52f * density, right, 100f * density);
+                canvas.drawText(resetTop, left, 82f * density, resetPaint);
+                canvas.restore();
+            } else {
+                canvas.drawText(resetTop, 12f * density, 67f * density, resetPaint);
+            }
             if (!resetBottom.isEmpty()) {
                 canvas.drawText(resetBottom, 12f * density, 87f * density, resetPaint);
                 if (!pace.isEmpty()) {
@@ -203,12 +225,32 @@ public final class UsageWaveView extends View {
             int left = Math.round(rightCenter - size / 2f);
             int top = Math.round(13f * density);
             icon.setBounds(left, top, left + size, top + size);
-            icon.setTint(foreground);
+        }
+        if (weekly && fillPercent > 0) {
+            // Split the glyphs by the ACTUAL animated wave, not the coarse percent
+            // threshold. At 80% the right column is on dark background, while at
+            // 100% it is orange; a boundary crossing may put one glyph over both.
+            canvas.save();
+            canvas.clipPath(fillPath);
+            drawRightMetrics(canvas, rightCenter, density, 0xFF000000);
+            canvas.restore();
+            canvas.save();
+            canvas.clipOutPath(fillPath);
+            drawRightMetrics(canvas, rightCenter, density, Ui.mainText(dark));
+            canvas.restore();
+        } else {
+            drawRightMetrics(canvas, rightCenter, density, foreground);
+        }
+    }
+
+    private void drawRightMetrics(Canvas canvas, float center, float density, int color) {
+        if (icon != null) {
+            icon.setTint(color);
             icon.draw(canvas);
         }
-        percentPaint.setColor(foreground);
+        percentPaint.setColor(color);
         percentPaint.setTextSize(22f * density);
-        canvas.drawText(percent + "%", rightCenter, 85f * density, percentPaint);
+        canvas.drawText(percent + "%", center, 85f * density, percentPaint);
     }
 
     private void drawRefreshState(Canvas canvas, float density, int color,

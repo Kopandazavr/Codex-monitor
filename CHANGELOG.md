@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.49.0 — 2026-10-17 (Codex Monitor personal Android fork)
+- Home 5-hour and Weekly reset countdowns render on one line without Estimated depletion forecast.
+- Weekly percent and calendar icon use contrasting colors across the animated orange/dark fill boundary; no changes to usage calculations, reset scheduling or notifications.
+- Other metric cards, graphs, Google Calendar recovery, and historical PHONE acceptance gates stay unchanged.
+
 ## 2.48.0 — 2026-10-11 (Codex Monitor personal Android fork)
 - Recover Google Calendar Direct API after temporary token/service failures with account-scoped backoff; surface explicit reconnect for required consent, retaining local Calendar fallback.
 - Use the theme error color for Settings → Diagnostics → Clear logs title only.

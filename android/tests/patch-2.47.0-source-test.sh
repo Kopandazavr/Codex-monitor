@@ -6,8 +6,8 @@ SRC="$ROOT/app/src/main/java/dev/kopandazavr/codexmonitor"
 MAIN="$SRC/MainActivity.java"
 IDLE="$SRC/IdleProcessState.java"
 CARD="$SRC/PersistentCardCoordinator.java"
-[[ "$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")" == "2.48.0" ]]
-[[ "$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")" -eq 74 ]]
+[[ "$(awk -F'"' '/versionName = "/ { print $2; exit }' "$ROOT/app/build.gradle.kts")" == "2.49.0" ]]
+[[ "$(awk '/versionCode = / { print $3; exit }' "$ROOT/app/build.gradle.kts")" -eq 75 ]]
 # No predecessor repost, fingerprint no-op suppression and attention recovery.
 ! grep -Fq 'manager.notify(AccountNotificationNamespace.tag(predecessor)' "$CARD"
 grep -Fq 'unchanged_suppressed' "$CARD"
